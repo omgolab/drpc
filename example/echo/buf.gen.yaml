@@ -1,33 +1,26 @@
-version: v1
+version: v2
 managed:
   enabled: true
-  optimize_for: SPEED
-  go_package_prefix:
-    default: github.com/omgolab/drpc/gen/go
-    except:
-      - buf.build/googleapis/googleapis
-      - buf.build/bufbuild/protovalidate
+  disable:
+    - file_option: go_package
+      module: buf.build/googleapis/googleapis
+    - file_option: go_package
+      module: buf.build/bufbuild/protovalidate
+  override:
+    - file_option: optimize_for
+      value: SPEED
+    - file_option: go_package_prefix
+      value: github.com/omgolab/drpc/gen/go
 plugins:
-  # isomorphic TS
-  - plugin: buf.build/connectrpc/es
+  - remote: buf.build/connectrpc/es
     out: ./frontend/gen/ts
-    opt:
-      - target=ts
-  # TS dependencies
-  - plugin: buf.build/bufbuild/es
+    opt: target=ts
+  - remote: buf.build/bufbuild/es
     out: ./frontend/gen/ts
-    opt:
-      - target=ts
-  # php
-  # - plugin: buf.build/protocolbuffers/php
-  #   out: gen/php
-  # go (buf connect)
-  - plugin: buf.build/connectrpc/go
+    opt: target=ts
+  - remote: buf.build/connectrpc/go
     out: ./backend/gen/go
-    opt:
-      - paths=source_relative
-  # go (dependencies)
-  - plugin: buf.build/protocolbuffers/go
+    opt: paths=source_relative
+  - remote: buf.build/protocolbuffers/go
     out: ./backend/gen/go
-    opt:
-      - paths=source_relative
+    opt: paths=source_relative
