@@ -6,6 +6,7 @@ package greeter.v1;
 
 service GreeterService {
   rpc SayHello(SayHelloRequest) returns (SayHelloResponse) {}
+  rpc StreamingEcho(StreamingEchoRequest) returns (stream StreamingEchoResponse) {}
 }
 
 message SayHelloRequest {
@@ -13,5 +14,13 @@ message SayHelloRequest {
 }
 
 message SayHelloResponse {
+  string message = 1;
+}
+
+message StreamingEchoRequest {
+  string message = 1;
+}
+
+message StreamingEchoResponse {
   string message = 1;
 }

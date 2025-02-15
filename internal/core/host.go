@@ -1,4 +1,4 @@
-package drpc
+package core
 
 import (
 	"context"
@@ -56,8 +56,8 @@ func bootstrap(ctx context.Context, d *dht.IpfsDHT, h host.Host, log glog.Logger
 	}
 }
 
-// NewHost creates a new libp2p Host with default settings.
-func NewHost(ctx context.Context, log glog.Logger, opts ...lp.Option) (host.Host, error) {
+// CreateLpHost creates a new libp2p Host with default settings.
+func CreateLpHost(ctx context.Context, log glog.Logger, opts ...lp.Option) (host.Host, error) {
 	var dhtInstance *dht.IpfsDHT
 
 	// Configure libp2p options
@@ -88,6 +88,10 @@ func NewHost(ctx context.Context, log glog.Logger, opts ...lp.Option) (host.Host
 
 	// Bootstrap the DHT
 	bootstrap(ctx, dhtInstance, h, log)
+
+	// TODO?: do we need to do anything to auto discover relay nodes via DHT?
+	// Also since we are using EnableRelayService on each host, we should be able to
+	// discover relay nodes automatically. Is it correct?
 
 	return h, nil
 }

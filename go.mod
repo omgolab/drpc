@@ -1,13 +1,12 @@
 module github.com/omgolab/drpc
 
-go 1.23
-
-toolchain go1.23.3
+go 1.24
 
 require (
 	connectrpc.com/connect v1.18.1
 	github.com/libp2p/go-libp2p v0.39.0
 	github.com/multiformats/go-multiaddr v0.14.0
+	github.com/omgolab/go-commons v0.0.0-20240727100037-04777cf24b8b
 )
 
 require (

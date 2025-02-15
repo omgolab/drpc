@@ -35,11 +35,15 @@ const (
 const (
 	// GreeterServiceSayHelloProcedure is the fully-qualified name of the GreeterService's SayHello RPC.
 	GreeterServiceSayHelloProcedure = "/greeter.v1.GreeterService/SayHello"
+	// GreeterServiceStreamingEchoProcedure is the fully-qualified name of the GreeterService's
+	// StreamingEcho RPC.
+	GreeterServiceStreamingEchoProcedure = "/greeter.v1.GreeterService/StreamingEcho"
 )
 
 // GreeterServiceClient is a client for the greeter.v1.GreeterService service.
 type GreeterServiceClient interface {
 	SayHello(context.Context, *connect.Request[v1.SayHelloRequest]) (*connect.Response[v1.SayHelloResponse], error)
+	StreamingEcho(context.Context, *connect.Request[v1.StreamingEchoRequest]) (*connect.ServerStreamForClient[v1.StreamingEchoResponse], error)
 }
 
 // NewGreeterServiceClient constructs a client for the greeter.v1.GreeterService service. By
@@ -59,12 +63,19 @@ func NewGreeterServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(greeterServiceMethods.ByName("SayHello")),
 			connect.WithClientOptions(opts...),
 		),
+		streamingEcho: connect.NewClient[v1.StreamingEchoRequest, v1.StreamingEchoResponse](
+			httpClient,
+			baseURL+GreeterServiceStreamingEchoProcedure,
+			connect.WithSchema(greeterServiceMethods.ByName("StreamingEcho")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // greeterServiceClient implements GreeterServiceClient.
 type greeterServiceClient struct {
-	sayHello *connect.Client[v1.SayHelloRequest, v1.SayHelloResponse]
+	sayHello      *connect.Client[v1.SayHelloRequest, v1.SayHelloResponse]
+	streamingEcho *connect.Client[v1.StreamingEchoRequest, v1.StreamingEchoResponse]
 }
 
 // SayHello calls greeter.v1.GreeterService.SayHello.
@@ -72,9 +83,15 @@ func (c *greeterServiceClient) SayHello(ctx context.Context, req *connect.Reques
 	return c.sayHello.CallUnary(ctx, req)
 }
 
+// StreamingEcho calls greeter.v1.GreeterService.StreamingEcho.
+func (c *greeterServiceClient) StreamingEcho(ctx context.Context, req *connect.Request[v1.StreamingEchoRequest]) (*connect.ServerStreamForClient[v1.StreamingEchoResponse], error) {
+	return c.streamingEcho.CallServerStream(ctx, req)
+}
+
 // GreeterServiceHandler is an implementation of the greeter.v1.GreeterService service.
 type GreeterServiceHandler interface {
 	SayHello(context.Context, *connect.Request[v1.SayHelloRequest]) (*connect.Response[v1.SayHelloResponse], error)
+	StreamingEcho(context.Context, *connect.Request[v1.StreamingEchoRequest], *connect.ServerStream[v1.StreamingEchoResponse]) error
 }
 
 // NewGreeterServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -90,10 +107,18 @@ func NewGreeterServiceHandler(svc GreeterServiceHandler, opts ...connect.Handler
 		connect.WithSchema(greeterServiceMethods.ByName("SayHello")),
 		connect.WithHandlerOptions(opts...),
 	)
+	greeterServiceStreamingEchoHandler := connect.NewServerStreamHandler(
+		GreeterServiceStreamingEchoProcedure,
+		svc.StreamingEcho,
+		connect.WithSchema(greeterServiceMethods.ByName("StreamingEcho")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/greeter.v1.GreeterService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case GreeterServiceSayHelloProcedure:
 			greeterServiceSayHelloHandler.ServeHTTP(w, r)
+		case GreeterServiceStreamingEchoProcedure:
+			greeterServiceStreamingEchoHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -105,4 +130,8 @@ type UnimplementedGreeterServiceHandler struct{}
 
 func (UnimplementedGreeterServiceHandler) SayHello(context.Context, *connect.Request[v1.SayHelloRequest]) (*connect.Response[v1.SayHelloResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("greeter.v1.GreeterService.SayHello is not implemented"))
+}
+
+func (UnimplementedGreeterServiceHandler) StreamingEcho(context.Context, *connect.Request[v1.StreamingEchoRequest], *connect.ServerStream[v1.StreamingEchoResponse]) error {
+	return connect.NewError(connect.CodeUnimplemented, errors.New("greeter.v1.GreeterService.StreamingEcho is not implemented"))
 }

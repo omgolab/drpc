@@ -1,3 +1,4 @@
 examples/echo/main
 .clinerules
 docs/ai/current_context.md
+**/node_modules/

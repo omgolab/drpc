@@ -1,6 +1,12 @@
 {
     "cSpell.words": [
         "connectrpc",
-        "drpc"
+        "drpc",
+        "glog",
+        "libp",
+        "Multiaddr",
+        "multiaddress",
+        "omgolab",
+        "webrtc"
     ]
 }

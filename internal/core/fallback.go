@@ -1,10 +1,9 @@
-package drpc
+package core
 
 import "net"
 
-// Returns a default local address, using localhost and a placeholder port
+// defaultLocalFallbackAddr returns a fallback local address.
 func defaultLocalFallbackAddr() net.Addr {
-	// Use port 0 as a placeholder
 	return &net.TCPAddr{
 		IP:   net.IPv4(127, 0, 0, 1),
 		Port: 0,

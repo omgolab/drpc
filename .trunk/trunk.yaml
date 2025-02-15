@@ -17,15 +17,16 @@ runtimes:
     - python@3.10.8
 # This is the section where you manage your linters. (https://docs.trunk.io/check/configuration)
 lint:
-  enabled:
-    - checkov@3.2.369
+  disabled:
     - git-diff-check
+  enabled:
+    - checkov@3.2.370
     - gofmt@1.20.4
-    - golangci-lint@1.63.4
+    - golangci-lint@1.64.5
     - markdownlint@0.44.0
     - osv-scanner@1.9.2
-    - prettier@3.5.0
-    - trufflehog@3.88.5
+    - prettier@3.5.1
+    - trufflehog@3.88.8
     - yamllint@1.35.1
 actions:
   disabled:

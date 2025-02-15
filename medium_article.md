@@ -1,6 +1,22 @@
-# dRPC: ConnectRPC over libp2p
+# dRPC: Decentralized ConnectRPC with libp2p
 
-dRPC is a library that enables ConnectRPC services to be transported over libp2p, a modular peer-to-peer networking stack. This allows you to build decentralized and resilient applications using the familiar ConnectRPC framework.
+## Introduction
+
+In today's world, decentralized applications are gaining more and more traction. However, building such applications can be complex, requiring developers to handle peer discovery, connection management, and transport protocols.
+
+dRPC is a library that simplifies the development of decentralized applications by enabling ConnectRPC services to be transported over libp2p, a modular peer-to-peer networking stack. This allows you to build decentralized and resilient applications using the familiar ConnectRPC framework.
+
+## What is ConnectRPC?
+
+ConnectRPC is a modern, lightweight RPC framework that builds on HTTP/2 and Protocol Buffers. It provides a simple and efficient way to define and consume APIs.
+
+## What is libp2p?
+
+libp2p is a modular peer-to-peer networking stack that provides a set of protocols for peer discovery, connection management, and transport. It allows you to build decentralized applications that are resilient to network failures and censorship.
+
+## dRPC: ConnectRPC meets libp2p
+
+dRPC combines the best of both worlds by enabling ConnectRPC services to be transported over libp2p. This allows you to build decentralized applications with the ease and efficiency of ConnectRPC.
 
 ## Features
 
@@ -11,27 +27,9 @@ dRPC is a library that enables ConnectRPC services to be transported over libp2p
 *   **Gateway Support:** Allows clients to connect to services via a gateway using multiaddrs.
 *   **Streaming Support:** Supports ConnectRPC streaming methods over libp2p.
 
-## Architecture
-
-The dRPC library implements the following architecture:
-
-```
-[ConnectRPC Client] -> [Custom HTTP Transport] -> [libp2p Stream] -> [Custom Listener] -> [ConnectRPC Server]
-```
-
-Or simply:
-
-```
-Client(libp2p peer ID + connectrpc client instance) -> libp2p client layer -> libp2p server layer -> connectrpc server
-```
-
 ## Getting Started
 
-### Prerequisites
-
-*   Go 1.20 or later
-*   libp2p
-*   ConnectRPC
+To get started with dRPC, you need to have Go 1.20 or later, libp2p, and ConnectRPC installed.
 
 ### Installation
 
@@ -134,10 +132,13 @@ To connect to a service via a gateway, use the following URL format:
 http://localhost:8080/gateway/<multiadd_with_server_peerID>/user.services.v1.UserService/ListUser
 ```
 
-## Examples
+## Conclusion
 
-See the `examples` directory for complete examples.
+dRPC simplifies the development of decentralized applications by enabling ConnectRPC services to be transported over libp2p. This allows you to build resilient and scalable applications using familiar tools and frameworks.
 
-## License
+## Future Work
 
-MIT License
+*   Automatic generation of client and server code using a `protoc` plugin.
+*   Support for other programming languages (e.g., Python, Java).
+*   Integration with other transport protocols (e.g., WebSockets).
+*   Automatic discovery of dRPC services.

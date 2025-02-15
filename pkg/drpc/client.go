@@ -13,18 +13,19 @@ import (
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
+	"github.com/omgolab/drpc/internal/core"
 )
 
 // NewClient creates a new ConnectRPC client that uses libp2p for transport.
-func NewClient[T any](serverHost host.Host, newServiceClient func(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) T) T {
+func NewClient[T any](lpHost host.Host, newServiceClient func(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) T) T {
 	h, _ := lp.New(lp.NoListenAddrs)
-	serverPeerID := serverHost.ID()
+	serverPeerID := lpHost.ID()
 	ctx := context.Background()
 
 	// connect to ensure the server is reachable
 	err := h.Connect(ctx, peer.AddrInfo{
 		ID:    serverPeerID,
-		Addrs: serverHost.Addrs(),
+		Addrs: lpHost.Addrs(),
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -62,5 +63,5 @@ func dial(ctx context.Context, h host.Host, pid protocol.ID, peerID peer.ID) (ne
 		return nil, err
 	}
 
-	return &Conn{Stream: stream}, nil
+	return &core.Conn{Stream: stream}, nil
 }

@@ -6,7 +6,7 @@
             "request": "launch",
             "mode": "auto",
             "args": [],
-            "program": "/Volumes/Projects/business/AstronLab/test-console/drpc-rnd/examples/echo/cmd/main.go"
+            "program": "/Volumes/Projects/business/AstronLab/test-console/drpc-rnd/examples/echo/cmd/server/main.go"
         }
     ]
 }
