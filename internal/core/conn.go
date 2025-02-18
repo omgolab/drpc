@@ -4,10 +4,20 @@ import (
 	"net"
 
 	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/multiformats/go-multiaddr"
 	mn "github.com/multiformats/go-multiaddr/net"
 )
 
 var _ net.Conn = (*Conn)(nil)
+
+// Helper to convert multiaddr to net.Addr, or return fallback on error.
+func netAddrOrFallback(ma multiaddr.Multiaddr) net.Addr {
+	addr, err := mn.ToNetAddr(ma)
+	if err != nil {
+		return defaultLocalFallbackAddr()
+	}
+	return addr
+}
 
 // Conn is a net.Conn that wraps a libp2p stream.
 type Conn struct {
@@ -15,17 +25,9 @@ type Conn struct {
 }
 
 func (c *Conn) LocalAddr() net.Addr {
-	addr, err := mn.ToNetAddr(c.Stream.Conn().LocalMultiaddr())
-	if err != nil {
-		return defaultLocalFallbackAddr()
-	}
-	return addr
+	return netAddrOrFallback(c.Stream.Conn().LocalMultiaddr())
 }
 
 func (c *Conn) RemoteAddr() net.Addr {
-	addr, err := mn.ToNetAddr(c.Stream.Conn().RemoteMultiaddr())
-	if err != nil {
-		return defaultLocalFallbackAddr()
-	}
-	return addr
+	return netAddrOrFallback(c.Stream.Conn().RemoteMultiaddr())
 }

@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"sync"
+	"sync/atomic"
 
 	lp "github.com/libp2p/go-libp2p"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
@@ -13,15 +14,16 @@ import (
 )
 
 // bootstrap is an optional helper to connect to the given peers and bootstrap
-// the Peer DHT (and Bitswap). This is a best-effort function. Errors are only
-// logged and a warning is printed when less than half of the given peers
-// could be contacted. It is fine to pass a list where some peers will not be
-// reachable.
+// the Peer DHT (and Bitswap). This is a best-effort function.
 func bootstrap(ctx context.Context, d *dht.IpfsDHT, h host.Host, log glog.Logger) {
-	connected := make(chan struct{})
-	peers, _ := peer.AddrInfosFromP2pAddrs(dht.DefaultBootstrapPeers...)
+	if d == nil {
+		return // Skip if DHT is not initialized
+	}
 
+	var connectedCount int64
+	peers, _ := peer.AddrInfosFromP2pAddrs(dht.DefaultBootstrapPeers...)
 	var wg sync.WaitGroup
+
 	for _, pInfo := range peers {
 		wg.Add(1)
 		go func(pInfo peer.AddrInfo) {
@@ -31,27 +33,18 @@ func bootstrap(ctx context.Context, d *dht.IpfsDHT, h host.Host, log glog.Logger
 				log.Warn(err.Error())
 				return
 			}
-			log.Printf("Connected to", pInfo.ID)
-			connected <- struct{}{}
+			log.Printf("Connected to %s", pInfo.ID)
+			atomic.AddInt64(&connectedCount, 1)
 		}(pInfo)
 	}
 
-	go func() {
-		wg.Wait()
-		close(connected)
-	}()
-
-	i := 0
-	for range connected {
-		i++
-	}
-	if nPeers := len(peers); i < nPeers/2 {
-		log.Printf("only connected to %d bootstrap peers out of %d", i, nPeers)
+	wg.Wait()
+	if int(connectedCount) < len(peers)/2 {
+		log.Printf("Only connected to %d bootstrap peers out of %d", connectedCount, len(peers))
 	}
 
-	err := d.Bootstrap(ctx)
-	if err != nil {
-		log.Error("dht bootstrap failed - ", err)
+	if err := d.Bootstrap(ctx); err != nil {
+		log.Error("DHT bootstrap failed - ", err)
 		return
 	}
 }
@@ -62,7 +55,6 @@ func CreateLpHost(ctx context.Context, log glog.Logger, opts ...lp.Option) (host
 
 	// Configure libp2p options
 	options := []lp.Option{
-		lp.Defaults,
 		lp.EnableNATService(), // AutoNAT service
 		lp.NATPortMap(),       // NAT port mapping
 		// routing is needed to discover other peers in the network that may act as relay nodes
@@ -75,7 +67,7 @@ func CreateLpHost(ctx context.Context, log glog.Logger, opts ...lp.Option) (host
 		lp.DefaultEnableRelay,   // Enable AutoRelay
 		lp.EnableRelayService(), // Enable Relay Service if publicly reachable
 		// If the default bootstrap peers are insufficient for relay discovery add static relay addresses here.
-		lp.EnableAutoRelayWithStaticRelays([]peer.AddrInfo{}), // Enable AutoRelay with static relays (can be configured later)
+		// lp.EnableAutoRelayWithStaticRelays([]peer.AddrInfo{}), // Enable AutoRelay with static relays (can be configured later)
 	}
 	options = append(options, opts...)
 
@@ -87,11 +79,7 @@ func CreateLpHost(ctx context.Context, log glog.Logger, opts ...lp.Option) (host
 	}
 
 	// Bootstrap the DHT
-	bootstrap(ctx, dhtInstance, h, log)
-
-	// TODO?: do we need to do anything to auto discover relay nodes via DHT?
-	// Also since we are using EnableRelayService on each host, we should be able to
-	// discover relay nodes automatically. Is it correct?
+	go bootstrap(ctx, dhtInstance, h, log)
 
 	return h, nil
 }

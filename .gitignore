@@ -2,3 +2,11 @@ examples/echo/main
 .clinerules
 docs/ai/current_context.md
 **/node_modules/
+**/server/server
+**/client-full/client-full
+examples/echo/client
+examples/echo/client-full
+examples/echo/server
+**/*.log
+**/server.err
+server_addr.tmp

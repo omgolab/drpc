@@ -1,62 +1,105 @@
-import { createConnectTransport } from "@connectrpc/connect-web";
 import { createPromiseClient } from "@connectrpc/connect";
+import { createConnectTransport } from "@connectrpc/connect-web";
 import { GreeterService } from "../src/greeter_connect.js";
-import { SayHelloRequest, SayHelloResponse } from "../src/greeter_pb.js";
+import { SayHelloRequest, StreamingEchoRequest } from "../src/greeter_pb.js";
 
 async function main() {
-  // Fetch peer info from /p2pinfo
-  let peerInfo;
-  try {
-    const response = await fetch("http://localhost:8080/p2pinfo");
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    peerInfo = await response.json();
-  } catch (e) {
-    console.error("Failed to fetch peer info.  Please ensure the server is running with HTTP enabled, and that you are using the correct port.", e);
-    return; // Exit if we can't get peer info
-  }
+  // Get peer info from the server
+  const peerInfoResp = await fetch("http://localhost:8080/p2pinfo");
+  const peerInfo = await peerInfoResp.json();
+  console.log("Peer info:", peerInfo);
 
-  // Example 1: Direct HTTP connection
-  console.log("Testing direct HTTP connection...");
-  const directTransport = createConnectTransport({
+  console.log("\n=== Scenario 1: Direct libp2p connection ===");
+  let transport = createConnectTransport({
     baseUrl: "http://localhost:8080",
+    useBinaryFormat: true,
+    useHttpGet: true,
   });
-  const directClient = createPromiseClient(GreeterService, directTransport);
+  let client = createPromiseClient(GreeterService, transport);
+
+  // Test unary call via direct libp2p
+  console.log("Testing unary call via direct libp2p...");
   try {
-    const request = new SayHelloRequest({
-      name: "Direct HTTP"
-    });
-    const directResponse = await directClient.sayHello(request);
-    console.log("Direct HTTP response:", directResponse?.message);
-  } catch (e) {
-    console.error("Direct HTTP error:", e);
+    const request = new SayHelloRequest({ name: "Direct libp2p" });
+    const resp = await client.sayHello(request);
+    console.log("Response:", resp.message);
+  } catch (err) {
+    console.error("Direct libp2p error:", err);
   }
 
-  // Example 2: Gateway connection to p2p node
-  console.log("\nTesting p2p gateway connection...");
-
-  // Check if peerInfo and Addrs are available
-  if (!peerInfo || !peerInfo.Addrs || peerInfo.Addrs.length === 0) {
-    console.error("Peer info is missing or invalid.  Please ensure the server is running, and that you are using the correct port.");
-    return;
+  // Test streaming via direct libp2p
+  console.log("Testing streaming via direct libp2p...");
+  try {
+    const request = new StreamingEchoRequest({ message: "Direct libp2p stream" });
+    const stream = await client.streamingEcho((async function*() { yield request; })());
+    for await (const response of stream) {
+      console.log("Received:", response.message);
+    }
+  } catch (err) {
+    console.error("Direct libp2p streaming error:", err);
   }
 
-  // Correctly construct the gateway URL.  The address should already include /p2p/<peerid>
-  const gatewayUrl = `http://localhost:8080/@/${peerInfo.Addrs[0]}/@/greeter.v1.GreeterService`;
+  console.log("\n=== Scenario 2: HTTP Connect-RPC connection ===");
+  transport = createConnectTransport({
+    baseUrl: "http://localhost:8080",
+    useBinaryFormat: true,
+    useHttpGet: true,
+  });
+  client = createPromiseClient(GreeterService, transport);
+
+  // Test unary call via HTTP Connect-RPC
+  console.log("Testing unary call via HTTP Connect-RPC...");
+  try {
+    const request = new SayHelloRequest({ name: "HTTP Connect" });
+    const resp = await client.sayHello(request);
+    console.log("Response:", resp.message);
+  } catch (err) {
+    console.error("HTTP Connect error:", err);
+  }
+
+  // Test streaming via HTTP Connect-RPC
+  console.log("Testing streaming via HTTP Connect-RPC...");
+  try {
+    const request = new StreamingEchoRequest({ message: "HTTP Connect stream" });
+    const stream = await client.streamingEcho((async function*() { yield request; })());
+    for await (const response of stream) {
+      console.log("Received:", response.message);
+    }
+  } catch (err) {
+    console.error("HTTP Connect streaming error:", err);
+  }
+
+  console.log("\n=== Scenario 3: Connect-RPC Gateway connection ===");
+  const gatewayPath = `/@/${peerInfo.Addrs[0].slice(1)}/@`;
+  console.log("Using gateway path:", gatewayPath);
   const gatewayTransport = createConnectTransport({
-    baseUrl: gatewayUrl,
+    baseUrl: `http://localhost:8080${gatewayPath}`,
+    useBinaryFormat: true,
+    useHttpGet: true,
   });
   const gatewayClient = createPromiseClient(GreeterService, gatewayTransport);
+
+  // Test unary call via gateway
+  console.log("Testing unary call via gateway...");
   try {
-    const request = new SayHelloRequest({
-      name: "P2P Gateway"
-    });
-    const gatewayResponse = await gatewayClient.sayHello(request);
-    console.log("P2P Gateway response:", gatewayResponse?.message);
-  } catch (e) {
-    console.error("P2P Gateway error:", e);
+    const request = new SayHelloRequest({ name: "Gateway" });
+    const resp = await gatewayClient.sayHello(request);
+    console.log("Response:", resp.message);
+  } catch (err) {
+    console.error("Gateway error:", err);
+  }
+
+  // Test streaming via gateway
+  console.log("Testing streaming via gateway...");
+  try {
+    const request = new StreamingEchoRequest({ message: "Gateway stream" });
+    const stream = await gatewayClient.streamingEcho((async function*() { yield request as any; })());
+    for await (const response of stream) {
+      console.log("Received:", response.message);
+    }
+  } catch (err) {
+    console.error("Gateway streaming error:", err);
   }
 }
 
-main().catch((e) => console.error("Main error:", e));
+main().catch(console.error);

@@ -1,12 +1,18 @@
 {
     "cSpell.words": [
+        "clinerules",
         "connectrpc",
         "drpc",
         "glog",
         "libp",
+        "mnet",
+        "mocknet",
         "Multiaddr",
         "multiaddress",
+        "multiaddrs",
+        "multiformats",
         "omgolab",
+        "taskkill",
         "webrtc"
     ]
 }

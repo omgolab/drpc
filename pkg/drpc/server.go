@@ -4,9 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
-	"strconv"
+	"os"
+	"os/exec"
+	"runtime"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/libp2p/go-libp2p/core/host"
@@ -20,6 +24,7 @@ type Server struct {
 	p2pServer  *http.Server
 	httpServer *http.Server
 	ctx        context.Context // Context for server lifecycle management
+	handler    http.Handler    // Handler for both HTTP and p2p
 }
 
 // NewServer creates a new ConnectRPC server that uses both libp2p and HTTP for transport.
@@ -36,18 +41,51 @@ func NewServer(
 		}
 	}
 
+	// Start detached process if requested and not already detached
+	if !isDetachedMode() && cfg.detachedPredicateFunc != nil {
+		server := &Server{ctx: ctx}
+		return server, server.startDetachedServer(&cfg, "")
+	}
+
+	// Create server instance
+	server := &Server{
+		handler: connectRpcMuxHandler,
+		ctx:     ctx,
+	}
+
+	// Setup P2P server
+	if err := server.setupP2PServer(ctx, &cfg); err != nil {
+		return nil, err
+	}
+
+	// Start HTTP server if enabled
+	if cfg.httpPort >= 0 {
+		httpAddr := fmt.Sprintf("%s:%d", cfg.httpHost, cfg.httpPort)
+
+		if err := server.setupHTTPServer(&cfg, httpAddr); err != nil {
+			return nil, err
+		}
+	}
+
+	return server, nil
+}
+
+// setupP2PServer configures and starts the P2P server
+func (s *Server) setupP2PServer(ctx context.Context, cfg *cfg) error {
 	// Create libp2p host
-	lh, err := core.CreateLpHost(ctx, cfg.logger, cfg.Libp2pOptions...)
+	lh, err := core.CreateLpHost(ctx, cfg.logger, cfg.libp2pOptions...)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create libp2p host: %w", err)
+		return fmt.Errorf("failed to create libp2p host: %w", err)
 	}
 
 	// Create libp2p listener
-	listener := core.NewListener(ctx, lh, PROTOCOL_ID)
+	listener := core.NewLpListener(ctx, lh, PROTOCOL_ID)
 
-	// Create p2p server (using raw Connect RPC handler)
+	s.p2pHost = lh
+
+	// Create p2p server
 	p2pServer := &http.Server{
-		Handler: connectRpcMuxHandler,
+		Handler: s.handler,
 		Addr:    listener.Addr().String(),
 	}
 
@@ -58,33 +96,84 @@ func NewServer(
 		}
 	}()
 
-	server := &Server{
-		p2pHost:   lh,
-		p2pServer: p2pServer,
+	s.p2pServer = p2pServer
+	return nil
+}
+
+// isDetachedMode checks if the current process is running in detached mode
+func isDetachedMode() bool {
+	for _, arg := range os.Args {
+		if arg == "--detached" {
+			return true
+		}
+	}
+	return false
+}
+
+// setupHTTPServer configures and starts the HTTP server
+func (s *Server) setupHTTPServer(cfg *cfg, httpAddr string) error {
+	mux := http.NewServeMux()
+
+	// Setup gateway and p2pinfo routes
+	gateway.SetupRoutes(mux, s.handler, cfg.logger, s.p2pHost)
+
+	// Create HTTP server
+	httpServer := &http.Server{
+		Handler: mux,
+		Addr:    httpAddr,
 	}
 
-	// Start HTTP server if enabled with gateway handler
-	if cfg.enableHTTP {
-		httpPortInt, err := strconv.Atoi(cfg.httpPort)
+	// Check if port is in use and force close if needed
+	if cfg.forceCloseExistingPort {
+		if err := s.checkAndClosePort(httpAddr); err != nil {
+			return err
+		}
+	}
+
+	// Create listener
+	var err error
+	var listener net.Listener
+	for i := 0; i < 3; i++ {
+		listener, err = net.Listen("tcp", httpAddr)
+		if err == nil {
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	if err != nil {
+		return fmt.Errorf("failed to listen on HTTP port after 3 attempts: %w", err)
+	}
+
+	// Start server in goroutine
+	go func() {
+		if err := httpServer.Serve(listener); err != nil && err != http.ErrServerClosed {
+			cfg.logger.Error("http server error", err)
+		}
+	}()
+
+	s.httpServer = httpServer
+	return nil
+}
+
+// checkAndClosePort attempts to listen on a port and closes any existing process if needed
+func (s *Server) checkAndClosePort(addr string) error {
+	tempListener, err := net.Listen("tcp", addr)
+	if err != nil {
+		// Extract port from addr
+		_, port, err := net.SplitHostPort(addr)
 		if err != nil {
-			return nil, fmt.Errorf("invalid HTTP port: %w", err)
-		}
-		httpAddr := fmt.Sprintf("%s:%d", cfg.httpHost, httpPortInt)
-		httpServer := &http.Server{
-			Handler: gateway.GetGatewayHandler(connectRpcMuxHandler),
-			Addr:    httpAddr,
+			return fmt.Errorf("invalid address format: %w", err)
 		}
 
-		go func() {
-			if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-				cfg.logger.Error("http server error", err)
-			}
-		}()
-
-		server.httpServer = httpServer
+		if err := killPort(port); err != nil {
+			return fmt.Errorf("failed to kill process on port %s: %w", port, err)
+		}
 	}
 
-	return server, nil
+	if tempListener != nil {
+		tempListener.Close()
+	}
+	return nil
 }
 
 // Close gracefully shuts down both servers and the libp2p host.
@@ -92,8 +181,7 @@ func (s *Server) Close() error {
 	var errs []error
 
 	// Use the context for graceful shutdowns
-	ctx, cancel := context.WithTimeout(s.ctx, 5*time.Second) // 5-second timeout
-	defer cancel()
+	ctx := context.Background()
 
 	if s.httpServer != nil {
 		if err := s.httpServer.Shutdown(ctx); err != nil {
@@ -101,12 +189,16 @@ func (s *Server) Close() error {
 		}
 	}
 
-	if err := s.p2pServer.Shutdown(ctx); err != nil {
-		errs = append(errs, fmt.Errorf("p2p server close error: %w", err))
+	if s.p2pServer != nil {
+		if err := s.p2pServer.Shutdown(ctx); err != nil {
+			errs = append(errs, fmt.Errorf("p2p server close error: %w", err))
+		}
 	}
 
-	if err := s.p2pHost.Close(); err != nil {
-		errs = append(errs, fmt.Errorf("p2p host close error: %w", err))
+	if s.p2pHost != nil {
+		if err := s.p2pHost.Close(); err != nil {
+			errs = append(errs, fmt.Errorf("p2p host close error: %w", err))
+		}
 	}
 
 	if len(errs) > 0 {
@@ -141,4 +233,117 @@ func (s *Server) Addrs() []string {
 	}
 
 	return addrs
+}
+
+// killPort kills any process listening on the specified port.
+// It supports both Windows and Unix-like systems.
+func killPort(port string) error {
+	if runtime.GOOS == "windows" {
+		// Find the process ID using netstat
+		findCmd := exec.Command("cmd", "/C",
+			fmt.Sprintf(`netstat -ano | find "LISTENING" | find ":%s"`, port))
+		output, err := findCmd.Output()
+		if err != nil {
+			return fmt.Errorf("failed to find process on port %s: %w", port, err)
+		}
+
+		// Parse the output to get PID
+		// Output format: TCP    0.0.0.0:8080    0.0.0.0:0    LISTENING    1234
+		lines := strings.Split(string(output), "\n")
+		if len(lines) == 0 {
+			return fmt.Errorf("no process found listening on port %s", port)
+		}
+
+		// Extract PID from the last column
+		fields := strings.Fields(lines[0])
+		if len(fields) < 5 {
+			return fmt.Errorf("unexpected netstat output format")
+		}
+		pid := fields[len(fields)-1]
+
+		// Kill the process
+		killCmd := exec.Command("taskkill", "/F", "/PID", pid)
+		if err := killCmd.Run(); err != nil {
+			return fmt.Errorf("failed to kill process %s: %w", pid, err)
+		}
+		return nil
+	}
+
+	// Unix-like systems (macOS, Linux)
+	command := fmt.Sprintf("lsof -i tcp:%s | grep LISTEN | awk '{print $2}' | xargs kill -9", port)
+	cmd := exec.Command("bash", "-c", command)
+	if output, err := cmd.CombinedOutput(); err != nil {
+		// Check if the error is because no process was found
+		if strings.Contains(string(output), "kill: no such process") {
+			return fmt.Errorf("no process found listening on port %s", port)
+		}
+		return fmt.Errorf("failed to kill process on port %s: %w", port, err)
+	}
+	return nil
+}
+
+// startDetachedServer starts the server in a detached process
+func (s *Server) startDetachedServer(cfg *cfg, exePath string) error {
+	if cfg.detachedPredicateFunc == nil {
+		return nil
+	}
+
+	// Get the current process executable path
+	if exePath == "" {
+		var err error
+		exePath, err = os.Executable()
+		if err != nil {
+			return fmt.Errorf("failed to get executable path: %w", err)
+		}
+	}
+
+	// Create a new detached process with the --detached flag
+	args := []string{"--detached"}
+	cmd := exec.Command(exePath, args...)
+
+	// Detach the process and create new session
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setsid: true,
+	}
+
+	// Redirect output to files for logging
+	logFile, err := os.OpenFile("server.log", os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to create log file: %w", err)
+	}
+	defer logFile.Close()
+
+	errFile, err := os.OpenFile("server.err", os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to create error file: %w", err)
+	}
+	defer errFile.Close()
+
+	cmd.Stdout = logFile
+	cmd.Stderr = errFile
+
+	// Start the process
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("failed to start detached process: %w", err)
+	}
+
+	// If a detached predicator is provided, block until it returns nil.
+	err = cfg.detachedPredicateFunc(s)
+	if err != nil {
+		return fmt.Errorf("detached predicate failed: %w", err)
+	}
+
+	// Display recent log entries
+	if content, err := os.ReadFile("server.log"); err == nil {
+		fmt.Println("\nRecent server output:")
+		fmt.Println(string(content))
+	}
+	if content, err := os.ReadFile("server.err"); err == nil && len(content) > 0 {
+		fmt.Println("\nRecent server errors:")
+		fmt.Println(string(content))
+	}
+
+	// Release the detached process.
+	cmd.Process.Release()
+	return nil
 }

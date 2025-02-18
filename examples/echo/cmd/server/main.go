@@ -1,70 +1,54 @@
 package main
 
 import (
-    "context"
-    "fmt"
-    "log"
-    "net/http"
-    "os"
-    "os/signal"
-    "syscall"
+	"context"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
 
-    gv1 "github.com/omgolab/drpc/examples/echo/gen/go/greeter/v1"
-    gv1connect "github.com/omgolab/drpc/examples/echo/gen/go/greeter/v1/greeterv1connect"
-    "github.com/omgolab/drpc/examples/echo/greeter"
-    "github.com/omgolab/drpc/pkg/drpc"
-
-    "connectrpc.com/connect"
+	"github.com/libp2p/go-libp2p"
+	gv1connect "github.com/omgolab/drpc/examples/echo/gen/go/greeter/v1/greeterv1connect"
+	"github.com/omgolab/drpc/examples/echo/greeter"
+	"github.com/omgolab/drpc/pkg/drpc"
+	glog "github.com/omgolab/go-commons/pkg/log"
 )
 
 func main() {
-    log.SetFlags(log.LstdFlags | log.Lshortfile)
+	log, _ := glog.New(glog.WithFileLogger("server.log"))
 
-    // Create context that can be cancelled
-    ctx, cancel := context.WithCancel(context.Background())
-    defer cancel()
+	// Create context with cancellation
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-    // Set up signal handling
-    sigChan := make(chan os.Signal, 1)
-    signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	// Setup signal handling
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-    // Create ConnectRPC mux & register greeter
-    mux := http.NewServeMux()
-    path, handler := gv1connect.NewGreeterServiceHandler(&greeter.Server{})
-    mux.Handle(path, handler)
+	// Create ConnectRPC mux & register greeter
+	mux := http.NewServeMux()
+	path, handler := gv1connect.NewGreeterServiceHandler(&greeter.Server{})
+	mux.Handle(path, handler)
 
-    // Create server with options
-    server, err := drpc.NewServer(ctx, mux,
-        drpc.WithP2PPort(9090),
-        drpc.WithHTTPPort(8080),
-        drpc.WithHTTPHost("localhost"),
-        drpc.WithHTTPEnabled(true),
-    )
-    if err != nil {
-        log.Fatalf("Failed to create server: %v", err)
-    }
-    defer server.Close()
+	server, err := drpc.NewServer(ctx, mux,
+		drpc.WithLibP2POptions(
+			libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/9090"),
+			libp2p.DisableRelay(),
+			libp2p.NoSecurity, // Disable TLS
+		),
+		drpc.WithHTTPPort(8082), // Use port 8082 for HTTP
+		drpc.WithLogger(log),
+		drpc.WithForceCloseExistingPort(true),
+		// Predicate function (always returns nil, effectively disabling the check)
+		drpc.WithDetachOnServerReadyPredicateFunc(),
+		drpc.WithHTTPHost("localhost"),
+		drpc.WithNoBootstrap(true),
+	)
+	if err != nil {
+		log.Fatal("failed to create server", err)
+	}
+	defer server.Close()
 
-    // Print listening addresses
-    fmt.Println("Server listening on:")
-    for _, addr := range server.Addrs() {
-        fmt.Printf("  %s\n", addr)
-    }
-
-    // Create a test client using the p2p host
-    client := drpc.NewClient(server.P2PHost(), gv1connect.NewGreeterServiceClient)
-
-    // Test the connection
-    res, err := client.SayHello(ctx, connect.NewRequest(&gv1.SayHelloRequest{
-        Name: "Alice",
-    }))
-    if err != nil {
-        log.Printf("Test call failed: %v", err)
-    } else {
-        log.Printf("Test call succeeded: %s", res.Msg.Message)
-    }
-
-    // Wait for shutdown signal
-    <-sigChan
-    fmt.Println("\nShutting down gracefully...")
+	// Wait for shutdown signal
+	<-sigChan
 }

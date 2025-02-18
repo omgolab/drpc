@@ -3,29 +3,33 @@ package drpc
 import (
 	"errors"
 	"fmt"
-	"strconv"
+	"net/http"
+	"strings"
+	"time"
 
 	"github.com/libp2p/go-libp2p"
 	glog "github.com/omgolab/go-commons/pkg/log"
 )
 
 type cfg struct {
-	httpPort      string
-	httpHost      string
-	logger        glog.Logger
-	enableHTTP    bool
-	Libp2pOptions []libp2p.Option
-	Bootstrap     bool
+	httpPort               int
+	httpHost               string
+	logger                 glog.Logger
+	libp2pOptions          []libp2p.Option
+	dhtBootstrap           bool
+	forceCloseExistingPort bool
+	// Fn to determine if the server should run in detached mode and return an error if did not run detached successfully
+	detachedPredicateFunc func(*Server) error
 }
 
 func getDefaultConfig() cfg {
-	l, _ := glog.New()
+	l, _ := glog.New(glog.WithFileLogger("server.log"))
 	return cfg{
-		httpPort:   "9090",
-		httpHost:   "localhost",
-		logger:     l,
-		enableHTTP: true,
-		Bootstrap:  true,
+		httpPort:               9090,
+		httpHost:               "localhost",
+		logger:                 l,
+		dhtBootstrap:           true,
+		forceCloseExistingPort: false,
 	}
 }
 
@@ -34,19 +38,20 @@ type Option func(cfg *cfg) error
 // WithLibP2POptions sets the libp2p options
 func WithLibP2POptions(opts ...libp2p.Option) Option {
 	return func(cfg *cfg) error {
-		cfg.Libp2pOptions = opts
+		cfg.libp2pOptions = opts
 		return nil
 	}
 }
 
 // WithHTTPPort sets the HTTP gateway port
 // default port is 90090
+// pass -1 to disable HTTP server interface
 func WithHTTPPort(port int) Option {
 	return func(cfg *cfg) error {
-		if port < 0 || port > 65535 {
+		if port < -1 || port > 65535 {
 			return fmt.Errorf("invalid port number: %d", port)
 		}
-		cfg.httpPort = strconv.Itoa(port)
+		cfg.httpPort = port
 		return nil
 	}
 }
@@ -56,15 +61,6 @@ func WithHTTPPort(port int) Option {
 func WithHTTPHost(host string) Option {
 	return func(cfg *cfg) error {
 		cfg.httpHost = host
-		return nil
-	}
-}
-
-// WithHTTPEnabled enables or disables the HTTP gateway
-// default is true
-func WithHTTPEnabled(enabled bool) Option {
-	return func(cfg *cfg) error {
-		cfg.enableHTTP = enabled
 		return nil
 	}
 }
@@ -80,10 +76,52 @@ func WithLogger(log glog.Logger) Option {
 	}
 }
 
+// WithForceCloseExistingPort forces closing of any existing process on the configured port.
+func WithForceCloseExistingPort(forceClose bool) Option {
+	return func(cfg *cfg) error {
+		cfg.forceCloseExistingPort = forceClose
+		return nil
+	}
+}
+
 // WithNoBootstrap disables bootstrapping
 func WithNoBootstrap(isEnabled bool) Option {
 	return func(cfg *cfg) error {
-		cfg.Bootstrap = isEnabled
+		cfg.dhtBootstrap = isEnabled
 		return nil
 	}
+}
+
+// New option to set the predicator.
+func WithDetachPredicateFunc(pred func(*Server) error) Option {
+	return func(c *cfg) error {
+		c.detachedPredicateFunc = pred
+		return nil
+	}
+}
+
+// WithDetachOnServerReadyPredicateFunc defines a predicate function that repeatedly queries the endpoint until
+// it gets a valid (HTTP 200) response or times out.
+func WithDetachOnServerReadyPredicateFunc() Option {
+	fn := func(s *Server) error {
+		deadline := time.Now().Add(10 * time.Second)
+		for time.Now().Before(deadline) {
+			resp, err := http.Get(fmt.Sprintf("http://%s/p2pinfo", s.httpServer.Addr))
+			if err != nil {
+				if strings.Contains(err.Error(), "connection refused") {
+					time.Sleep(500 * time.Millisecond)
+					continue
+				}
+				return err
+			}
+			resp.Body.Close()
+			if resp.StatusCode == http.StatusOK {
+				return nil
+			}
+			return fmt.Errorf("unexpected status code: %v", resp.StatusCode)
+		}
+		return fmt.Errorf("detached server did not become ready within timeout")
+	}
+
+	return WithDetachPredicateFunc(fn)
 }

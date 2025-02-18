@@ -8,7 +8,6 @@ import (
 	"net/http"
 
 	"connectrpc.com/connect"
-	lp "github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -17,24 +16,28 @@ import (
 )
 
 // NewClient creates a new ConnectRPC client that uses libp2p for transport.
-func NewClient[T any](lpHost host.Host, newServiceClient func(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) T) T {
-	h, _ := lp.New(lp.NoListenAddrs)
-	serverPeerID := lpHost.ID()
+func NewClient[T any](clientHost host.Host, serverPeerID peer.ID, serverAddrs []string, newServiceClient func(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) T) T {
 	ctx := context.Background()
 
-	// connect to ensure the server is reachable
-	err := h.Connect(ctx, peer.AddrInfo{
-		ID:    serverPeerID,
-		Addrs: lpHost.Addrs(),
-	})
+	// Parse server multiaddrs
+	serverAddrInfo, err := peer.AddrInfoFromString(serverAddrs[0]) // Assuming at least one address
 	if err != nil {
-		log.Fatal(err)
+		log.Printf("Failed to parse server address: %v", err)
+		// Handle the error appropriately, maybe return a nil client and the error
+		panic(err) // For now, panic to make it obvious during development
+	}
+
+	// Connect to the server
+	if err := clientHost.Connect(ctx, *serverAddrInfo); err != nil {
+		log.Printf("Failed to connect to server: %v", err)
+		// Handle the error appropriately
+		panic(err)
 	}
 
 	// Custom transport that uses the libp2p dialer.
 	transport := &http.Transport{
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			return dial(ctx, h, PROTOCOL_ID, serverPeerID)
+			return dial(ctx, clientHost, PROTOCOL_ID, serverPeerID)
 		},
 	}
 
