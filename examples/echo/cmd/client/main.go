@@ -93,7 +93,7 @@ func testHTTPConnect(ctx context.Context) error {
 	// Create an HTTP client
 	httpClient := gv1connect.NewGreeterServiceClient(
 		http.DefaultClient,
-		"http://localhost:8080",
+		"http://localhost:8082", // Changed port to 8082
 	)
 
 	// Test unary call
@@ -113,7 +113,7 @@ func testGateway(ctx context.Context, serverMultiaddr string) error {
 	// Test unary call via gateway...
 	fmt.Println("Testing unary call via gateway...")
 	// Use fixed HTTP gateway address instead of extracting from multiaddr.
-	gatewayBaseURL := "http://localhost:8080"
+	gatewayBaseURL := "http://localhost:8082"            // Changed port to 8082
 	fmt.Printf("Gateway Base URL: %s\n", gatewayBaseURL) // Debug print
 
 	// Create custom HTTP client with proper configuration
@@ -182,7 +182,7 @@ func testStreaming(ctx context.Context, serverMultiaddr string) error {
 	fmt.Println("\nTesting streaming via HTTP...")
 	httpClient := gv1connect.NewGreeterServiceClient(
 		http.DefaultClient,
-		"http://localhost:8080",
+		"http://localhost:8082", // Changed port to 8082
 	)
 
 	stream, err := httpClient.StreamingEcho(ctx, connect.NewRequest(&gv1.StreamingEchoRequest{
@@ -201,7 +201,7 @@ func testStreaming(ctx context.Context, serverMultiaddr string) error {
 
 	// Test streaming via gateway
 	fmt.Println("\nTesting streaming via gateway...")
-	gatewayAddrStr := "http://localhost:8080"
+	gatewayAddrStr := "http://localhost:8082" // Changed port to 8082
 
 	gatewayClient := gv1connect.NewGreeterServiceClient(
 		http.DefaultClient,
@@ -262,25 +262,4 @@ func getServerInfo() (string, error) {
 	}
 	return "", fmt.Errorf("failed to get server info after multiple retries: %w", err)
 
-}
-
-// headerTransport is a custom RoundTripper that adds headers to requests
-type headerTransport struct {
-	base    http.RoundTripper
-	headers http.Header
-}
-
-func (t *headerTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	// Clone the request to avoid modifying the original
-	reqClone := req.Clone(req.Context())
-
-	// Add headers
-	for key, values := range t.headers {
-		for _, value := range values {
-			reqClone.Header.Add(key, value)
-		}
-	}
-
-	// Use the base transport for the actual request
-	return t.base.RoundTrip(reqClone)
 }

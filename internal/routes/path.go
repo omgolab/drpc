@@ -1,4 +1,4 @@
-package gateway
+package routes
 
 import (
 	"fmt"
@@ -30,8 +30,8 @@ func parseGatewayPath(path string, logger glog.Logger) ([]string, string, error)
 	// Find the index of the next slash after the peer ID
 	fullMultiaddr := multiaddrPart + "/p2p/" + peerID
 
-	 // Extract the service path (everything after the peer ID and the following slash)
-	 servicePath := strings.TrimPrefix(path[p2pIndex+len("/p2p/")+len(peerID):], "/")
+	// Extract the service path (everything after the peer ID and the following slash)
+	servicePath := strings.TrimPrefix(path[p2pIndex+len("/p2p/")+len(peerID):], "/")
 
 	logger.Printf("parseGatewayPath - Raw ServicePath: %s", servicePath)
 

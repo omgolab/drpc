@@ -10,6 +10,11 @@ import (
 	host "github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/routing"
+	libp2pquic "github.com/libp2p/go-libp2p/p2p/transport/quic"
+	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
+	libp2pwebrtc "github.com/libp2p/go-libp2p/p2p/transport/webrtc"
+	"github.com/libp2p/go-libp2p/p2p/transport/websocket"
+	webtransport "github.com/libp2p/go-libp2p/p2p/transport/webtransport"
 	glog "github.com/omgolab/go-commons/pkg/log"
 )
 
@@ -54,7 +59,15 @@ func CreateLpHost(ctx context.Context, log glog.Logger, opts ...lp.Option) (host
 	var dhtInstance *dht.IpfsDHT
 
 	// Configure libp2p options
+	// Prioritize transports: WebTransport > WebRTC > WS > QUIC > TCP; also needs to be done in client
 	options := []lp.Option{
+		lp.ChainOptions(
+			lp.Transport(webtransport.New),
+			lp.Transport(libp2pwebrtc.New),
+			lp.Transport(websocket.New),
+			lp.Transport(libp2pquic.NewTransport),
+			lp.Transport(tcp.NewTCPTransport),
+		),
 		lp.EnableNATService(), // AutoNAT service
 		lp.NATPortMap(),       // NAT port mapping
 		// routing is needed to discover other peers in the network that may act as relay nodes

@@ -2,10 +2,8 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
 
 	"github.com/libp2p/go-libp2p"
 	gv1connect "github.com/omgolab/drpc/examples/echo/gen/go/greeter/v1/greeterv1connect"
@@ -15,15 +13,12 @@ import (
 )
 
 func main() {
+	fmt.Println("Server main function started") // Added for debugging
 	log, _ := glog.New(glog.WithFileLogger("server.log"))
 
 	// Create context with cancellation
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-
-	// Setup signal handling
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	// Create ConnectRPC mux & register greeter
 	mux := http.NewServeMux()
@@ -36,11 +31,11 @@ func main() {
 			libp2p.DisableRelay(),
 			libp2p.NoSecurity, // Disable TLS
 		),
-		drpc.WithHTTPPort(8082), // Use port 8082 for HTTP
+		drpc.WithHTTPPort(8080), // Use port 8080 for HTTP
 		drpc.WithLogger(log),
 		drpc.WithForceCloseExistingPort(true),
 		// Predicate function (always returns nil, effectively disabling the check)
-		drpc.WithDetachOnServerReadyPredicateFunc(),
+		drpc.WithDetachedServer(),
 		drpc.WithHTTPHost("localhost"),
 		drpc.WithNoBootstrap(true),
 	)
@@ -49,6 +44,7 @@ func main() {
 	}
 	defer server.Close()
 
-	// Wait for shutdown signal
-	<-sigChan
+	// Log the server's listening addresses
+	addrs := server.Addrs()
+	fmt.Println("Server listening on:", addrs)
 }

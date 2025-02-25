@@ -57,3 +57,28 @@ The plugin should:
 *   Support for other programming languages (e.g., Python, Java).
 *   Integration with other transport protocols (e.g., WebSockets).
 *   Automatic discovery of dRPC services.
+
+## TODO: Core dRPC Implementation
+
+### Gateway (`gateway.go`)
+
+*   **Error Handling:** Improve error handling with more specific messages and potentially custom error types.
+*   **Address Resolution:** Review and improve the `resolveMultiaddrs` function for better address selection.
+*   **Request Forwarding:** Examine `forwardRequest` for optimizations and security considerations.
+*   **Metrics:** Add metrics to track gateway usage, success/failure rates, latency, etc.
+
+### Server (`server.go`)
+
+*   **Detached Mode Logic:** Move `isDetachedMode` to the `detach` package.
+*   **Server Shutdown:** Review `Close` method for improvements in context usage and error handling.
+*   **Configuration:** Add more options for finer-grained control over server behavior.
+*   **Address Reporting:** Ensure `Addrs` accurately reflects all active listeners.
+*   **Metrics:** Add metrics to track server uptime, connections, requests, etc.
+
+### Client (`client.go`)
+
+*   **Error Handling:** Replace panics in `NewClient` with proper error returns.
+*   **Address Handling:** Implement more robust address handling, trying multiple addresses and prioritizing based on transport.
+*   **Connection Management:** Consider connection pooling or on-demand connection establishment.
+*   **Placeholder URL:** Investigate the placeholder URL ("http://localhost") and find a better solution if needed.
+*   **Metrics:** Add metrics to track client connections, requests, latency, etc.

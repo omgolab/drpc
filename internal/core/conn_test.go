@@ -24,6 +24,8 @@ func mockToNetAddr(addr multiaddr.Multiaddr) (net.Addr, error) {
 
 // TestConnAddresses verifies that valid multiaddrs are properly converted.
 func TestConnAddresses(t *testing.T) {
+    // Removing t.Parallel() to avoid potential concurrency issues with mocknet
+	//t.Parallel() // allow parallel execution
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -82,6 +84,8 @@ func TestConnAddresses(t *testing.T) {
 
 // TestFallbackOnInvalidMultiaddr verifies that invalid multiaddrs yield fallback addresses.
 func TestFallbackOnInvalidMultiaddr(t *testing.T) {
+    // Removing t.Parallel() to avoid potential concurrency issues with mocknet
+	//t.Parallel() // allow parallel execution
 	// Create a mock network
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

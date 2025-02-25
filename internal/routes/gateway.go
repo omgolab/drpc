@@ -1,9 +1,8 @@
-package gateway
+package routes
 
 import (
 	"net/http"
 
-	"github.com/libp2p/go-libp2p/core/host"
 	glog "github.com/omgolab/go-commons/pkg/log"
 )
 
@@ -44,15 +43,4 @@ func getGatewayHandler(logger glog.Logger) http.HandlerFunc {
 			return
 		}
 	}
-}
-
-func SetupRoutes(mux *http.ServeMux, handler http.Handler, logger glog.Logger, p2pHost host.Host) {
-	// configure the gateway handler on the given ServeMux.  Only handle paths starting with /@/*
-	mux.Handle("/@/*", getGatewayHandler(logger))
-
-	// configure the P2P info handler on the given ServeMux.
-	mux.HandleFunc("/p2pinfo", getP2PInfoHandler(p2pHost))
-
-	// let the remaining paths be handled by the given handler
-	mux.Handle("/", handler)
 }

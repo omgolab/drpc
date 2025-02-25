@@ -12,6 +12,7 @@
         "multiaddrs",
         "multiformats",
         "omgolab",
+        "pinfo",
         "taskkill",
         "webrtc"
     ]

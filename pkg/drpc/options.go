@@ -3,9 +3,6 @@ package drpc
 import (
 	"errors"
 	"fmt"
-	"net/http"
-	"strings"
-	"time"
 
 	"github.com/libp2p/go-libp2p"
 	glog "github.com/omgolab/go-commons/pkg/log"
@@ -18,8 +15,7 @@ type cfg struct {
 	libp2pOptions          []libp2p.Option
 	dhtBootstrap           bool
 	forceCloseExistingPort bool
-	// Fn to determine if the server should run in detached mode and return an error if did not run detached successfully
-	detachedPredicateFunc func(*Server) error
+	isDetachedServer       bool
 }
 
 func getDefaultConfig() cfg {
@@ -30,6 +26,7 @@ func getDefaultConfig() cfg {
 		logger:                 l,
 		dhtBootstrap:           true,
 		forceCloseExistingPort: false,
+		isDetachedServer:       false,
 	}
 }
 
@@ -92,36 +89,10 @@ func WithNoBootstrap(isEnabled bool) Option {
 	}
 }
 
-// New option to set the predicator.
-func WithDetachPredicateFunc(pred func(*Server) error) Option {
-	return func(c *cfg) error {
-		c.detachedPredicateFunc = pred
+// New option to set the isDetachedServer flag
+func WithDetachedServer() Option {
+	return func(cfg *cfg) error {
+		cfg.isDetachedServer = true
 		return nil
 	}
-}
-
-// WithDetachOnServerReadyPredicateFunc defines a predicate function that repeatedly queries the endpoint until
-// it gets a valid (HTTP 200) response or times out.
-func WithDetachOnServerReadyPredicateFunc() Option {
-	fn := func(s *Server) error {
-		deadline := time.Now().Add(10 * time.Second)
-		for time.Now().Before(deadline) {
-			resp, err := http.Get(fmt.Sprintf("http://%s/p2pinfo", s.httpServer.Addr))
-			if err != nil {
-				if strings.Contains(err.Error(), "connection refused") {
-					time.Sleep(500 * time.Millisecond)
-					continue
-				}
-				return err
-			}
-			resp.Body.Close()
-			if resp.StatusCode == http.StatusOK {
-				return nil
-			}
-			return fmt.Errorf("unexpected status code: %v", resp.StatusCode)
-		}
-		return fmt.Errorf("detached server did not become ready within timeout")
-	}
-
-	return WithDetachPredicateFunc(fn)
 }
