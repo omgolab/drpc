@@ -9,8 +9,6 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	"github.com/libp2p/go-libp2p"
-	"github.com/libp2p/go-libp2p/core/peer"
 	gv1 "github.com/omgolab/drpc/examples/echo/gen/go/greeter/v1"
 	gv1connect "github.com/omgolab/drpc/examples/echo/gen/go/greeter/v1/greeterv1connect"
 	"github.com/omgolab/drpc/pkg/drpc"
@@ -65,28 +63,13 @@ func main() {
 }
 
 func newLibp2pClient(addrStr string) (gv1connect.GreeterServiceClient, error) {
-	// Create a libp2p host for the client
-	host, err := libp2p.New(
-		libp2p.NoListenAddrs,
-		libp2p.NoSecurity, // Disable TLS
-	)
+	// Use the new drpc.NewClient signature which now takes a string address
+	// instead of host, peerID and addresses list
+	client, err := drpc.NewClient(addrStr, gv1connect.NewGreeterServiceClient)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create libp2p host: %w", err)
+		return nil, fmt.Errorf("failed to create drpc client: %w", err)
 	}
-
-	// Parse the server's multiaddr
-	addr, err := peer.AddrInfoFromString(addrStr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse address %s: %v", addrStr, err)
-	}
-
-	// Connect to the server
-	if err := host.Connect(context.Background(), *addr); err != nil {
-		return nil, fmt.Errorf("failed to connect to %s: %v", addrStr, err)
-	}
-
-	// Successfully connected
-	return drpc.NewClient(host, addr.ID, []string{addrStr}, gv1connect.NewGreeterServiceClient), nil
+	return client, nil
 }
 
 func testHTTPConnect(ctx context.Context) error {

@@ -9,12 +9,12 @@ import (
 	glog "github.com/omgolab/go-commons/pkg/log"
 )
 
-// TestCreateLpHostSuccess verifies CreateLpHost creates a valid host.
+// TestCreateLpHostSuccess verifies CreateLpHost creates a valid host
 func TestCreateLpHostSuccess(t *testing.T) {
 	ctx := context.Background()
 	logger, _ := glog.New()
 
-	h, err := CreateLpHost(ctx, logger)
+	h, err := CreateLibp2pHost(ctx, logger)
 	if err != nil {
 		t.Fatalf("CreateLpHost error: %v", err)
 	}
@@ -35,7 +35,7 @@ func TestCreateLpHostMultiple(t *testing.T) {
 	logger, _ := glog.New()
 	var hosts []host.Host
 	for i := 0; i < 3; i++ {
-		h, err := CreateLpHost(ctx, logger)
+		h, err := CreateLibp2pHost(ctx, logger)
 		if err != nil {
 			t.Fatalf("Iteration %d: CreateLpHost error: %v", i, err)
 		}
@@ -56,7 +56,7 @@ func TestHostShutdown(t *testing.T) {
 	ctx := context.Background()
 	logger, _ := glog.New()
 
-	h, err := CreateLpHost(ctx, logger)
+	h, err := CreateLibp2pHost(ctx, logger)
 	if err != nil {
 		t.Fatalf("CreateLpHost error: %v", err)
 	}

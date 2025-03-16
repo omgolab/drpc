@@ -10,9 +10,9 @@ import (
 	"strings"
 
 	"github.com/libp2p/go-libp2p/core/host"
-	"github.com/omgolab/drpc/internal/core"
-	"github.com/omgolab/drpc/internal/routes"
+	"github.com/omgolab/drpc/pkg/core"
 	"github.com/omgolab/drpc/pkg/detach"
+	"github.com/omgolab/drpc/pkg/gateway"
 	"github.com/omgolab/drpc/pkg/proc"
 	glog "github.com/omgolab/go-commons/pkg/log"
 )
@@ -72,7 +72,7 @@ func NewServer(
 	}
 
 	// Setup P2P server
-	if err := server.setupP2PServer(ctx, &cfg); err != nil {
+	if err := server.setupRpcLpBridgeServer(ctx, &cfg); err != nil {
 		return nil, err
 	}
 
@@ -88,54 +88,41 @@ func NewServer(
 	return server, nil
 }
 
-// setupP2PServer configures and starts the P2P server
-func (s *Server) setupP2PServer(ctx context.Context, cfg *cfg) error {
+// setupRpcLpBridgeServer configures and starts the P2P<->RPC server
+func (s *Server) setupRpcLpBridgeServer(ctx context.Context, cfg *cfg) error {
 	// Create libp2p host
-	lh, err := core.CreateLpHost(ctx, cfg.logger, cfg.libp2pOptions...)
+	lh, err := core.CreateLibp2pHost(ctx, cfg.logger, cfg.libp2pOptions...)
 	if err != nil {
 		return fmt.Errorf("failed to create libp2p host: %w", err)
 	}
 
-	// Create libp2p listener
-	listener := core.NewLpListener(ctx, lh, PROTOCOL_ID)
+	// Create libp2p to HTTP bridgeListener
+	bridgeListener := core.NewStreamBridgeListener(ctx, lh, PROTOCOL_ID)
 
 	s.p2pHost = lh
 
-	// Create p2p server
-	p2pServer := &http.Server{
+	// Create rpc server
+	rpcServer := &http.Server{
 		Handler: s.handler,
-		Addr:    listener.Addr().String(),
+		Addr:    bridgeListener.Addr().String(),
 	}
 
-	// Start p2p server
+	// Start rpc server
 	go func() {
-		if err := p2pServer.Serve(listener); err != nil && err != http.ErrServerClosed {
+		if err := rpcServer.Serve(bridgeListener); err != nil && err != http.ErrServerClosed {
 			cfg.logger.Error("p2p server error", err)
 		}
 	}()
 
-	s.p2pServer = p2pServer
+	s.p2pServer = rpcServer
 	return nil
-}
-
-// isDetachedMode checks if the current process is running in detached mode
-// TODO: see if we can move this to the detach package
-func isDetachedMode() bool {
-	flag := detach.CALLBACK_FLAG[:len(detach.CALLBACK_FLAG)-1] // Remove trailing "="
-	// Check if the process is running in detached mode
-	for _, arg := range os.Args {
-		if arg == flag {
-			return true
-		}
-	}
-	return false
 }
 
 // setupHTTPServer configures and starts the HTTP server
 func (s *Server) setupHTTPServer(cfg *cfg, httpAddr string) error {
-	// Create HTTP server
+	// Create HTTP server with gateway routes
 	httpServer := &http.Server{
-		Handler: routes.SetupRoutes(s.handler, cfg.logger, s.p2pHost), // Setup gateway/p2pinfo/connectrpc routes
+		Handler: gateway.SetupHandler(s.handler, cfg.logger, s.p2pHost),
 		Addr:    httpAddr,
 	}
 
@@ -242,4 +229,17 @@ func (s *Server) startDetachedServer() error {
 
 	fmt.Println("Server started in detached mode")
 	return nil
+}
+
+// isDetachedMode checks if the current process is running in detached mode
+// TODO: see if we can move this to the detach package
+func isDetachedMode() bool {
+	flag := detach.CALLBACK_FLAG[:len(detach.CALLBACK_FLAG)-1] // Remove trailing "="
+	// Check if the process is running in detached mode
+	for _, arg := range os.Args {
+		if arg == flag {
+			return true
+		}
+	}
+	return false
 }

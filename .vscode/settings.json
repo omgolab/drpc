@@ -5,15 +5,27 @@
         "drpc",
         "glog",
         "libp",
+        "maddr",
         "mnet",
         "mocknet",
         "Multiaddr",
         "multiaddress",
+        "multiaddresses",
         "multiaddrs",
         "multiformats",
         "omgolab",
         "pinfo",
         "taskkill",
-        "webrtc"
-    ]
+        "webrtc",
+        "webtransport"
+    ],
+    "chat.agent.maxRequests": 1e+23,
+    "github.copilot.chat.codesearch.enabled": true,
+    "github.copilot.chat.newWorkspaceCreation.enabled": true,
+    "github.copilot.nextEditSuggestions.enabled": true,
+    "github.copilot.chat.editor.temporalContext.enabled": true,
+    "github.copilot.chat.edits.temporalContext.enabled": true,
+    "github.copilot.chat.generateTests.codeLens": true,
+    "github.copilot.chat.languageContext.typescript.enabled": true,
+    "github.copilot.chat.search.semanticTextResults": true
 }

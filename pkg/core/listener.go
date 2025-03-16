@@ -20,8 +20,8 @@ type listener struct {
 	cancel   context.CancelFunc
 }
 
-// NewLpListener turns a libp2p host into a net listener.
-func NewLpListener(
+// NewStreamBridgeListener bridges a libp2p network.Stream to a net.Conn
+func NewStreamBridgeListener(
 	ctx context.Context,
 	h host.Host,
 	pid protocol.ID,
@@ -59,6 +59,7 @@ func (l *listener) Addr() net.Addr {
 		}
 	}
 
+	// Investigate: is this correct thing to do?
 	return defaultLocalFallbackAddr()
 }
 

@@ -1,0 +1,311 @@
+This file is a merged representation of a subset of the codebase, containing specifically included files, combined into a single document by Repomix.
+The content has been processed where content has been compressed (code blocks are separated by ⋮---- delimiter).
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Only files matching these patterns are included: examples/routed-echo/**
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Content has been compressed - code blocks are separated by ⋮---- delimiter
+</notes>
+
+<additional_info>
+
+</additional_info>
+
+</file_summary>
+
+<directory_structure>
+examples/
+  routed-echo/
+    .gitignore
+    bootstrap.go
+    main.go
+    README.md
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="examples/routed-echo/.gitignore">
+routed-echo
+</file>
+
+<file path="examples/routed-echo/bootstrap.go">
+package main
+⋮----
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"sync"
+
+	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/peerstore"
+
+	ma "github.com/multiformats/go-multiaddr"
+)
+⋮----
+"context"
+"encoding/json"
+"errors"
+"fmt"
+"io"
+"log"
+"net/http"
+"sync"
+⋮----
+"github.com/libp2p/go-libp2p/core/host"
+"github.com/libp2p/go-libp2p/core/peer"
+"github.com/libp2p/go-libp2p/core/peerstore"
+⋮----
+ma "github.com/multiformats/go-multiaddr"
+⋮----
+var (
+	IPFS_PEERS = convertPeers([]string{
+		"/ip4/104.131.131.82/tcp/4001/p2p/QmaCpDMGvV2BGHeYERUEnRQAwe3N8SzbUtfsmvsqQLuvuJ",
+		"/ip4/104.236.179.241/tcp/4001/p2p/QmSoLPppuBtQSGwKDZT2M73ULpjvfd3aZ6ha4oFGL1KrGM",
+		"/ip4/128.199.219.111/tcp/4001/p2p/QmSoLSafTMBsPKadTEgaXctDQVcqN88CNLHXMkTNwMKPnu",
+		"/ip4/104.236.76.40/tcp/4001/p2p/QmSoLV4Bbm51jM9C4gDYZQ9Cy3U6aXMJDAbzgu2fzaDs64",
+		"/ip4/178.62.158.247/tcp/4001/p2p/QmSoLer265NRgSp2LA3dPaeykiS1J6DifTC88f5uVQKNAd",
+		"/ip6/2604:a880:1:20::203:d001/tcp/4001/p2p/QmSoLPppuBtQSGwKDZT2M73ULpjvfd3aZ6ha4oFGL1KrGM",
+		"/ip6/2400:6180:0:d0::151:6001/tcp/4001/p2p/QmSoLSafTMBsPKadTEgaXctDQVcqN88CNLHXMkTNwMKPnu",
+		"/ip6/2604:a880:800:10::4a:5001/tcp/4001/p2p/QmSoLV4Bbm51jM9C4gDYZQ9Cy3U6aXMJDAbzgu2fzaDs64",
+		"/ip6/2a03:b0c0:0:1010::23:1001/tcp/4001/p2p/QmSoLer265NRgSp2LA3dPaeykiS1J6DifTC88f5uVQKNAd",
+	})
+⋮----
+// Borrowed from ipfs code to parse the results of the command `ipfs id`
+type IdOutput struct {
+	ID              string
+	PublicKey       string
+	Addresses       []string
+	AgentVersion    string
+	ProtocolVersion string
+}
+⋮----
+// quick and dirty function to get the local ipfs daemons address for bootstrapping
+func getLocalPeerInfo() []peer.AddrInfo
+⋮----
+var js IdOutput
+⋮----
+// For some reason, possibly NAT traversal, we need to grab the loopback ip address
+⋮----
+return make([]peer.AddrInfo, 1) // not reachable, but keeps the compiler happy
+⋮----
+func convertPeers(peers []string) []peer.AddrInfo
+⋮----
+// This code is borrowed from the go-ipfs bootstrap process
+func bootstrapConnect(ctx context.Context, ph host.Host, peers []peer.AddrInfo) error
+⋮----
+var wg sync.WaitGroup
+⋮----
+// performed asynchronously because when performed synchronously, if
+// one `Connect` call hangs, subsequent calls are more likely to
+// fail/abort due to an expiring context.
+// Also, performed asynchronously for dial speed.
+⋮----
+// our failure condition is when no connection attempt succeeded.
+// So drain the errs channel, counting the results.
+⋮----
+var err error
+</file>
+
+<file path="examples/routed-echo/main.go">
+package main
+⋮----
+import (
+	"bufio"
+	"context"
+	"crypto/rand"
+	"flag"
+	"fmt"
+	"io"
+	"log"
+	mrand "math/rand"
+
+	"github.com/libp2p/go-libp2p"
+	"github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/core/peer"
+
+	ds "github.com/ipfs/go-datastore"
+	dsync "github.com/ipfs/go-datastore/sync"
+	golog "github.com/ipfs/go-log/v2"
+
+	dht "github.com/libp2p/go-libp2p-kad-dht"
+	rhost "github.com/libp2p/go-libp2p/p2p/host/routed"
+	ma "github.com/multiformats/go-multiaddr"
+)
+⋮----
+"bufio"
+"context"
+"crypto/rand"
+"flag"
+"fmt"
+"io"
+"log"
+mrand "math/rand"
+⋮----
+"github.com/libp2p/go-libp2p"
+"github.com/libp2p/go-libp2p/core/crypto"
+"github.com/libp2p/go-libp2p/core/host"
+"github.com/libp2p/go-libp2p/core/network"
+"github.com/libp2p/go-libp2p/core/peer"
+⋮----
+ds "github.com/ipfs/go-datastore"
+dsync "github.com/ipfs/go-datastore/sync"
+golog "github.com/ipfs/go-log/v2"
+⋮----
+dht "github.com/libp2p/go-libp2p-kad-dht"
+rhost "github.com/libp2p/go-libp2p/p2p/host/routed"
+ma "github.com/multiformats/go-multiaddr"
+⋮----
+// makeRoutedHost creates a LibP2P host with a random peer ID listening on the
+// given multiaddress. It will bootstrap using the provided PeerInfo.
+func makeRoutedHost(listenPort int, randseed int64, bootstrapPeers []peer.AddrInfo, globalFlag string) (host.Host, error)
+⋮----
+// If the seed is zero, use real cryptographic randomness. Otherwise, use a
+// deterministic randomness source to make generated keys stay the same
+// across multiple runs
+var r io.Reader
+⋮----
+// Generate a key pair for this host. We will use it at least
+// to obtain a valid host ID.
+⋮----
+// Construct a datastore (needed by the DHT). This is just a simple, in-memory thread-safe datastore.
+⋮----
+// Make the DHT
+⋮----
+// Make the routed host
+⋮----
+// connect to the chosen ipfs nodes
+⋮----
+// Bootstrap the host
+⋮----
+// Build host multiaddress
+⋮----
+// Now we can build a full multiaddress to reach this host
+// by encapsulating both addresses:
+// addr := routedHost.Addrs()[0]
+⋮----
+func main()
+⋮----
+// LibP2P code uses golog to log messages. They log with different
+// string IDs (i.e. "swarm"). We can control the verbosity level for
+// all loggers with:
+golog.SetAllLoggers(golog.LevelInfo) // Change to INFO for extra info
+⋮----
+// Parse options from the command line
+⋮----
+// Make a host that listens on the given multiaddress
+var bootstrapPeers []peer.AddrInfo
+var globalFlag string
+⋮----
+// Set a stream handler on host A. /echo/1.0.0 is
+// a user-defined protocol name.
+⋮----
+select {} // hang forever
+⋮----
+/**** This is where the listener code ends ****/
+⋮----
+// peerinfo := peer.AddrInfo{ID: peerid}
+⋮----
+// make a new stream from host B to host A
+// it should be handled on host A by the handler we set above because
+// we use the same /echo/1.0.0 protocol
+⋮----
+// doEcho reads a line of data from a stream and writes it back
+func doEcho(s network.Stream) error
+</file>
+
+<file path="examples/routed-echo/README.md">
+# Routed Host: echo client/server
+
+This example is intended to follow up the basic host and echo examples by adding use of the ipfs distributed hash table to lookup peers.
+
+Functionally, this example works similarly to the echo example, however setup of the host includes wrapping it with a Kademila hash table, so it can find peers using only their IDs. 
+
+We'll also enable NAT port mapping to illustrate the setup, although it isn't guaranteed to actually be used to make the connections.  Additionally, this example uses the newer `libp2p.New` constructor.
+
+## Build
+
+From `go-libp2p/examples` base folder:
+
+```
+> cd routed-echo/
+> go build
+```
+
+## Usage
+
+
+```
+> ./routed-echo -l 10000
+2018/02/19 12:22:32 I can be reached at:
+2018/02/19 12:22:32 /ip4/127.0.0.1/tcp/10000/p2p/QmfRY4vuKpU2tApACrbmYFn9xoeNzMQhLXg7nKnyvnzHeL
+2018/02/19 12:22:32 /ip4/192.168.1.203/tcp/10000/p2p/QmfRY4vuKpU2tApACrbmYFn9xoeNzMQhLXg7nKnyvnzHeL
+2018/02/19 12:22:32 Now run "./routed-echo -l 10001 -d QmfRY4vuKpU2tApACrbmYFn9xoeNzMQhLXg7nKnyvnzHeL" on a different terminal
+2018/02/19 12:22:32 listening for connections
+```
+
+The listener libp2p host will print its randomly generated Base58 encoded ID string, which combined with the ipfs DHT, can be used to reach the host, despite lacking other connection details.  By default, this example will bootstrap off your local IPFS peer (assuming one is running). If you'd rather bootstrap off the same peers go-ipfs uses, pass the `-global` flag in both terminals.
+
+Now, launch another node that talks to the listener:
+
+```
+> ./routed-echo -l 10001 -d QmfRY4vuKpU2tApACrbmYFn9xoeNzMQhLXg7nKnyvnzHeL
+```
+
+As in other examples, the new node will send the message `"Hello, world!"` to the listener, which will in turn echo it over the stream and close it. The listener logs the message, and the sender logs the response.
+
+## Details
+
+The `makeRoutedHost()` function creates a [go-libp2p routedhost](https://godoc.org/github.com/libp2p/go-libp2p/p2p/host/routed) object. `routedhost` objects wrap [go-libp2p basichost](https://godoc.org/github.com/libp2p/go-libp2p/p2p/host/basic) and add the ability to lookup a peers address using the ipfs distributed hash table as implemented by [go-libp2p-kad-dht](https://godoc.org/github.com/libp2p/go-libp2p-kad-dht).
+
+In order to create the routed host, the example needs:
+
+- A [go-libp2p basichost](https://godoc.org/github.com/libp2p/go-libp2p/p2p/host/basic) as in other examples.
+- A [go-libp2p-kad-dht](https://godoc.org/github.com/libp2p/go-libp2p-kad-dht) which provides the ability to lookup peers by ID.  Wrapping takes place via `routedHost := rhost.Wrap(basicHost, dht)`
+
+A `routedhost` can now open streams (bi-directional channel between to peers) using [NewStream](https://godoc.org/github.com/libp2p/go-libp2p/p2p/host/basic#BasicHost.NewStream) and use them to send and receive data tagged with a `Protocol.ID` (a string). The host can also listen for incoming connections for a given
+`Protocol` with [`SetStreamHandle()`](https://godoc.org/github.com/libp2p/go-libp2p/p2p/host/basic#BasicHost.SetStreamHandler).  The advantage of the routed host is that only the Peer ID is required to make the connection, not the underlying address details, since they are provided by the DHT.
+
+The example makes use of all of this to enable communication between a listener and a sender using protocol `/echo/1.0.0` (which could be any other thing).
+</file>
+
+</files>

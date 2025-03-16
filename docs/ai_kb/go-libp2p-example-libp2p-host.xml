@@ -1,0 +1,195 @@
+This file is a merged representation of a subset of the codebase, containing specifically included files, combined into a single document by Repomix.
+The content has been processed where content has been compressed (code blocks are separated by ⋮---- delimiter).
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Only files matching these patterns are included: examples/libp2p-host/**
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Content has been compressed - code blocks are separated by ⋮---- delimiter
+</notes>
+
+<additional_info>
+
+</additional_info>
+
+</file_summary>
+
+<directory_structure>
+examples/
+  libp2p-host/
+    .gitignore
+    host_test.go
+    host.go
+    README.md
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="examples/libp2p-host/.gitignore">
+libp2p-host
+</file>
+
+<file path="examples/libp2p-host/host_test.go">
+package main
+⋮----
+import (
+	"testing"
+
+	"github.com/libp2p/go-libp2p/examples/testutils"
+)
+⋮----
+"testing"
+⋮----
+"github.com/libp2p/go-libp2p/examples/testutils"
+⋮----
+func TestMain(t *testing.T)
+⋮----
+var h testutils.LogHarness
+</file>
+
+<file path="examples/libp2p-host/host.go">
+package main
+⋮----
+import (
+	"context"
+	"log"
+	"time"
+
+	"github.com/libp2p/go-libp2p/p2p/net/connmgr"
+
+	"github.com/libp2p/go-libp2p"
+	dht "github.com/libp2p/go-libp2p-kad-dht"
+	"github.com/libp2p/go-libp2p/core/crypto"
+	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/routing"
+	"github.com/libp2p/go-libp2p/p2p/security/noise"
+	libp2ptls "github.com/libp2p/go-libp2p/p2p/security/tls"
+)
+⋮----
+"context"
+"log"
+"time"
+⋮----
+"github.com/libp2p/go-libp2p/p2p/net/connmgr"
+⋮----
+"github.com/libp2p/go-libp2p"
+dht "github.com/libp2p/go-libp2p-kad-dht"
+"github.com/libp2p/go-libp2p/core/crypto"
+"github.com/libp2p/go-libp2p/core/host"
+"github.com/libp2p/go-libp2p/core/routing"
+"github.com/libp2p/go-libp2p/p2p/security/noise"
+libp2ptls "github.com/libp2p/go-libp2p/p2p/security/tls"
+⋮----
+func main()
+⋮----
+func run()
+⋮----
+// To construct a simple host with all the default settings, just use `New`
+⋮----
+// Now, normally you do not just want a simple host, you want
+// that is fully configured to best support your p2p application.
+// Let's create a second host setting some more options.
+⋮----
+// Set your own keypair
+⋮----
+crypto.Ed25519, // Select your key type. Ed25519 are nice short
+-1,             // Select key length when possible (i.e. RSA).
+⋮----
+var idht *dht.IpfsDHT
+⋮----
+100, // Lowwater
+400, // HighWater,
+⋮----
+// Use the keypair we generated
+⋮----
+// Multiple listen addresses
+⋮----
+"/ip4/0.0.0.0/tcp/9000",         // regular tcp connections
+"/ip4/0.0.0.0/udp/9000/quic-v1", // a UDP endpoint for the QUIC transport
+⋮----
+// support TLS connections
+⋮----
+// support noise connections
+⋮----
+// support any other default transports (TCP)
+⋮----
+// Let's prevent our peer from having too many
+// connections by attaching a connection manager.
+⋮----
+// Attempt to open ports using uPNP for NATed hosts.
+⋮----
+// Let this host use the DHT to find other hosts
+⋮----
+// If you want to help other peers to figure out if they are behind
+// NATs, you can launch the server-side of AutoNAT too (AutoRelay
+// already runs the client)
+//
+// This service is highly rate-limited and should not cause any
+// performance issues.
+⋮----
+// The last step to get fully up and running would be to connect to
+// bootstrap peers (or any other peers). We leave this commented as
+// this is an example and the peer will die as soon as it finishes, so
+// it is unnecessary to put strain on the network.
+⋮----
+/*
+		// This connects to public bootstrappers
+		for _, addr := range dht.DefaultBootstrapPeers {
+			pi, _ := peer.AddrInfoFromP2pAddr(addr)
+			// We ignore errors as some bootstrap peers may be down
+			// and that is fine.
+			h2.Connect(ctx, *pi)
+		}
+	*/
+</file>
+
+<file path="examples/libp2p-host/README.md">
+# The libp2p 'host'
+
+For most applications, the host is the basic building block you'll need to get started. This guide will show how to construct and use a simple host on one side, and a more fully-featured host on the other.
+
+The host is an abstraction that manages services on top of a swarm. It provides a clean interface to connect to a service on a given remote peer.
+
+If you want to create a host with a default configuration refer to the example in `./host.go`
+
+If you want more control over the configuration, you can specify some options to the constructor. For a full list of all the configuration supported by the constructor [see the different options in the docs](https://godoc.org/github.com/libp2p/go-libp2p).
+
+In `./host.go` we set a number of useful options like a custom ID and enable routing. This will improve discoverability and reachability of the peer on NAT'ed environments.
+
+In future guides we will go over ways to use hosts, configure them differently (hint: there are a huge number of ways to set these up), and interesting ways to apply this technology to various applications you might want to build.
+
+To see this code all put together, take a look at [host.go](host.go).
+</file>
+
+</files>

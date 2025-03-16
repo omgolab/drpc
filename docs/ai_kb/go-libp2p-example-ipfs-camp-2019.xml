@@ -1,0 +1,1085 @@
+This file is a merged representation of a subset of the codebase, containing specifically included files, combined into a single document by Repomix.
+The content has been processed where content has been compressed (code blocks are separated by ⋮---- delimiter).
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Only files matching these patterns are included: examples/ipfs-camp-2019/**
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Content has been compressed - code blocks are separated by ⋮---- delimiter
+</notes>
+
+<additional_info>
+
+</additional_info>
+
+</file_summary>
+
+<directory_structure>
+examples/
+  ipfs-camp-2019/
+    01-Transports/
+      .gitignore
+      main.go
+    02-Multiaddrs/
+      .gitignore
+      main.go
+    03-Muxing-Encryption/
+      .gitignore
+      main.go
+    05-Discovery/
+      .gitignore
+      main.go
+      protocol.go
+      README.md
+    06-Pubsub/
+      .gitignore
+      main.go
+      protocol.go
+      README.md
+    07-Messaging/
+      .gitignore
+      chat.pb.go
+      chat.proto
+      main.go
+      protocol.go
+      pubsub.go
+      README.md
+    08-End/
+      .gitignore
+      chat.pb.go
+      chat.proto
+      main.go
+      protocol.go
+      pubsub.go
+    go.mod
+    README.md
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="examples/ipfs-camp-2019/01-Transports/.gitignore">
+01-Transports
+</file>
+
+<file path="examples/ipfs-camp-2019/01-Transports/main.go">
+package main
+⋮----
+import (
+	"github.com/libp2p/go-libp2p"
+)
+⋮----
+"github.com/libp2p/go-libp2p"
+⋮----
+func main()
+⋮----
+// TODO: add some libp2p.Transport options to this chain!
+</file>
+
+<file path="examples/ipfs-camp-2019/02-Multiaddrs/.gitignore">
+02-Multiaddrs
+</file>
+
+<file path="examples/ipfs-camp-2019/02-Multiaddrs/main.go">
+package main
+⋮----
+import (
+	"github.com/libp2p/go-libp2p"
+	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
+	"github.com/libp2p/go-libp2p/p2p/transport/websocket"
+)
+⋮----
+"github.com/libp2p/go-libp2p"
+"github.com/libp2p/go-libp2p/p2p/transport/tcp"
+"github.com/libp2p/go-libp2p/p2p/transport/websocket"
+⋮----
+func main()
+⋮----
+// TODO: add some listen addresses with the libp2p.ListenAddrs or
+// libp2p.ListenAddrStrings configuration options.
+⋮----
+// TODO: with our host made, let's connect to our bootstrap peer
+</file>
+
+<file path="examples/ipfs-camp-2019/03-Muxing-Encryption/.gitignore">
+03-Muxing-Encryption
+</file>
+
+<file path="examples/ipfs-camp-2019/03-Muxing-Encryption/main.go">
+package main
+⋮----
+import (
+	"context"
+	"fmt"
+	"time"
+
+	"github.com/libp2p/go-libp2p"
+	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
+	"github.com/libp2p/go-libp2p/p2p/transport/websocket"
+
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/multiformats/go-multiaddr"
+)
+⋮----
+"context"
+"fmt"
+"time"
+⋮----
+"github.com/libp2p/go-libp2p"
+"github.com/libp2p/go-libp2p/p2p/transport/tcp"
+"github.com/libp2p/go-libp2p/p2p/transport/websocket"
+⋮----
+"github.com/libp2p/go-libp2p/core/peer"
+"github.com/multiformats/go-multiaddr"
+⋮----
+func main()
+⋮----
+// TODO: add a libp2p.Security instance and some libp2p.Muxer's
+</file>
+
+<file path="examples/ipfs-camp-2019/05-Discovery/.gitignore">
+05-Discovery
+</file>
+
+<file path="examples/ipfs-camp-2019/05-Discovery/main.go">
+package main
+⋮----
+import (
+	"context"
+	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/libp2p/go-libp2p"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/p2p/muxer/yamux"
+	tls "github.com/libp2p/go-libp2p/p2p/security/tls"
+	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
+	"github.com/libp2p/go-libp2p/p2p/transport/websocket"
+
+	"github.com/multiformats/go-multiaddr"
+)
+⋮----
+"context"
+"fmt"
+"os"
+"os/signal"
+"syscall"
+⋮----
+"github.com/libp2p/go-libp2p"
+"github.com/libp2p/go-libp2p/core/peer"
+"github.com/libp2p/go-libp2p/p2p/muxer/yamux"
+tls "github.com/libp2p/go-libp2p/p2p/security/tls"
+"github.com/libp2p/go-libp2p/p2p/transport/tcp"
+"github.com/libp2p/go-libp2p/p2p/transport/websocket"
+⋮----
+"github.com/multiformats/go-multiaddr"
+⋮----
+func main()
+⋮----
+// TODO: Configure libp2p to use a DHT with a libp2p.Routing option
+</file>
+
+<file path="examples/ipfs-camp-2019/05-Discovery/protocol.go">
+package main
+⋮----
+import (
+	"bufio"
+	"context"
+	"fmt"
+	"io"
+	"os"
+
+	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/network"
+)
+⋮----
+"bufio"
+"context"
+"fmt"
+"io"
+"os"
+⋮----
+"github.com/libp2p/go-libp2p/core/host"
+"github.com/libp2p/go-libp2p/core/network"
+⋮----
+const chatProtocol = "/libp2p/chat/1.0.0"
+⋮----
+func chatHandler(s network.Stream)
+⋮----
+func chatSend(msg string, s network.Stream) error
+⋮----
+func chatInputLoop(ctx context.Context, h host.Host, donec chan struct
+</file>
+
+<file path="examples/ipfs-camp-2019/05-Discovery/README.md">
+# 05 Discovery
+
+Be sure to check out these modules:
+
+- https://godoc.org/github.com/libp2p/go-libp2p#Routing
+- https://godoc.org/github.com/libp2p/go-libp2p-kad-dht#New
+</file>
+
+<file path="examples/ipfs-camp-2019/06-Pubsub/.gitignore">
+06-Pubsub
+</file>
+
+<file path="examples/ipfs-camp-2019/06-Pubsub/main.go">
+package main
+⋮----
+import (
+	"context"
+	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/libp2p/go-libp2p"
+	kaddht "github.com/libp2p/go-libp2p-kad-dht"
+	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/routing"
+	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
+	drouting "github.com/libp2p/go-libp2p/p2p/discovery/routing"
+	dutil "github.com/libp2p/go-libp2p/p2p/discovery/util"
+	"github.com/libp2p/go-libp2p/p2p/muxer/yamux"
+	tls "github.com/libp2p/go-libp2p/p2p/security/tls"
+	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
+	"github.com/libp2p/go-libp2p/p2p/transport/websocket"
+
+	"github.com/multiformats/go-multiaddr"
+)
+⋮----
+"context"
+"fmt"
+"os"
+"os/signal"
+"syscall"
+⋮----
+"github.com/libp2p/go-libp2p"
+kaddht "github.com/libp2p/go-libp2p-kad-dht"
+"github.com/libp2p/go-libp2p/core/host"
+"github.com/libp2p/go-libp2p/core/network"
+"github.com/libp2p/go-libp2p/core/peer"
+"github.com/libp2p/go-libp2p/core/routing"
+"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
+drouting "github.com/libp2p/go-libp2p/p2p/discovery/routing"
+dutil "github.com/libp2p/go-libp2p/p2p/discovery/util"
+"github.com/libp2p/go-libp2p/p2p/muxer/yamux"
+tls "github.com/libp2p/go-libp2p/p2p/security/tls"
+"github.com/libp2p/go-libp2p/p2p/transport/tcp"
+"github.com/libp2p/go-libp2p/p2p/transport/websocket"
+⋮----
+"github.com/multiformats/go-multiaddr"
+⋮----
+type discoveryNotifee struct {
+	h   host.Host
+	ctx context.Context
+}
+⋮----
+func (m *discoveryNotifee) HandlePeerFound(pi peer.AddrInfo)
+⋮----
+func main()
+⋮----
+var dht *kaddht.IpfsDHT
+⋮----
+var err error
+⋮----
+// TODO: Replace our stream handler with a pubsub instance, and a handler
+// to field incoming messages on our topic.
+</file>
+
+<file path="examples/ipfs-camp-2019/06-Pubsub/protocol.go">
+package main
+⋮----
+import (
+	"bufio"
+	"context"
+	"fmt"
+	"io"
+	"os"
+
+	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/network"
+)
+⋮----
+"bufio"
+"context"
+"fmt"
+"io"
+"os"
+⋮----
+"github.com/libp2p/go-libp2p/core/host"
+"github.com/libp2p/go-libp2p/core/network"
+⋮----
+const chatProtocol = "/libp2p/chat/1.0.0"
+⋮----
+// TODO: Replace this handler with a function that handles message from a
+// pubsub Subscribe channel.
+func chatHandler(s network.Stream)
+⋮----
+// TODO: Replace this with a send function that publishes the string messages
+// on our pubsub topic.
+func chatSend(msg string, s network.Stream) error
+⋮----
+func chatInputLoop(ctx context.Context, h host.Host, donec chan struct
+</file>
+
+<file path="examples/ipfs-camp-2019/06-Pubsub/README.md">
+# 06 Pubsub
+
+Be sure to check out these modules:
+
+- https://godoc.org/github.com/libp2p/go-libp2p-pubsub
+</file>
+
+<file path="examples/ipfs-camp-2019/07-Messaging/.gitignore">
+07-Messaging
+</file>
+
+<file path="examples/ipfs-camp-2019/07-Messaging/chat.pb.go">
+// Code generated by protoc-gen-gogo. DO NOT EDIT.
+// source: chat.proto
+⋮----
+package main
+⋮----
+import (
+	fmt "fmt"
+	math "math"
+
+	proto "github.com/gogo/protobuf/proto"
+)
+⋮----
+fmt "fmt"
+math "math"
+⋮----
+proto "github.com/gogo/protobuf/proto"
+⋮----
+// Reference imports to suppress errors if they are not otherwise used.
+var _ = proto.Marshal
+var _ = fmt.Errorf
+var _ = math.Inf
+⋮----
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
+⋮----
+type Request_Type int32
+⋮----
+const (
+	Request_SEND_MESSAGE Request_Type = 0
+	Request_UPDATE_PEER  Request_Type = 1
+)
+⋮----
+var Request_Type_name = map[int32]string{
+	0: "SEND_MESSAGE",
+	1: "UPDATE_PEER",
+}
+⋮----
+var Request_Type_value = map[string]int32{
+	"SEND_MESSAGE": 0,
+	"UPDATE_PEER":  1,
+}
+⋮----
+func (x Request_Type) Enum() *Request_Type
+⋮----
+func (x Request_Type) String() string
+⋮----
+func (x *Request_Type) UnmarshalJSON(data []byte) error
+⋮----
+func (Request_Type) EnumDescriptor() ([]byte, []int)
+⋮----
+type Request struct {
+	Type                 *Request_Type `protobuf:"varint,1,req,name=type,enum=main.Request_Type" json:"type,omitempty"`
+	SendMessage          *SendMessage  `protobuf:"bytes,2,opt,name=sendMessage" json:"sendMessage,omitempty"`
+	UpdatePeer           *UpdatePeer   `protobuf:"bytes,3,opt,name=updatePeer" json:"updatePeer,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
+⋮----
+func (m *Request) Reset()
+⋮----
+func (*Request) ProtoMessage()
+func (*Request) Descriptor() ([]byte, []int)
+func (m *Request) XXX_Unmarshal(b []byte) error
+func (m *Request) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+func (m *Request) XXX_Merge(src proto.Message)
+func (m *Request) XXX_Size() int
+func (m *Request) XXX_DiscardUnknown()
+⋮----
+var xxx_messageInfo_Request proto.InternalMessageInfo
+⋮----
+func (m *Request) GetType() Request_Type
+⋮----
+func (m *Request) GetSendMessage() *SendMessage
+⋮----
+func (m *Request) GetUpdatePeer() *UpdatePeer
+⋮----
+type SendMessage struct {
+	Data                 []byte   `protobuf:"bytes,1,req,name=data" json:"data,omitempty"`
+	Created              *int64   `protobuf:"varint,2,req,name=created" json:"created,omitempty"`
+	Id                   []byte   `protobuf:"bytes,3,req,name=id" json:"id,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+⋮----
+var xxx_messageInfo_SendMessage proto.InternalMessageInfo
+⋮----
+func (m *SendMessage) GetData() []byte
+⋮----
+func (m *SendMessage) GetCreated() int64
+⋮----
+func (m *SendMessage) GetId() []byte
+⋮----
+type UpdatePeer struct {
+	UserHandle           []byte   `protobuf:"bytes,1,opt,name=userHandle" json:"userHandle,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+⋮----
+var xxx_messageInfo_UpdatePeer proto.InternalMessageInfo
+⋮----
+func (m *UpdatePeer) GetUserHandle() []byte
+⋮----
+func init()
+⋮----
+var fileDescriptor_8c585a45e2093e54 = []byte{
+	// 251 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x4c, 0x90, 0x51, 0x4b, 0xc3, 0x30,
+	0x14, 0x85, 0x4d, 0x5a, 0x18, 0xdc, 0x96, 0x59, 0xef, 0x53, 0x9e, 0xa4, 0xf4, 0x41, 0x2a, 0x48,
+	0x91, 0xf9, 0x0b, 0x06, 0x0b, 0x0a, 0x32, 0x29, 0xe9, 0xf6, 0x3c, 0xc2, 0x72, 0xd1, 0x82, 0x76,
+	0xb5, 0x49, 0x1f, 0xf6, 0xfb, 0xfc, 0x63, 0xd2, 0x4c, 0xb7, 0xbc, 0x25, 0xe7, 0x7c, 0x87, 0x73,
+	0xef, 0x05, 0xd8, 0x7f, 0x68, 0x57, 0xf5, 0xc3, 0xc1, 0x1d, 0x30, 0xfe, 0xd2, 0x6d, 0x57, 0xfc,
+	0x30, 0x98, 0x29, 0xfa, 0x1e, 0xc9, 0x3a, 0xbc, 0x83, 0xd8, 0x1d, 0x7b, 0x12, 0x2c, 0xe7, 0xe5,
+	0x7c, 0x81, 0xd5, 0x04, 0x54, 0x7f, 0x66, 0xb5, 0x39, 0xf6, 0xa4, 0xbc, 0x8f, 0x4f, 0x90, 0x58,
+	0xea, 0xcc, 0x9a, 0xac, 0xd5, 0xef, 0x24, 0x78, 0xce, 0xca, 0x64, 0x71, 0x73, 0xc2, 0x9b, 0x8b,
+	0xa1, 0x42, 0x0a, 0x1f, 0x01, 0xc6, 0xde, 0x68, 0x47, 0x35, 0xd1, 0x20, 0x22, 0x9f, 0xc9, 0x4e,
+	0x99, 0xed, 0x59, 0x57, 0x01, 0x53, 0xdc, 0x43, 0x3c, 0x95, 0x62, 0x06, 0x69, 0x23, 0xdf, 0x56,
+	0xbb, 0xb5, 0x6c, 0x9a, 0xe5, 0xb3, 0xcc, 0xae, 0xf0, 0x1a, 0x92, 0x6d, 0xbd, 0x5a, 0x6e, 0xe4,
+	0xae, 0x96, 0x52, 0x65, 0xac, 0x78, 0x85, 0x24, 0x28, 0x46, 0x84, 0xd8, 0x68, 0xa7, 0xfd, 0x22,
+	0xa9, 0xf2, 0x6f, 0x14, 0x30, 0xdb, 0x0f, 0xa4, 0x1d, 0x19, 0xc1, 0x73, 0x5e, 0x46, 0xea, 0xff,
+	0x8b, 0x73, 0xe0, 0xad, 0x11, 0x91, 0x67, 0x79, 0x6b, 0x8a, 0x07, 0x80, 0xcb, 0x44, 0x78, 0x0b,
+	0x30, 0x5a, 0x1a, 0x5e, 0x74, 0x67, 0x3e, 0xa7, 0xd3, 0xb0, 0x32, 0x55, 0x81, 0xf2, 0x1b, 0x00,
+	0x00, 0xff, 0xff, 0x5c, 0xd9, 0x58, 0xd2, 0x53, 0x01, 0x00, 0x00,
+}
+⋮----
+// 251 bytes of a gzipped FileDescriptorProto
+</file>
+
+<file path="examples/ipfs-camp-2019/07-Messaging/chat.proto">
+syntax = "proto2";
+package main;
+
+message Request {
+  enum Type {
+    SEND_MESSAGE = 0;
+    UPDATE_PEER = 1;
+  }
+
+  required Type type = 1;
+  optional SendMessage sendMessage = 2;
+  optional UpdatePeer updatePeer = 3;
+}
+
+message SendMessage {
+  required bytes data = 1;
+  required int64 created = 2;
+  required bytes id = 3;
+}
+
+message UpdatePeer {
+  optional bytes userHandle = 1;
+}
+</file>
+
+<file path="examples/ipfs-camp-2019/07-Messaging/main.go">
+package main
+⋮----
+import (
+	"context"
+	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/libp2p/go-libp2p"
+	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
+	"github.com/libp2p/go-libp2p/p2p/muxer/yamux"
+	tls "github.com/libp2p/go-libp2p/p2p/security/tls"
+	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
+	"github.com/libp2p/go-libp2p/p2p/transport/websocket"
+
+	kaddht "github.com/libp2p/go-libp2p-kad-dht"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/routing"
+
+	"github.com/multiformats/go-multiaddr"
+)
+⋮----
+"context"
+"fmt"
+"os"
+"os/signal"
+"syscall"
+⋮----
+"github.com/libp2p/go-libp2p"
+"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
+"github.com/libp2p/go-libp2p/p2p/muxer/yamux"
+tls "github.com/libp2p/go-libp2p/p2p/security/tls"
+"github.com/libp2p/go-libp2p/p2p/transport/tcp"
+"github.com/libp2p/go-libp2p/p2p/transport/websocket"
+⋮----
+kaddht "github.com/libp2p/go-libp2p-kad-dht"
+pubsub "github.com/libp2p/go-libp2p-pubsub"
+"github.com/libp2p/go-libp2p/core/host"
+"github.com/libp2p/go-libp2p/core/peer"
+"github.com/libp2p/go-libp2p/core/routing"
+⋮----
+"github.com/multiformats/go-multiaddr"
+⋮----
+type mdnsNotifee struct {
+	h   host.Host
+	ctx context.Context
+}
+⋮----
+func (m *mdnsNotifee) HandlePeerFound(pi peer.AddrInfo)
+⋮----
+func main()
+⋮----
+var dht *kaddht.IpfsDHT
+⋮----
+var err error
+⋮----
+// TODO: Modify this handler to use the protobufs defined in this folder
+⋮----
+// TODO: modify this chat input loop to use the protobufs defined in this
+// folder.
+</file>
+
+<file path="examples/ipfs-camp-2019/07-Messaging/protocol.go">
+package main
+⋮----
+import (
+	"bufio"
+	"context"
+	"crypto/rand"
+	"fmt"
+	"os"
+	"time"
+
+	"github.com/gogo/protobuf/proto"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
+)
+⋮----
+"bufio"
+"context"
+"crypto/rand"
+"fmt"
+"os"
+"time"
+⋮----
+"github.com/gogo/protobuf/proto"
+pubsub "github.com/libp2p/go-libp2p-pubsub"
+⋮----
+func chatInputLoop(ctx context.Context, topic *pubsub.Topic, donec chan struct
+</file>
+
+<file path="examples/ipfs-camp-2019/07-Messaging/pubsub.go">
+package main
+⋮----
+import (
+	"context"
+	"fmt"
+	"os"
+
+	"github.com/gogo/protobuf/proto"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	peer "github.com/libp2p/go-libp2p/core/peer"
+)
+⋮----
+"context"
+"fmt"
+"os"
+⋮----
+"github.com/gogo/protobuf/proto"
+pubsub "github.com/libp2p/go-libp2p-pubsub"
+peer "github.com/libp2p/go-libp2p/core/peer"
+⋮----
+const pubsubTopic = "/libp2p/example/chat/1.0.0"
+⋮----
+func pubsubMessageHandler(id peer.ID, msg *SendMessage)
+⋮----
+func pubsubUpdateHandler(id peer.ID, msg *UpdatePeer)
+⋮----
+func pubsubHandler(ctx context.Context, sub *pubsub.Subscription)
+</file>
+
+<file path="examples/ipfs-camp-2019/07-Messaging/README.md">
+# 07 Messaging
+
+Be sure to check out these modules:
+
+- https://godoc.org/github.com/libp2p/go-libp2p-pubsub
+</file>
+
+<file path="examples/ipfs-camp-2019/08-End/.gitignore">
+08-End
+</file>
+
+<file path="examples/ipfs-camp-2019/08-End/chat.pb.go">
+// Code generated by protoc-gen-gogo. DO NOT EDIT.
+// source: chat.proto
+⋮----
+package main
+⋮----
+import (
+	fmt "fmt"
+	math "math"
+
+	proto "github.com/gogo/protobuf/proto"
+)
+⋮----
+fmt "fmt"
+math "math"
+⋮----
+proto "github.com/gogo/protobuf/proto"
+⋮----
+// Reference imports to suppress errors if they are not otherwise used.
+var _ = proto.Marshal
+var _ = fmt.Errorf
+var _ = math.Inf
+⋮----
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the proto package it is being compiled against.
+// A compilation error at this line likely means your copy of the
+// proto package needs to be updated.
+const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
+⋮----
+type Request_Type int32
+⋮----
+const (
+	Request_SEND_MESSAGE Request_Type = 0
+	Request_UPDATE_PEER  Request_Type = 1
+)
+⋮----
+var Request_Type_name = map[int32]string{
+	0: "SEND_MESSAGE",
+	1: "UPDATE_PEER",
+}
+⋮----
+var Request_Type_value = map[string]int32{
+	"SEND_MESSAGE": 0,
+	"UPDATE_PEER":  1,
+}
+⋮----
+func (x Request_Type) Enum() *Request_Type
+⋮----
+func (x Request_Type) String() string
+⋮----
+func (x *Request_Type) UnmarshalJSON(data []byte) error
+⋮----
+func (Request_Type) EnumDescriptor() ([]byte, []int)
+⋮----
+type Request struct {
+	Type                 *Request_Type `protobuf:"varint,1,req,name=type,enum=main.Request_Type" json:"type,omitempty"`
+	SendMessage          *SendMessage  `protobuf:"bytes,2,opt,name=sendMessage" json:"sendMessage,omitempty"`
+	UpdatePeer           *UpdatePeer   `protobuf:"bytes,3,opt,name=updatePeer" json:"updatePeer,omitempty"`
+	XXX_NoUnkeyedLiteral struct{}      `json:"-"`
+⋮----
+func (m *Request) Reset()
+⋮----
+func (*Request) ProtoMessage()
+func (*Request) Descriptor() ([]byte, []int)
+func (m *Request) XXX_Unmarshal(b []byte) error
+func (m *Request) XXX_Marshal(b []byte, deterministic bool) ([]byte, error)
+func (m *Request) XXX_Merge(src proto.Message)
+func (m *Request) XXX_Size() int
+func (m *Request) XXX_DiscardUnknown()
+⋮----
+var xxx_messageInfo_Request proto.InternalMessageInfo
+⋮----
+func (m *Request) GetType() Request_Type
+⋮----
+func (m *Request) GetSendMessage() *SendMessage
+⋮----
+func (m *Request) GetUpdatePeer() *UpdatePeer
+⋮----
+type SendMessage struct {
+	Data                 []byte   `protobuf:"bytes,1,req,name=data" json:"data,omitempty"`
+	Created              *int64   `protobuf:"varint,2,req,name=created" json:"created,omitempty"`
+	Id                   []byte   `protobuf:"bytes,3,req,name=id" json:"id,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+⋮----
+var xxx_messageInfo_SendMessage proto.InternalMessageInfo
+⋮----
+func (m *SendMessage) GetData() []byte
+⋮----
+func (m *SendMessage) GetCreated() int64
+⋮----
+func (m *SendMessage) GetId() []byte
+⋮----
+type UpdatePeer struct {
+	UserHandle           []byte   `protobuf:"bytes,1,opt,name=userHandle" json:"userHandle,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+⋮----
+var xxx_messageInfo_UpdatePeer proto.InternalMessageInfo
+⋮----
+func (m *UpdatePeer) GetUserHandle() []byte
+⋮----
+func init()
+⋮----
+var fileDescriptor_8c585a45e2093e54 = []byte{
+	// 251 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x4c, 0x90, 0x51, 0x4b, 0xc3, 0x30,
+	0x14, 0x85, 0x4d, 0x5a, 0x18, 0xdc, 0x96, 0x59, 0xef, 0x53, 0x9e, 0xa4, 0xf4, 0x41, 0x2a, 0x48,
+	0x91, 0xf9, 0x0b, 0x06, 0x0b, 0x0a, 0x32, 0x29, 0xe9, 0xf6, 0x3c, 0xc2, 0x72, 0xd1, 0x82, 0x76,
+	0xb5, 0x49, 0x1f, 0xf6, 0xfb, 0xfc, 0x63, 0xd2, 0x4c, 0xb7, 0xbc, 0x25, 0xe7, 0x7c, 0x87, 0x73,
+	0xef, 0x05, 0xd8, 0x7f, 0x68, 0x57, 0xf5, 0xc3, 0xc1, 0x1d, 0x30, 0xfe, 0xd2, 0x6d, 0x57, 0xfc,
+	0x30, 0x98, 0x29, 0xfa, 0x1e, 0xc9, 0x3a, 0xbc, 0x83, 0xd8, 0x1d, 0x7b, 0x12, 0x2c, 0xe7, 0xe5,
+	0x7c, 0x81, 0xd5, 0x04, 0x54, 0x7f, 0x66, 0xb5, 0x39, 0xf6, 0xa4, 0xbc, 0x8f, 0x4f, 0x90, 0x58,
+	0xea, 0xcc, 0x9a, 0xac, 0xd5, 0xef, 0x24, 0x78, 0xce, 0xca, 0x64, 0x71, 0x73, 0xc2, 0x9b, 0x8b,
+	0xa1, 0x42, 0x0a, 0x1f, 0x01, 0xc6, 0xde, 0x68, 0x47, 0x35, 0xd1, 0x20, 0x22, 0x9f, 0xc9, 0x4e,
+	0x99, 0xed, 0x59, 0x57, 0x01, 0x53, 0xdc, 0x43, 0x3c, 0x95, 0x62, 0x06, 0x69, 0x23, 0xdf, 0x56,
+	0xbb, 0xb5, 0x6c, 0x9a, 0xe5, 0xb3, 0xcc, 0xae, 0xf0, 0x1a, 0x92, 0x6d, 0xbd, 0x5a, 0x6e, 0xe4,
+	0xae, 0x96, 0x52, 0x65, 0xac, 0x78, 0x85, 0x24, 0x28, 0x46, 0x84, 0xd8, 0x68, 0xa7, 0xfd, 0x22,
+	0xa9, 0xf2, 0x6f, 0x14, 0x30, 0xdb, 0x0f, 0xa4, 0x1d, 0x19, 0xc1, 0x73, 0x5e, 0x46, 0xea, 0xff,
+	0x8b, 0x73, 0xe0, 0xad, 0x11, 0x91, 0x67, 0x79, 0x6b, 0x8a, 0x07, 0x80, 0xcb, 0x44, 0x78, 0x0b,
+	0x30, 0x5a, 0x1a, 0x5e, 0x74, 0x67, 0x3e, 0xa7, 0xd3, 0xb0, 0x32, 0x55, 0x81, 0xf2, 0x1b, 0x00,
+	0x00, 0xff, 0xff, 0x5c, 0xd9, 0x58, 0xd2, 0x53, 0x01, 0x00, 0x00,
+}
+⋮----
+// 251 bytes of a gzipped FileDescriptorProto
+</file>
+
+<file path="examples/ipfs-camp-2019/08-End/chat.proto">
+syntax = "proto2";
+package main;
+
+message Request {
+  enum Type {
+    SEND_MESSAGE = 0;
+    UPDATE_PEER = 1;
+  }
+
+  required Type type = 1;
+  optional SendMessage sendMessage = 2;
+  optional UpdatePeer updatePeer = 3;
+}
+
+message SendMessage {
+  required bytes data = 1;
+  required int64 created = 2;
+  required bytes id = 3;
+}
+
+message UpdatePeer {
+  optional bytes userHandle = 1;
+}
+</file>
+
+<file path="examples/ipfs-camp-2019/08-End/main.go">
+package main
+⋮----
+import (
+	"context"
+	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/libp2p/go-libp2p"
+	kaddht "github.com/libp2p/go-libp2p-kad-dht"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/routing"
+	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
+	"github.com/libp2p/go-libp2p/p2p/muxer/yamux"
+	tls "github.com/libp2p/go-libp2p/p2p/security/tls"
+	"github.com/libp2p/go-libp2p/p2p/transport/tcp"
+	"github.com/libp2p/go-libp2p/p2p/transport/websocket"
+
+	"github.com/multiformats/go-multiaddr"
+)
+⋮----
+"context"
+"fmt"
+"os"
+"os/signal"
+"syscall"
+⋮----
+"github.com/libp2p/go-libp2p"
+kaddht "github.com/libp2p/go-libp2p-kad-dht"
+pubsub "github.com/libp2p/go-libp2p-pubsub"
+"github.com/libp2p/go-libp2p/core/host"
+"github.com/libp2p/go-libp2p/core/peer"
+"github.com/libp2p/go-libp2p/core/routing"
+"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
+"github.com/libp2p/go-libp2p/p2p/muxer/yamux"
+tls "github.com/libp2p/go-libp2p/p2p/security/tls"
+"github.com/libp2p/go-libp2p/p2p/transport/tcp"
+"github.com/libp2p/go-libp2p/p2p/transport/websocket"
+⋮----
+"github.com/multiformats/go-multiaddr"
+⋮----
+type mdnsNotifee struct {
+	h   host.Host
+	ctx context.Context
+}
+⋮----
+func (m *mdnsNotifee) HandlePeerFound(pi peer.AddrInfo)
+⋮----
+func main()
+⋮----
+var dht *kaddht.IpfsDHT
+⋮----
+var err error
+</file>
+
+<file path="examples/ipfs-camp-2019/08-End/protocol.go">
+package main
+⋮----
+import (
+	"bufio"
+	"context"
+	"crypto/rand"
+	"fmt"
+	"os"
+	"time"
+
+	"strings"
+
+	"github.com/gogo/protobuf/proto"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	"github.com/libp2p/go-libp2p/core/host"
+	peer "github.com/libp2p/go-libp2p/core/peer"
+)
+⋮----
+"bufio"
+"context"
+"crypto/rand"
+"fmt"
+"os"
+"time"
+⋮----
+"strings"
+⋮----
+"github.com/gogo/protobuf/proto"
+pubsub "github.com/libp2p/go-libp2p-pubsub"
+"github.com/libp2p/go-libp2p/core/host"
+peer "github.com/libp2p/go-libp2p/core/peer"
+⋮----
+func sendMessage(ctx context.Context, topic *pubsub.Topic, msg string)
+⋮----
+func updatePeer(ctx context.Context, topic *pubsub.Topic, id peer.ID, handle string)
+⋮----
+func chatInputLoop(ctx context.Context, h host.Host, topic *pubsub.Topic, donec chan struct
+</file>
+
+<file path="examples/ipfs-camp-2019/08-End/pubsub.go">
+package main
+⋮----
+import (
+	"context"
+	"fmt"
+	"os"
+
+	"github.com/gogo/protobuf/proto"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	peer "github.com/libp2p/go-libp2p/core/peer"
+)
+⋮----
+"context"
+"fmt"
+"os"
+⋮----
+"github.com/gogo/protobuf/proto"
+pubsub "github.com/libp2p/go-libp2p-pubsub"
+peer "github.com/libp2p/go-libp2p/core/peer"
+⋮----
+var handles = map[string]string{}
+⋮----
+const pubsubTopic = "/libp2p/example/chat/1.0.0"
+⋮----
+func pubsubMessageHandler(id peer.ID, msg *SendMessage)
+⋮----
+func pubsubUpdateHandler(id peer.ID, msg *UpdatePeer)
+⋮----
+func pubsubHandler(ctx context.Context, sub *pubsub.Subscription)
+</file>
+
+<file path="examples/ipfs-camp-2019/go.mod">
+module github.com/libp2p/go-libp2p/examples/ipfs-camp-2019
+
+go 1.23
+
+require (
+	github.com/gogo/protobuf v1.3.2
+	github.com/libp2p/go-libp2p v0.33.0
+	github.com/libp2p/go-libp2p-kad-dht v0.25.1
+	github.com/libp2p/go-libp2p-pubsub v0.10.0
+	github.com/multiformats/go-multiaddr v0.12.2
+)
+
+require (
+	github.com/benbjohnson/clock v1.3.5 // indirect
+	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/cespare/xxhash/v2 v2.2.0 // indirect
+	github.com/containerd/cgroups v1.1.0 // indirect
+	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
+	github.com/davidlazar/go-crypto v0.0.0-20200604182044-b73af7476f6c // indirect
+	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
+	github.com/docker/go-units v0.5.0 // indirect
+	github.com/elastic/gosigar v0.14.2 // indirect
+	github.com/flynn/noise v1.1.0 // indirect
+	github.com/francoispqt/gojay v1.2.13 // indirect
+	github.com/go-logr/logr v1.3.0 // indirect
+	github.com/go-logr/stdr v1.2.2 // indirect
+	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
+	github.com/godbus/dbus/v5 v5.1.0 // indirect
+	github.com/google/gopacket v1.1.19 // indirect
+	github.com/google/pprof v0.0.0-20240207164012-fb44976bdcd5 // indirect
+	github.com/google/uuid v1.4.0 // indirect
+	github.com/gorilla/websocket v1.5.1 // indirect
+	github.com/hashicorp/errwrap v1.1.0 // indirect
+	github.com/hashicorp/go-multierror v1.1.1 // indirect
+	github.com/hashicorp/golang-lru v0.5.4 // indirect
+	github.com/hashicorp/golang-lru/v2 v2.0.5 // indirect
+	github.com/huin/goupnp v1.3.0 // indirect
+	github.com/ipfs/boxo v0.10.0 // indirect
+	github.com/ipfs/go-cid v0.4.1 // indirect
+	github.com/ipfs/go-datastore v0.6.0 // indirect
+	github.com/ipfs/go-log v1.0.5 // indirect
+	github.com/ipfs/go-log/v2 v2.5.1 // indirect
+	github.com/ipld/go-ipld-prime v0.20.0 // indirect
+	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
+	github.com/jbenet/go-temp-err-catcher v0.1.0 // indirect
+	github.com/jbenet/goprocess v0.1.4 // indirect
+	github.com/klauspost/compress v1.17.6 // indirect
+	github.com/klauspost/cpuid/v2 v2.2.7 // indirect
+	github.com/koron/go-ssdp v0.0.4 // indirect
+	github.com/libp2p/go-buffer-pool v0.1.0 // indirect
+	github.com/libp2p/go-cidranger v1.1.0 // indirect
+	github.com/libp2p/go-flow-metrics v0.1.0 // indirect
+	github.com/libp2p/go-libp2p-asn-util v0.4.1 // indirect
+	github.com/libp2p/go-libp2p-kbucket v0.6.3 // indirect
+	github.com/libp2p/go-libp2p-record v0.2.0 // indirect
+	github.com/libp2p/go-libp2p-routing-helpers v0.7.2 // indirect
+	github.com/libp2p/go-msgio v0.3.0 // indirect
+	github.com/libp2p/go-nat v0.2.0 // indirect
+	github.com/libp2p/go-netroute v0.2.1 // indirect
+	github.com/libp2p/go-reuseport v0.4.0 // indirect
+	github.com/libp2p/go-yamux/v4 v4.0.1 // indirect
+	github.com/libp2p/zeroconf/v2 v2.2.0 // indirect
+	github.com/marten-seemann/tcp v0.0.0-20210406111302-dfbc87cc63fd // indirect
+	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/miekg/dns v1.1.58 // indirect
+	github.com/mikioh/tcpinfo v0.0.0-20190314235526-30a79bb1804b // indirect
+	github.com/mikioh/tcpopt v0.0.0-20190314235656-172688c1accc // indirect
+	github.com/minio/sha256-simd v1.0.1 // indirect
+	github.com/mr-tron/base58 v1.2.0 // indirect
+	github.com/multiformats/go-base32 v0.1.0 // indirect
+	github.com/multiformats/go-base36 v0.2.0 // indirect
+	github.com/multiformats/go-multiaddr-dns v0.3.1 // indirect
+	github.com/multiformats/go-multiaddr-fmt v0.1.0 // indirect
+	github.com/multiformats/go-multibase v0.2.0 // indirect
+	github.com/multiformats/go-multicodec v0.9.0 // indirect
+	github.com/multiformats/go-multihash v0.2.3 // indirect
+	github.com/multiformats/go-multistream v0.5.0 // indirect
+	github.com/multiformats/go-varint v0.0.7 // indirect
+	github.com/onsi/ginkgo/v2 v2.15.0 // indirect
+	github.com/opencontainers/runtime-spec v1.2.0 // indirect
+	github.com/opentracing/opentracing-go v1.2.0 // indirect
+	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
+	github.com/polydawn/refmt v0.89.0 // indirect
+	github.com/prometheus/client_golang v1.18.0 // indirect
+	github.com/prometheus/client_model v0.6.0 // indirect
+	github.com/prometheus/common v0.47.0 // indirect
+	github.com/prometheus/procfs v0.12.0 // indirect
+	github.com/quic-go/qpack v0.4.0 // indirect
+	github.com/quic-go/quic-go v0.41.0 // indirect
+	github.com/quic-go/webtransport-go v0.6.0 // indirect
+	github.com/raulk/go-watchdog v1.3.0 // indirect
+	github.com/spaolacci/murmur3 v1.1.0 // indirect
+	github.com/whyrusleeping/go-keyspace v0.0.0-20160322163242-5b898ac5add1 // indirect
+	go.opencensus.io v0.24.0 // indirect
+	go.opentelemetry.io/otel v1.16.0 // indirect
+	go.opentelemetry.io/otel/metric v1.16.0 // indirect
+	go.opentelemetry.io/otel/trace v1.16.0 // indirect
+	go.uber.org/dig v1.17.1 // indirect
+	go.uber.org/fx v1.20.1 // indirect
+	go.uber.org/mock v0.4.0 // indirect
+	go.uber.org/multierr v1.11.0 // indirect
+	go.uber.org/zap v1.27.0 // indirect
+	golang.org/x/crypto v0.19.0 // indirect
+	golang.org/x/exp v0.0.0-20240213143201-ec583247a57a // indirect
+	golang.org/x/mod v0.15.0 // indirect
+	golang.org/x/net v0.21.0 // indirect
+	golang.org/x/sync v0.6.0 // indirect
+	golang.org/x/sys v0.17.0 // indirect
+	golang.org/x/text v0.14.0 // indirect
+	golang.org/x/tools v0.18.0 // indirect
+	gonum.org/v1/gonum v0.13.0 // indirect
+	google.golang.org/protobuf v1.32.0 // indirect
+	lukechampine.com/blake3 v1.2.1 // indirect
+)
+</file>
+
+<file path="examples/ipfs-camp-2019/README.md">
+# IPFS Camp 2019 - Course B
+We've included some scaffolding to help you through the workshop. The folders
+in this repository are "checkpoints" of the project as we progress through the
+project goals. Should you get stuck at one and find yourself eager to push on,
+feel free to save your work and move on to the next stage!
+
+## Dependencies
+- [golang 1.12+](https://golang.org)
+
+## Optional Tooling
+If you'd like a more pleasant editing experience, VS Code's golang plugin has
+fantastic support for the nascent go language server implementation. I
+recommend saibing's fork which adds lots of useful features.
+
+- [saibing's go language server](https://github.com/saibing/tools)
+  Specifically tools/cmd/gopls
+- [VS Code](https://code.visualstudio.com/)
+
+## Running the Examples
+All of the examples, 01-Transports through 08-End, will compile as written. To
+execute, simply change into the respective example's directory and run
+`go run .`
+</file>
+
+</files>

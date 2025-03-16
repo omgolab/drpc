@@ -1,0 +1,875 @@
+This file is a merged representation of a subset of the codebase, containing specifically included files, combined into a single document by Repomix.
+The content has been processed where content has been compressed (code blocks are separated by ⋮---- delimiter).
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Only files matching these patterns are included: examples/pubsub/**
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Content has been compressed - code blocks are separated by ⋮---- delimiter
+</notes>
+
+<additional_info>
+
+</additional_info>
+
+</file_summary>
+
+<directory_structure>
+examples/
+  pubsub/
+    basic-chat-with-rendezvous/
+      .gitignore
+      go.mod
+      main.go
+      README.md
+    chat/
+      .gitignore
+      chatroom.go
+      go.mod
+      main.go
+      README.md
+      ui.go
+    README.md
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="examples/pubsub/basic-chat-with-rendezvous/.gitignore">
+chat
+</file>
+
+<file path="examples/pubsub/basic-chat-with-rendezvous/go.mod">
+module github.com/libp2p/go-libp2p/examples/pubsub/chat
+
+go 1.23
+
+require (
+	github.com/libp2p/go-libp2p v0.33.0
+	github.com/libp2p/go-libp2p-kad-dht v0.25.1
+	github.com/libp2p/go-libp2p-pubsub v0.10.0
+)
+
+require (
+	github.com/benbjohnson/clock v1.3.5 // indirect
+	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/cespare/xxhash/v2 v2.2.0 // indirect
+	github.com/containerd/cgroups v1.1.0 // indirect
+	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
+	github.com/davidlazar/go-crypto v0.0.0-20200604182044-b73af7476f6c // indirect
+	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
+	github.com/docker/go-units v0.5.0 // indirect
+	github.com/elastic/gosigar v0.14.2 // indirect
+	github.com/flynn/noise v1.1.0 // indirect
+	github.com/francoispqt/gojay v1.2.13 // indirect
+	github.com/go-logr/logr v1.3.0 // indirect
+	github.com/go-logr/stdr v1.2.2 // indirect
+	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
+	github.com/godbus/dbus/v5 v5.1.0 // indirect
+	github.com/gogo/protobuf v1.3.2 // indirect
+	github.com/google/gopacket v1.1.19 // indirect
+	github.com/google/pprof v0.0.0-20240207164012-fb44976bdcd5 // indirect
+	github.com/google/uuid v1.4.0 // indirect
+	github.com/gorilla/websocket v1.5.1 // indirect
+	github.com/hashicorp/errwrap v1.1.0 // indirect
+	github.com/hashicorp/go-multierror v1.1.1 // indirect
+	github.com/hashicorp/golang-lru v0.5.4 // indirect
+	github.com/hashicorp/golang-lru/v2 v2.0.5 // indirect
+	github.com/huin/goupnp v1.3.0 // indirect
+	github.com/ipfs/boxo v0.10.0 // indirect
+	github.com/ipfs/go-cid v0.4.1 // indirect
+	github.com/ipfs/go-datastore v0.6.0 // indirect
+	github.com/ipfs/go-log v1.0.5 // indirect
+	github.com/ipfs/go-log/v2 v2.5.1 // indirect
+	github.com/ipld/go-ipld-prime v0.20.0 // indirect
+	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
+	github.com/jbenet/go-temp-err-catcher v0.1.0 // indirect
+	github.com/jbenet/goprocess v0.1.4 // indirect
+	github.com/klauspost/compress v1.17.6 // indirect
+	github.com/klauspost/cpuid/v2 v2.2.7 // indirect
+	github.com/koron/go-ssdp v0.0.4 // indirect
+	github.com/libp2p/go-buffer-pool v0.1.0 // indirect
+	github.com/libp2p/go-cidranger v1.1.0 // indirect
+	github.com/libp2p/go-flow-metrics v0.1.0 // indirect
+	github.com/libp2p/go-libp2p-asn-util v0.4.1 // indirect
+	github.com/libp2p/go-libp2p-kbucket v0.6.3 // indirect
+	github.com/libp2p/go-libp2p-record v0.2.0 // indirect
+	github.com/libp2p/go-libp2p-routing-helpers v0.7.2 // indirect
+	github.com/libp2p/go-msgio v0.3.0 // indirect
+	github.com/libp2p/go-nat v0.2.0 // indirect
+	github.com/libp2p/go-netroute v0.2.1 // indirect
+	github.com/libp2p/go-reuseport v0.4.0 // indirect
+	github.com/libp2p/go-yamux/v4 v4.0.1 // indirect
+	github.com/marten-seemann/tcp v0.0.0-20210406111302-dfbc87cc63fd // indirect
+	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/miekg/dns v1.1.58 // indirect
+	github.com/mikioh/tcpinfo v0.0.0-20190314235526-30a79bb1804b // indirect
+	github.com/mikioh/tcpopt v0.0.0-20190314235656-172688c1accc // indirect
+	github.com/minio/sha256-simd v1.0.1 // indirect
+	github.com/mr-tron/base58 v1.2.0 // indirect
+	github.com/multiformats/go-base32 v0.1.0 // indirect
+	github.com/multiformats/go-base36 v0.2.0 // indirect
+	github.com/multiformats/go-multiaddr v0.12.2 // indirect
+	github.com/multiformats/go-multiaddr-dns v0.3.1 // indirect
+	github.com/multiformats/go-multiaddr-fmt v0.1.0 // indirect
+	github.com/multiformats/go-multibase v0.2.0 // indirect
+	github.com/multiformats/go-multicodec v0.9.0 // indirect
+	github.com/multiformats/go-multihash v0.2.3 // indirect
+	github.com/multiformats/go-multistream v0.5.0 // indirect
+	github.com/multiformats/go-varint v0.0.7 // indirect
+	github.com/onsi/ginkgo/v2 v2.15.0 // indirect
+	github.com/opencontainers/runtime-spec v1.2.0 // indirect
+	github.com/opentracing/opentracing-go v1.2.0 // indirect
+	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
+	github.com/polydawn/refmt v0.89.0 // indirect
+	github.com/prometheus/client_golang v1.18.0 // indirect
+	github.com/prometheus/client_model v0.6.0 // indirect
+	github.com/prometheus/common v0.47.0 // indirect
+	github.com/prometheus/procfs v0.12.0 // indirect
+	github.com/quic-go/qpack v0.4.0 // indirect
+	github.com/quic-go/quic-go v0.41.0 // indirect
+	github.com/quic-go/webtransport-go v0.6.0 // indirect
+	github.com/raulk/go-watchdog v1.3.0 // indirect
+	github.com/spaolacci/murmur3 v1.1.0 // indirect
+	github.com/whyrusleeping/go-keyspace v0.0.0-20160322163242-5b898ac5add1 // indirect
+	go.opencensus.io v0.24.0 // indirect
+	go.opentelemetry.io/otel v1.16.0 // indirect
+	go.opentelemetry.io/otel/metric v1.16.0 // indirect
+	go.opentelemetry.io/otel/trace v1.16.0 // indirect
+	go.uber.org/dig v1.17.1 // indirect
+	go.uber.org/fx v1.20.1 // indirect
+	go.uber.org/mock v0.4.0 // indirect
+	go.uber.org/multierr v1.11.0 // indirect
+	go.uber.org/zap v1.27.0 // indirect
+	golang.org/x/crypto v0.19.0 // indirect
+	golang.org/x/exp v0.0.0-20240213143201-ec583247a57a // indirect
+	golang.org/x/mod v0.15.0 // indirect
+	golang.org/x/net v0.21.0 // indirect
+	golang.org/x/sync v0.6.0 // indirect
+	golang.org/x/sys v0.17.0 // indirect
+	golang.org/x/text v0.14.0 // indirect
+	golang.org/x/tools v0.18.0 // indirect
+	gonum.org/v1/gonum v0.13.0 // indirect
+	google.golang.org/protobuf v1.32.0 // indirect
+	lukechampine.com/blake3 v1.2.1 // indirect
+)
+</file>
+
+<file path="examples/pubsub/basic-chat-with-rendezvous/main.go">
+package main
+⋮----
+import (
+	"bufio"
+	"context"
+	"flag"
+	"fmt"
+	"os"
+	"sync"
+
+	"github.com/libp2p/go-libp2p"
+	dht "github.com/libp2p/go-libp2p-kad-dht"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/peer"
+	drouting "github.com/libp2p/go-libp2p/p2p/discovery/routing"
+	dutil "github.com/libp2p/go-libp2p/p2p/discovery/util"
+)
+⋮----
+"bufio"
+"context"
+"flag"
+"fmt"
+"os"
+"sync"
+⋮----
+"github.com/libp2p/go-libp2p"
+dht "github.com/libp2p/go-libp2p-kad-dht"
+pubsub "github.com/libp2p/go-libp2p-pubsub"
+"github.com/libp2p/go-libp2p/core/host"
+"github.com/libp2p/go-libp2p/core/peer"
+drouting "github.com/libp2p/go-libp2p/p2p/discovery/routing"
+dutil "github.com/libp2p/go-libp2p/p2p/discovery/util"
+⋮----
+var (
+	topicNameFlag = flag.String("topicName", "applesauce", "name of topic to join")
+⋮----
+func main()
+⋮----
+func initDHT(ctx context.Context, h host.Host) *dht.IpfsDHT
+⋮----
+// Start a DHT, for use in peer discovery. We can't just make a new DHT
+// client because we want each peer to maintain its own local copy of the
+// DHT, so that the bootstrapping node of the DHT can go down without
+// inhibiting future peer discovery.
+⋮----
+var wg sync.WaitGroup
+⋮----
+func discoverPeers(ctx context.Context, h host.Host)
+⋮----
+// Look for others who have announced and attempt to connect to them
+⋮----
+continue // No self connection
+⋮----
+func streamConsoleTo(ctx context.Context, topic *pubsub.Topic)
+⋮----
+func printMessagesFrom(ctx context.Context, sub *pubsub.Subscription)
+</file>
+
+<file path="examples/pubsub/basic-chat-with-rendezvous/README.md">
+# go-libp2p-pubsub chat with rendezvous example
+
+This example project allows multiple peers to chat among each other using go-libp2p-pubsub. 
+
+Peers are discovered using a DHT, so no prior information (other than the rendezvous name) is required for each peer.
+
+## Running
+
+Clone this repo, then `cd` into the `examples/pubsub/basic-chat-with-rendezvous` directory:
+
+```shell
+git clone https://github.com/libp2p/go-libp2p
+cd go-libp2p/examples/pubsub/basic-chat-with-rendezvous
+```
+
+Now you can either run with `go run`, or build and run the binary:
+
+```shell
+go run .
+
+# or, build and run separately
+go build .
+./chat
+```
+
+To change the topic name, use the `-topicName` flag:
+
+```shell
+go run . -topicName=adifferenttopic
+```
+
+Try opening several terminals, each running the app. When you type a message and hit enter in one, it
+should appear in all others that are connected to the same topic.
+
+To quit, hit `Ctrl-C`.
+</file>
+
+<file path="examples/pubsub/chat/.gitignore">
+chat
+</file>
+
+<file path="examples/pubsub/chat/chatroom.go">
+package main
+⋮----
+import (
+	"context"
+	"encoding/json"
+
+	"github.com/libp2p/go-libp2p/core/peer"
+
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
+)
+⋮----
+"context"
+"encoding/json"
+⋮----
+"github.com/libp2p/go-libp2p/core/peer"
+⋮----
+pubsub "github.com/libp2p/go-libp2p-pubsub"
+⋮----
+// ChatRoomBufSize is the number of incoming messages to buffer for each topic.
+const ChatRoomBufSize = 128
+⋮----
+// ChatRoom represents a subscription to a single PubSub topic. Messages
+// can be published to the topic with ChatRoom.Publish, and received
+// messages are pushed to the Messages channel.
+type ChatRoom struct {
+	// Messages is a channel of messages received from other peers in the chat room
+	Messages chan *ChatMessage
+
+	ctx   context.Context
+	ps    *pubsub.PubSub
+	topic *pubsub.Topic
+	sub   *pubsub.Subscription
+
+	roomName string
+	self     peer.ID
+	nick     string
+}
+⋮----
+// Messages is a channel of messages received from other peers in the chat room
+⋮----
+// ChatMessage gets converted to/from JSON and sent in the body of pubsub messages.
+type ChatMessage struct {
+	Message    string
+	SenderID   string
+	SenderNick string
+}
+⋮----
+// JoinChatRoom tries to subscribe to the PubSub topic for the room name, returning
+// a ChatRoom on success.
+func JoinChatRoom(ctx context.Context, ps *pubsub.PubSub, selfID peer.ID, nickname string, roomName string) (*ChatRoom, error)
+⋮----
+// join the pubsub topic
+⋮----
+// and subscribe to it
+⋮----
+// start reading messages from the subscription in a loop
+⋮----
+// Publish sends a message to the pubsub topic.
+func (cr *ChatRoom) Publish(message string) error
+⋮----
+func (cr *ChatRoom) ListPeers() []peer.ID
+⋮----
+// readLoop pulls messages from the pubsub topic and pushes them onto the Messages channel.
+func (cr *ChatRoom) readLoop()
+⋮----
+// only forward messages delivered by others
+⋮----
+// send valid messages onto the Messages channel
+⋮----
+func topicName(roomName string) string
+</file>
+
+<file path="examples/pubsub/chat/go.mod">
+module github.com/libp2p/go-libp2p/examples/pubsub/chat
+
+go 1.23
+
+require (
+	github.com/gdamore/tcell/v2 v2.5.2
+	github.com/libp2p/go-libp2p v0.33.0
+	github.com/libp2p/go-libp2p-pubsub v0.10.0
+	github.com/rivo/tview v0.0.0-20220307222120-9994674d60a8
+)
+
+require (
+	github.com/benbjohnson/clock v1.3.5 // indirect
+	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/cespare/xxhash/v2 v2.2.0 // indirect
+	github.com/containerd/cgroups v1.1.0 // indirect
+	github.com/coreos/go-systemd/v22 v22.5.0 // indirect
+	github.com/davidlazar/go-crypto v0.0.0-20200604182044-b73af7476f6c // indirect
+	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.2.0 // indirect
+	github.com/docker/go-units v0.5.0 // indirect
+	github.com/elastic/gosigar v0.14.2 // indirect
+	github.com/flynn/noise v1.1.0 // indirect
+	github.com/francoispqt/gojay v1.2.13 // indirect
+	github.com/gdamore/encoding v1.0.0 // indirect
+	github.com/go-task/slim-sprig v0.0.0-20230315185526-52ccab3ef572 // indirect
+	github.com/godbus/dbus/v5 v5.1.0 // indirect
+	github.com/gogo/protobuf v1.3.2 // indirect
+	github.com/google/gopacket v1.1.19 // indirect
+	github.com/google/pprof v0.0.0-20240207164012-fb44976bdcd5 // indirect
+	github.com/gorilla/websocket v1.5.1 // indirect
+	github.com/hashicorp/golang-lru/v2 v2.0.5 // indirect
+	github.com/huin/goupnp v1.3.0 // indirect
+	github.com/ipfs/go-cid v0.4.1 // indirect
+	github.com/ipfs/go-log/v2 v2.5.1 // indirect
+	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
+	github.com/jbenet/go-temp-err-catcher v0.1.0 // indirect
+	github.com/klauspost/compress v1.17.6 // indirect
+	github.com/klauspost/cpuid/v2 v2.2.7 // indirect
+	github.com/koron/go-ssdp v0.0.4 // indirect
+	github.com/libp2p/go-buffer-pool v0.1.0 // indirect
+	github.com/libp2p/go-flow-metrics v0.1.0 // indirect
+	github.com/libp2p/go-libp2p-asn-util v0.4.1 // indirect
+	github.com/libp2p/go-msgio v0.3.0 // indirect
+	github.com/libp2p/go-nat v0.2.0 // indirect
+	github.com/libp2p/go-netroute v0.2.1 // indirect
+	github.com/libp2p/go-reuseport v0.4.0 // indirect
+	github.com/libp2p/go-yamux/v4 v4.0.1 // indirect
+	github.com/libp2p/zeroconf/v2 v2.2.0 // indirect
+	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
+	github.com/marten-seemann/tcp v0.0.0-20210406111302-dfbc87cc63fd // indirect
+	github.com/mattn/go-isatty v0.0.20 // indirect
+	github.com/mattn/go-runewidth v0.0.13 // indirect
+	github.com/miekg/dns v1.1.58 // indirect
+	github.com/mikioh/tcpinfo v0.0.0-20190314235526-30a79bb1804b // indirect
+	github.com/mikioh/tcpopt v0.0.0-20190314235656-172688c1accc // indirect
+	github.com/minio/sha256-simd v1.0.1 // indirect
+	github.com/mr-tron/base58 v1.2.0 // indirect
+	github.com/multiformats/go-base32 v0.1.0 // indirect
+	github.com/multiformats/go-base36 v0.2.0 // indirect
+	github.com/multiformats/go-multiaddr v0.12.2 // indirect
+	github.com/multiformats/go-multiaddr-dns v0.3.1 // indirect
+	github.com/multiformats/go-multiaddr-fmt v0.1.0 // indirect
+	github.com/multiformats/go-multibase v0.2.0 // indirect
+	github.com/multiformats/go-multicodec v0.9.0 // indirect
+	github.com/multiformats/go-multihash v0.2.3 // indirect
+	github.com/multiformats/go-multistream v0.5.0 // indirect
+	github.com/multiformats/go-varint v0.0.7 // indirect
+	github.com/onsi/ginkgo/v2 v2.15.0 // indirect
+	github.com/opencontainers/runtime-spec v1.2.0 // indirect
+	github.com/pbnjay/memory v0.0.0-20210728143218-7b4eea64cf58 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
+	github.com/prometheus/client_golang v1.18.0 // indirect
+	github.com/prometheus/client_model v0.6.0 // indirect
+	github.com/prometheus/common v0.47.0 // indirect
+	github.com/prometheus/procfs v0.12.0 // indirect
+	github.com/quic-go/qpack v0.4.0 // indirect
+	github.com/quic-go/quic-go v0.41.0 // indirect
+	github.com/quic-go/webtransport-go v0.6.0 // indirect
+	github.com/raulk/go-watchdog v1.3.0 // indirect
+	github.com/rivo/uniseg v0.2.0 // indirect
+	github.com/spaolacci/murmur3 v1.1.0 // indirect
+	go.uber.org/dig v1.17.1 // indirect
+	go.uber.org/fx v1.20.1 // indirect
+	go.uber.org/mock v0.4.0 // indirect
+	go.uber.org/multierr v1.11.0 // indirect
+	go.uber.org/zap v1.27.0 // indirect
+	golang.org/x/crypto v0.19.0 // indirect
+	golang.org/x/exp v0.0.0-20240213143201-ec583247a57a // indirect
+	golang.org/x/mod v0.15.0 // indirect
+	golang.org/x/net v0.21.0 // indirect
+	golang.org/x/sync v0.6.0 // indirect
+	golang.org/x/sys v0.17.0 // indirect
+	golang.org/x/term v0.17.0 // indirect
+	golang.org/x/text v0.14.0 // indirect
+	golang.org/x/tools v0.18.0 // indirect
+	google.golang.org/protobuf v1.32.0 // indirect
+	lukechampine.com/blake3 v1.2.1 // indirect
+)
+</file>
+
+<file path="examples/pubsub/chat/main.go">
+package main
+⋮----
+import (
+	"context"
+	"flag"
+	"fmt"
+	"os"
+	"time"
+
+	"github.com/libp2p/go-libp2p"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
+	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
+)
+⋮----
+"context"
+"flag"
+"fmt"
+"os"
+"time"
+⋮----
+"github.com/libp2p/go-libp2p"
+pubsub "github.com/libp2p/go-libp2p-pubsub"
+"github.com/libp2p/go-libp2p/core/host"
+"github.com/libp2p/go-libp2p/core/peer"
+"github.com/libp2p/go-libp2p/p2p/discovery/mdns"
+⋮----
+// DiscoveryInterval is how often we re-publish our mDNS records.
+const DiscoveryInterval = time.Hour
+⋮----
+// DiscoveryServiceTag is used in our mDNS advertisements to discover other chat peers.
+const DiscoveryServiceTag = "pubsub-chat-example"
+⋮----
+func main()
+⋮----
+// parse some flags to set our nickname and the room to join
+⋮----
+// create a new libp2p Host that listens on a random TCP port
+⋮----
+// create a new PubSub service using the GossipSub router
+⋮----
+// setup local mDNS discovery
+⋮----
+// use the nickname from the cli flag, or a default if blank
+⋮----
+// join the room from the cli flag, or the flag default
+⋮----
+// join the chat room
+⋮----
+// draw the UI
+⋮----
+// printErr is like fmt.Printf, but writes to stderr.
+func printErr(m string, args ...interface
+⋮----
+// defaultNick generates a nickname based on the $USER environment variable and
+// the last 8 chars of a peer ID.
+func defaultNick(p peer.ID) string
+⋮----
+// shortID returns the last 8 chars of a base58-encoded peer id.
+func shortID(p peer.ID) string
+⋮----
+// discoveryNotifee gets notified when we find a new peer via mDNS discovery
+type discoveryNotifee struct {
+	h host.Host
+}
+⋮----
+// HandlePeerFound connects to peers discovered via mDNS. Once they're connected,
+// the PubSub system will automatically start interacting with them if they also
+// support PubSub.
+func (n *discoveryNotifee) HandlePeerFound(pi peer.AddrInfo)
+⋮----
+// setupDiscovery creates an mDNS discovery service and attaches it to the libp2p Host.
+// This lets us automatically discover peers on the same LAN and connect to them.
+func setupDiscovery(h host.Host) error
+⋮----
+// setup mDNS discovery to find local peers
+</file>
+
+<file path="examples/pubsub/chat/README.md">
+# go-libp2p-pubsub chat example
+
+This example project builds a chat room application using go-libp2p-pubsub. The app runs in the terminal,
+and uses a text UI to show messages from other peers:
+
+![An animation showing three terminal windows, each running the example application.](./chat-example.gif)
+
+The goal of this example is to demonstrate the basic usage of the `PubSub` API, without getting into
+the details of configuration.
+
+## Running
+
+Clone this repo, then `cd` into the `examples/pubsub/chat` directory:
+
+```shell
+git clone https://github.com/libp2p/go-libp2p
+cd go-libp2p/examples/pubsub/chat
+```
+
+Now you can either run with `go run`, or build and run the binary:
+
+```shell
+go run .
+
+# or, build and run separately
+go build .
+./chat
+```
+
+To set a nickname, use the `-nick` flag:
+
+```shell
+go run . -nick=zoidberg
+```
+
+You can join a specific chat room with the `-room` flag:
+
+```shell
+go run . -room=planet-express
+```
+
+It's usually more fun to chat with others, so open a new terminal and run the app again.
+If you set a custom chat room name with the `-room` flag, make sure you use the same one
+for both apps. Once the new instance starts, the two chat apps should discover each other 
+automatically using mDNS, and typing a message into one app will send it to any others that are open.
+
+To quit, hit `Ctrl-C`, or type `/quit` into the input field.
+
+## Code Overview
+
+In [`main.go`](./main.go), we create a new libp2p `Host` and then create a new `PubSub` service
+using the GossipSub router:
+
+```go
+func main() {
+	// (omitted) parse flags, etc...
+
+	// create a new libp2p Host that listens on a random TCP port
+	h, err := libp2p.New(libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"))
+	if err != nil {
+		panic(err)
+	}
+
+	// create a new PubSub service using the GossipSub router
+	ps, err := pubsub.NewGossipSub(ctx, h)
+	if err != nil {
+		panic(err)
+	}
+
+   // (omitted) setup mDNS discovery...
+   
+}
+``` 
+
+We configure the host to use local mDNS discovery, so that we can find other peers to chat with
+on the local network. We also parse a few command line flags, so we can set a friendly nickname,
+or choose a chat room by name.
+
+Once we have a `Host` with an attached `PubSub` service, we join a `ChatRoom`:
+
+```go
+    // still in the main func
+    cr, err := JoinChatRoom(ctx, ps, h.ID(), nick, room)
+  	if err != nil {
+  		panic(err)
+  	}
+```
+ 
+`ChatRoom` is a custom struct defined in [`chatroom.go`](./chatroom.go):
+
+```go
+// ChatRoom represents a subscription to a single PubSub topic. Messages
+// can be published to the topic with ChatRoom.Publish, and received
+// messages are pushed to the Messages channel.
+type ChatRoom struct {
+	// Messages is a channel of messages received from other peers in the chat room
+	Messages chan *ChatMessage
+
+	ctx   context.Context
+	ps    *pubsub.PubSub
+	topic *pubsub.Topic
+	sub   *pubsub.Subscription
+
+	roomName string
+	self     peer.ID
+	nick     string
+}
+```
+
+A `ChatRoom` subscribes to a PubSub `Topic`, and reads messages from the `Subscription`. We're sending our messages
+wrapped inside of a `ChatMessage` struct:
+
+```go
+type ChatMessage struct {
+	Message    string
+	SenderID   string
+	SenderNick string
+}
+```
+
+This lets us attach friendly nicknames to the messages for display. A real app might want to make sure that
+nicks are unique, but we just let anyone claim whatever nick they want and send it along with their messages.
+
+The `ChatMessage`s are encoded to JSON and published to the PubSub topic, in the `Data` field of a `pubsub.Message`.
+We could have used any encoding, as long as everyone in the topic agrees on the format, but JSON is simple and good 
+enough for our purposes. 
+
+To send messages, we have a `Publish` method, which wraps messages in `ChatMessage` structs, encodes them, and publishes 
+to the `pubsub.Topic`:
+
+```go
+func (cr *ChatRoom) Publish(message string) error {
+	m := ChatMessage{
+		Message:    message,
+		SenderID:   cr.self.String(),
+		SenderNick: cr.nick,
+	}
+	msgBytes, err := json.Marshal(m)
+	if err != nil {
+		return err
+	}
+	return cr.topic.Publish(cr.ctx, msgBytes)
+}
+```
+
+In the background, the `ChatRoom` runs a `readLoop` goroutine, which reads messages from the `pubsub.Subscription`,
+decodes the `ChatMessage` JSON, and sends the `ChatMessage`s on a channel:
+
+```go
+func (cr *ChatRoom) readLoop() {
+	for {
+		msg, err := cr.sub.Next(cr.ctx)
+		if err != nil {
+			close(cr.Messages)
+			return
+		}
+		// only forward messages delivered by others
+		if msg.ReceivedFrom == cr.self {
+			continue
+		}
+		cm := new(ChatMessage)
+		err = json.Unmarshal(msg.Data, cm)
+		if err != nil {
+			continue
+		}
+		// send valid messages onto the Messages channel
+		cr.Messages <- cm
+	}
+}
+```
+
+There's also a `ListPeers` method, which just wraps the method of the same name in the `PubSub` service:
+
+```go
+func (cr *ChatRoom) ListPeers() []peer.ID {
+	return cr.ps.ListPeers(topicName(cr.roomName))
+}
+```
+
+That's pretty much it for the `ChatRoom`! 
+
+Back in `main.go`, once we've created our `ChatRoom`, we pass it
+to `NewChatUI`, which constructs a three panel text UI for entering and viewing chat messages, because UIs
+are fun.
+
+The `ChatUI` is defined in [`ui.go`](./ui.go), and the interesting bit is in the `handleEvents` event loop
+method:
+
+```go
+func (ui *ChatUI) handleEvents() {
+	peerRefreshTicker := time.NewTicker(time.Second)
+	defer peerRefreshTicker.Stop()
+
+	for {
+		select {
+		case input := <-ui.inputCh:
+			// when the user types in a line, publish it to the chat room and print to the message window
+			err := ui.cr.Publish(input)
+			if err != nil {
+				printErr("publish error: %s", err)
+			}
+			ui.displaySelfMessage(input)
+
+		case m := <-ui.cr.Messages:
+			// when we receive a message from the chat room, print it to the message window
+			ui.displayChatMessage(m)
+
+		case <-peerRefreshTicker.C:
+			// refresh the list of peers in the chat room periodically
+			ui.refreshPeers()
+
+		case <-ui.cr.ctx.Done():
+			return
+
+		case <-ui.doneCh:
+			return
+		}
+	}
+}
+```
+</file>
+
+<file path="examples/pubsub/chat/ui.go">
+package main
+⋮----
+import (
+	"fmt"
+	"io"
+	"time"
+
+	"github.com/gdamore/tcell/v2"
+	"github.com/rivo/tview"
+)
+⋮----
+"fmt"
+"io"
+"time"
+⋮----
+"github.com/gdamore/tcell/v2"
+"github.com/rivo/tview"
+⋮----
+// ChatUI is a Text User Interface (TUI) for a ChatRoom.
+// The Run method will draw the UI to the terminal in "fullscreen"
+// mode. You can quit with Ctrl-C, or by typing "/quit" into the
+// chat prompt.
+type ChatUI struct {
+	cr        *ChatRoom
+	app       *tview.Application
+	peersList *tview.TextView
+
+	msgW    io.Writer
+	inputCh chan string
+	doneCh  chan struct{}
+⋮----
+// NewChatUI returns a new ChatUI struct that controls the text UI.
+// It won't actually do anything until you call Run().
+func NewChatUI(cr *ChatRoom) *ChatUI
+⋮----
+// make a text view to contain our chat messages
+⋮----
+// text views are io.Writers, but they don't automatically refresh.
+// this sets a change handler to force the app to redraw when we get
+// new messages to display.
+⋮----
+// an input field for typing messages into
+⋮----
+// the done func is called when the user hits enter, or tabs out of the field
+⋮----
+// we don't want to do anything if they just tabbed away
+⋮----
+// ignore blank lines
+⋮----
+// bail if requested
+⋮----
+// send the line onto the input chan and reset the field text
+⋮----
+// make a text view to hold the list of peers in the room, updated by ui.refreshPeers()
+⋮----
+// chatPanel is a horizontal box with messages on the left and peers on the right
+// the peers list takes 20 columns, and the messages take the remaining space
+⋮----
+// flex is a vertical box with the chatPanel on top and the input field at the bottom.
+⋮----
+// Run starts the chat event loop in the background, then starts
+// the event loop for the text UI.
+func (ui *ChatUI) Run() error
+⋮----
+// end signals the event loop to exit gracefully
+func (ui *ChatUI) end()
+⋮----
+// refreshPeers pulls the list of peers currently in the chat room and
+// displays the last 8 chars of their peer id in the Peers panel in the ui.
+func (ui *ChatUI) refreshPeers()
+⋮----
+// clear is thread-safe
+⋮----
+// displayChatMessage writes a ChatMessage from the room to the message window,
+// with the sender's nick highlighted in green.
+func (ui *ChatUI) displayChatMessage(cm *ChatMessage)
+⋮----
+// displaySelfMessage writes a message from ourselves to the message window,
+// with our nick highlighted in yellow.
+func (ui *ChatUI) displaySelfMessage(msg string)
+⋮----
+// handleEvents runs an event loop that sends user input to the chat room
+// and displays messages received from the chat room. It also periodically
+// refreshes the list of peers in the UI.
+func (ui *ChatUI) handleEvents()
+⋮----
+// when the user types in a line, publish it to the chat room and print to the message window
+⋮----
+// when we receive a message from the chat room, print it to the message window
+⋮----
+// refresh the list of peers in the chat room periodically
+⋮----
+// withColor wraps a string with color tags for display in the messages text box.
+func withColor(color, msg string) string
+</file>
+
+<file path="examples/pubsub/README.md">
+# go-libp2p-pubsub examples
+
+This directory contains example projects that use [go-libp2p-pubsub](https://github.com/libp2p/go-libp2p-pubsub),
+the Go implementation of libp2p's [Publish / Subscribe system](https://docs.libp2p.io/concepts/publish-subscribe).
+
+- The [chat room example](./chat) covers the basics of using the PubSub API to build a peer-to-peer chat application.
+- The [pubsub rendezvous example](./basic-chat-with-rendezvous) allows multiple peers to chat among each other using go-libp2p-pubsub using rendezvous names.
+</file>
+
+</files>

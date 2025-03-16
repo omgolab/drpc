@@ -1,0 +1,189 @@
+This file is a merged representation of a subset of the codebase, containing specifically included files, combined into a single document by Repomix.
+The content has been processed where content has been compressed (code blocks are separated by ⋮---- delimiter).
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Only files matching these patterns are included: examples/relay/**
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Content has been compressed - code blocks are separated by ⋮---- delimiter
+</notes>
+
+<additional_info>
+
+</additional_info>
+
+</file_summary>
+
+<directory_structure>
+examples/
+  relay/
+    .gitignore
+    main_test.go
+    main.go
+    README.md
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="examples/relay/.gitignore">
+relay
+</file>
+
+<file path="examples/relay/main_test.go">
+package main
+⋮----
+import (
+	"os"
+	"testing"
+
+	"github.com/libp2p/go-libp2p/examples/testutils"
+)
+⋮----
+"os"
+"testing"
+⋮----
+"github.com/libp2p/go-libp2p/examples/testutils"
+⋮----
+func TestMain(t *testing.T)
+⋮----
+var h testutils.LogHarness
+</file>
+
+<file path="examples/relay/main.go">
+package main
+⋮----
+import (
+	"context"
+	"log"
+
+	"github.com/libp2p/go-libp2p"
+	"github.com/libp2p/go-libp2p/p2p/net/swarm"
+	"github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/client"
+	"github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/relay"
+
+	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/libp2p/go-libp2p/core/peer"
+
+	ma "github.com/multiformats/go-multiaddr"
+)
+⋮----
+"context"
+"log"
+⋮----
+"github.com/libp2p/go-libp2p"
+"github.com/libp2p/go-libp2p/p2p/net/swarm"
+"github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/client"
+"github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/relay"
+⋮----
+"github.com/libp2p/go-libp2p/core/network"
+"github.com/libp2p/go-libp2p/core/peer"
+⋮----
+ma "github.com/multiformats/go-multiaddr"
+⋮----
+func main()
+⋮----
+func run()
+⋮----
+// Create two "unreachable" libp2p hosts that want to communicate.
+// We are configuring them with no listen addresses to mimic hosts
+// that cannot be directly dialed due to problematic firewall/NAT
+// configurations.
+⋮----
+// Usually EnableRelay() is not required as it is enabled by default
+// but NoListenAddrs overrides this, so we're adding it in explicitly again.
+⋮----
+// Attempt to connect the unreachable hosts directly
+⋮----
+// Create a host to act as a middleman to relay messages on our behalf
+⋮----
+// Configure the host to offer the circuit relay service.
+// Any host that is directly dialable in the network (or on the internet)
+// can offer a circuit relay service, this isn't just the job of
+// "dedicated" relay services.
+// In circuit relay v2 (which we're using here!) it is rate limited so that
+// any node can offer this service safely
+⋮----
+// Connect both unreachable1 and unreachable2 to relay1
+⋮----
+// Now, to test the communication, let's set up a protocol handler on unreachable2
+⋮----
+// End the example
+⋮----
+// Hosts that want to have messages relayed on their behalf need to reserve a slot
+// with the circuit relay service host
+// As we will open a stream to unreachable2, unreachable2 needs to make the
+// reservation
+⋮----
+// Now create a new address for unreachable2 that specifies to communicate via
+// relay1 using a circuit relay
+⋮----
+// Since we just tried and failed to dial, the dialer system will, by default
+// prevent us from redialing again so quickly. Since we know what we're doing, we
+// can use this ugly hack (it's on our TODO list to make it a little cleaner)
+// to tell the dialer "no, its okay, let's try this again"
+⋮----
+// Open a connection to the previously unreachable host via the relay address
+⋮----
+// Woohoo! we're connected!
+// Let's start talking!
+⋮----
+// Because we don't have a direct connection to the destination node - we have a relayed connection -
+// the connection is marked as transient. Since the relay limits the amount of data that can be
+// exchanged over the relayed connection, the application needs to explicitly opt-in into using a
+// relayed connection. In general, we should only do this if we have low bandwidth requirements,
+// and we're happy for the connection to be killed when the relayed connection is replaced with a
+// direct (holepunched) connection.
+⋮----
+s.Read(make([]byte, 1)) // block until the handler closes the stream
+</file>
+
+<file path="examples/relay/README.md">
+# Relay-based P2P Communication Example
+
+## Overview
+This project demonstrates the setup of a relay-based peer-to-peer communication using the libp2p library in Go. It features creating unreachable libp2p hosts and facilitating their communication through a relay node.
+
+## Features
+- Creation of two "unreachable" libp2p hosts.
+- Setup of a relay node to enable communication between these hosts.
+
+## Usage
+
+Run the program 
+   ```bash
+   go run . 
+   ```
+</file>
+
+</files>
