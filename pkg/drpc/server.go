@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/omgolab/drpc/pkg/config"
 	"github.com/omgolab/drpc/pkg/core"
 	"github.com/omgolab/drpc/pkg/detach"
 	"github.com/omgolab/drpc/pkg/gateway"
@@ -97,7 +98,7 @@ func (s *Server) setupRpcLpBridgeServer(ctx context.Context, cfg *cfg) error {
 	}
 
 	// Create libp2p to HTTP bridgeListener
-	bridgeListener := core.NewStreamBridgeListener(ctx, lh, PROTOCOL_ID)
+	bridgeListener := core.NewStreamBridgeListener(ctx, lh, config.PROTOCOL_ID)
 
 	s.p2pHost = lh
 

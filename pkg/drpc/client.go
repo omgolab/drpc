@@ -2,9 +2,7 @@ package drpc
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"strings"
@@ -15,9 +13,11 @@ import (
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
-	ma "github.com/multiformats/go-multiaddr"
+	"github.com/omgolab/drpc/pkg/config"
 	"github.com/omgolab/drpc/pkg/core"
+	"github.com/omgolab/drpc/pkg/core/pool"
 	"github.com/omgolab/drpc/pkg/gateway"
+	glog "github.com/omgolab/go-commons/pkg/log"
 )
 
 // NewClient creates a new ConnectRPC client that uses libp2p for transport.
@@ -28,9 +28,23 @@ import (
 // 2. **Path 2:** dRPC Client → Listener(if serverAddr is an http address with gateway indication) → Gateway Handler → Relay libp2p Peer → Host libp2p Peer → dRPC Handler
 // 3. **Path 3:** dRPC Client → Host libp2p Peer (if serverAddr is a libp2p multiaddress) → dRPC Handler
 // 4. **Path 4:** dRPC Client → Relay libp2p Peer(if serverAddr is a libp2p multiaddress) → Host libp2p Peer → dRPC Handler
-func NewClient[T any](serverAddr string, newServiceClient func(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) T) (T, error) {
-	ctx := context.Background()
+func NewClient[T any](
+	ctx context.Context,
+	serverAddr string,
+	newServiceClient func(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) T,
+	clientOpts ...ClientOption,
+) (T, error) {
 	var zeroValue T
+
+	// Initialize client with default settings
+	client := &clientCfg{}
+
+	// Apply options
+	if err := client.applyOptions(clientOpts...); err != nil {
+		return zeroValue, fmt.Errorf("failed to apply client options: %w", err)
+	}
+
+	logger := client.logger
 
 	// Handle HTTP paths (Path 1 and 2)
 	if strings.HasPrefix(serverAddr, "http://") || strings.HasPrefix(serverAddr, "https://") {
@@ -43,64 +57,55 @@ func NewClient[T any](serverAddr string, newServiceClient func(httpClient connec
 		}
 
 		// Create the ConnectRPC client
-		client := newServiceClient(
+		return newServiceClient(
 			httpClient,
 			serverAddr, // Use the provided HTTP URL directly
-		)
-		return client, nil
+		), nil
 	}
 
 	// Handle libp2p paths (Path 3 and 4) and gateway format with the unified parser
 	peerAddrs, _, err := gateway.ParseAddresses(serverAddr) // We don't need servicePath for direct connections
 	if err != nil {
-		log.Printf("Failed to parse addresses: %v", err)
-		return zeroValue, fmt.Errorf("failed to parse addresses: %v", err)
+		logger.Error("Failed to parse addresses", err)
+		return zeroValue, fmt.Errorf("failed to parse addresses: %w", err)
 	}
 
 	if len(peerAddrs) == 0 {
 		return zeroValue, fmt.Errorf("no valid peer addresses found")
 	}
 
-	// Select the first peer ID from the map
-	var firstPeerID peer.ID
-	var selectedAddrs []ma.Multiaddr
-	for id, addrs := range peerAddrs {
-		firstPeerID = id
-		selectedAddrs = addrs
-		break
-	}
-
-	if len(peerAddrs) > 1 {
-		log.Printf("Warning: Multiple peer IDs found in addresses, using first one: %s", firstPeerID)
-	}
-
 	// Creating a new libp2p host for the client
 	clientHost, err := libp2p.New(libp2p.NoListenAddrs)
 	if err != nil {
-		log.Printf("Failed to create libp2p host: %v", err)
-		return zeroValue, fmt.Errorf("failed to create libp2p host: %v", err)
+		logger.Error("Failed to create libp2p host", err)
+		return zeroValue, fmt.Errorf("failed to create libp2p host: %w", err)
 	}
 
-	// Create AddrInfo for the selected peer
-	peerInfo := peer.AddrInfo{
-		ID:    firstPeerID,
-		Addrs: selectedAddrs,
+	// Get connection pool from manager
+	connPool := pool.GetPool(clientHost)
+
+	// Convert the peer addresses map to the format expected by connection logic
+	addrInfoMap := gateway.ConvertToAddrInfoMap(peerAddrs)
+
+	// Try connecting to peers in parallel
+	connectedPeerID, err := pool.ConnectToFirstAvailablePeer(
+		ctx,
+		clientHost,
+		addrInfoMap,
+		logger,
+	)
+
+	if err != nil {
+		return zeroValue, fmt.Errorf("failed to connect to any peer: %w", err)
 	}
 
-	// Connect to the server using any of the available transports
-	if err := clientHost.Connect(ctx, peerInfo); err != nil {
-		log.Printf("Failed to connect to peer %s: %v", firstPeerID, err)
-		return zeroValue, fmt.Errorf("failed to connect to peer: %v", err)
-	}
+	logger.Info("Successfully connected to peer", glog.LogFields{"peerID": connectedPeerID.String()})
 
-	log.Printf("Successfully connected to peer %s using one of %d transports",
-		firstPeerID, len(selectedAddrs))
-
-	// Custom transport that uses the libp2p dialer
+	// Custom transport that uses the libp2p dialer with connection pool
+	var currentStream network.Stream
 	transport := &http.Transport{
-		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			return dial(ctx, clientHost, PROTOCOL_ID, firstPeerID)
-			// TODO: dial all addresses and return the first successful connection
+		DialContext: func(ctx context.Context, net, addr string) (net.Conn, error) {
+			return dialWithPool(ctx, clientHost, connPool, config.PROTOCOL_ID, connectedPeerID, &currentStream)
 		},
 	}
 
@@ -110,37 +115,41 @@ func NewClient[T any](serverAddr string, newServiceClient func(httpClient connec
 	}
 
 	// Create the ConnectRPC client
-	client := newServiceClient(
+	return newServiceClient(
 		httpClient,
 		"http://localhost", // Placeholder URL, as we're using a custom dialer
-	)
-	return client, nil
+	), nil
 }
 
-// dial uses a libp2p host as dialer.
-func dial(ctx context.Context, h host.Host, pid protocol.ID, peerID peer.ID) (net.Conn, error) {
-	if h.Network().Connectedness(peerID) != network.Connected {
-		return nil, errors.New("not connected to peer")
+// dialWithPool uses a libp2p host and connection pool as dialer.
+func dialWithPool(ctx context.Context, h host.Host, connPool *pool.ConnectionPool, pid protocol.ID, peerID peer.ID, currentStream *network.Stream) (net.Conn, error) {
+	connectedness := h.Network().Connectedness(peerID)
+	if connectedness != network.Connected {
+		return nil, fmt.Errorf("not connected to peer (state: %v)", connectedness)
 	}
 
-	relayProtocolID := protocol.ID("/libp2p/circuit/relay/0.2.0/hop")
-	streamProtocolID := pid
+	var protocolID protocol.ID = pid
 	if isRelayAddr(h.Peerstore().PeerInfo(peerID).Addrs[0].String()) {
-		streamProtocolID = relayProtocolID
+		protocolID = protocol.ID("/libp2p/circuit/relay/0.2.0/hop")
 	}
 
-	// stream
-	stream, err := h.NewStream(ctx, peerID, streamProtocolID)
+	// Release the current stream if it exists
+	if *currentStream != nil {
+		connPool.ReleaseStream(peerID, *currentStream)
+	}
+
+	// Get a new stream from the pool
+	stream, err := connPool.GetStream(ctx, peerID, protocolID)
 	if err != nil {
 		return nil, err
 	}
+	*currentStream = stream
 
 	return &core.Conn{Stream: stream}, nil
 }
 
 func isRelayAddr(addr string) bool {
 	isRelay := (addr != "" && (len(addr) > 11 && contains(addr, "/p2p-circuit")))
-	log.Printf("Checking if address is relay address: %s, result: %v", addr, isRelay)
 	return isRelay
 }
 

@@ -1,15 +1,28 @@
-# Project Brief
+# DRPC Project Brief
 
-This document outlines the core requirements and goals for the DRPC project. It serves as the foundation for all other documentation and is the source of truth for the project's scope.
+## Overview
+DRPC (Distributed RPC) is a library implementing a distributed remote procedure call system. It enables seamless communication between distributed services across different environments and languages.
 
 ## Core Requirements
+- Implement a language-agnostic RPC protocol
+- Support for both Go and TypeScript implementations
+- Provide efficient serialization and deserialization
+- Handle error propagation across network boundaries
+- Enable bidirectional streaming capabilities
+- Support for authentication and authorization
+- Robust error handling and recovery mechanisms
 
-- Develop a custom RPC (Remote Procedure Call) implementation.
-- Support both Go and TypeScript.
-- Provide examples for common use cases.
+## Project Goals
+- Create a reliable and performant distributed communication system
+- Ensure compatibility between Go and TypeScript implementations
+- Provide simple, intuitive APIs for developers
+- Implement robust error handling and recovery
+- Create comprehensive documentation and examples
+- Ensure testability of all components
 
-## Goals
-
-- Create a robust and efficient RPC solution.
-- Ensure cross-language compatibility.
-- Offer clear and concise documentation.
+## Scope
+- Core RPC protocol implementation
+- Client and server libraries for Go and TypeScript
+- Authentication and authorization mechanisms
+- Error handling and recovery
+- Examples and documentation

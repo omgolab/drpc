@@ -135,8 +135,7 @@ func extractPort(maddr ma.Multiaddr, proto string) (string, error) {
 	return portStr, nil
 }
 
-// ResolveMultiaddrsWithHost resolves multiaddresses using a libp2p host for full connectivity
-// This is a unified function that replaces the duplicate resolveMultiaddrs functions
+// ResolveMultiaddrsWithContext resolves multiaddresses using a libp2p host for full connectivity
 func ResolveMultiaddrsWithContext(ctx context.Context, addrs []ma.Multiaddr, h ...host.Host) (interface{}, error) {
 	if len(h) == 0 {
 		// For testing purposes or when no host is provided, just return the input addrs
@@ -159,4 +158,19 @@ func ResolveMultiaddrsWithContext(ctx context.Context, addrs []ma.Multiaddr, h .
 	}
 
 	return results, nil
+}
+
+// ConvertToAddrInfoMap converts the map of peer.ID to multiaddresses to a map of peer.ID to peer.AddrInfo
+func ConvertToAddrInfoMap(peerAddrs map[peer.ID][]ma.Multiaddr) map[peer.ID]peer.AddrInfo {
+	result := make(map[peer.ID]peer.AddrInfo)
+
+	for peerID, addrs := range peerAddrs {
+		addrInfo := peer.AddrInfo{
+			ID:    peerID,
+			Addrs: addrs,
+		}
+		result[peerID] = addrInfo
+	}
+
+	return result
 }

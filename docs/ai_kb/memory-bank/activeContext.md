@@ -1,22 +1,27 @@
-# Active Context
+# DRPC Active Context
 
-This document describes the current work focus, recent changes, next steps, and active decisions and considerations for the DRPC project.
-
-## Current Work Focus
-
-- Initial setup of the project and documentation.
-- Execution of initialization rules from `~/ai/init.md`.
+## Current Focus
+- Initial setup of project structure
+- Defining core interfaces and types
+- Implementing basic communication protocol
+- Creating initial examples
 
 ## Recent Changes
-
-- Created the Memory Bank directory structure.
-- Created initial versions of `projectbrief.md` and `productContext.md`.
-- Updated `.github/copilot-instructions.md` with the current development environment details.
+- Project initialized
+- Basic directory structure established
+- Core requirements defined
 
 ## Next Steps
-
-- Continue creating the remaining core Memory Bank files: `systemPatterns.md`, `techContext.md`, and `progress.md`.
+1. Define protocol specification
+2. Implement core interfaces in Go
+3. Implement core interfaces in TypeScript
+4. Create basic client-server example
+5. Add authentication mechanism
+6. Implement error handling
+7. Add streaming support
 
 ## Active Decisions and Considerations
-
-- Ensuring adherence to the Memory Bank rules and guidelines.
+- Choosing the serialization format (Protocol Buffers, JSON, custom)
+- Determining authentication mechanism
+- Defining error codes and handling strategies
+- Selecting transport protocols to support
