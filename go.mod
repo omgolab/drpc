@@ -9,6 +9,8 @@ require (
 	github.com/omgolab/go-commons v0.0.0-20240727100037-04777cf24b8b
 )
 
+require github.com/libp2p/zeroconf/v2 v2.2.0 // indirect
+
 require (
 	github.com/benbjohnson/clock v1.3.5 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
