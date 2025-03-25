@@ -1,9 +1,11 @@
 # Sequential tasks
+
 <pre_task>
 Before implementing user's task:
-   - Print "--> following contexts <--" to indicate you are following this file
-   - Remember <memory_bank> section rules
-</pre_task>
+
+- Print "--> following contexts <--" to indicate you are following this file
+- Remember <memory_bank> section rules
+  </pre_task>
 
 <user_task>
 {do as user instructed but make sure you follow the rules}
@@ -11,26 +13,28 @@ Before implementing user's task:
 
 <post_task>
 Post task execution i.e. before using "attempt_completion" tool or similar tool that indicate completions:
-   - Check @problems tab/window for potential issues
-   - Recheck liniting if available in the project
-   - Rerun tests if available in the project
-   - Execute finish up instructions from <memory_bank> section
-   - "## New Updated Rules" section should be updated if-nneded based on any user interaction in this session
-   - "# Current Development env details" - update this section if anythings changed in this session
-</post_task>
+
+- Check @problems tab/window for potential issues
+- Recheck liniting if available in the project
+- Rerun tests if available in the project
+- Execute finish up instructions from <memory_bank> section
+- "## New Updated Rules" section should be updated if-nneded based on any user interaction in this session
+- "# Current Development env details" - update this section if anythings changed in this session
+  </post_task>
 
 # Current Development env details
 
 - **Project:** DRPC - a distributed RPC implementation
 - **Languages:** Go (go.mod, go.sum), TypeScript (package.json, tsconfig.json)
 - **Structure:**
-    - `docs/`: Contains documentation and knowledge base files.
-    - `examples/`: Contains example implementations for both Go and TypeScript.
-    - `internal/`: Likely contains internal implementation details.
-    - `pkg/`: Likely contains the core DRPC library.
+  - `docs/`: Contains documentation and knowledge base files.
+  - `examples/`: Contains example implementations for both Go and TypeScript.
+  - `internal/`: Likely contains internal implementation details.
+  - `pkg/`: Likely contains the core DRPC library.
 - **Build System:** Go modules, Bun (for TypeScript).
 
 # Memory Bank Rules
+
 <memory_bank>
 
 I am an expert software engineer with a unique characteristic: my memory resets completely between sessions. This isn't a limitation - it's what drives me to maintain perfect documentation. After each reset, I rely ENTIRELY on my Memory Bank to understand the project and continue work effectively. I MUST read ALL memory bank files at the start of EVERY task - this is not optional. Create these context files within "docs/ai_kb/memory-bank/" (create these folders if doesnt exists).
@@ -53,31 +57,37 @@ flowchart TD
 ```
 
 ### Core Files (Required)
+
 1. `projectbrief.md`
+
    - Foundation document that shapes all other files
    - Created at project start if it doesn't exist
    - Defines core requirements and goals
    - Source of truth for project scope
 
 2. `productContext.md`
+
    - Why this project exists
    - Problems it solves
    - How it should work
    - User experience goals
 
 3. `activeContext.md`
+
    - Current work focus
    - Recent changes
    - Next steps
    - Active decisions and considerations
 
 4. `systemPatterns.md`
+
    - System architecture
    - Key technical decisions
    - Design patterns in use
    - Component relationships
 
 5. `techContext.md`
+
    - Technologies used
    - Development setup
    - Technical constraints
@@ -90,7 +100,9 @@ flowchart TD
    - Known issues
 
 ### Additional Context
+
 Create additional files/folders within "docs/ai_kb/memory-bank/" (create these folder if doesnt exists) when they help organize:
+
 - Complex feature documentation
 - Integration specifications
 - API documentation
@@ -100,6 +112,7 @@ Create additional files/folders within "docs/ai_kb/memory-bank/" (create these f
 ## Core Workflows
 
 ### Plan Mode
+
 ```mermaid
 flowchart TD
     Start[Start] --> ReadFiles[Read Memory Bank]
@@ -114,6 +127,7 @@ flowchart TD
 ```
 
 ### Act Mode
+
 ```mermaid
 flowchart TD
     Start[Start] --> Context[Check Memory Bank]
@@ -126,6 +140,7 @@ flowchart TD
 ## Documentation Updates
 
 Memory Bank updates occur when:
+
 1. Discovering new project patterns
 2. After implementing significant changes
 3. When user requests with **update memory bank** (MUST review ALL files)
@@ -174,6 +189,7 @@ flowchart TD
 ```
 
 ### What to Capture
+
 - Critical implementation paths
 - User preferences and workflow
 - Project-specific patterns
@@ -187,7 +203,9 @@ REMEMBER: After every memory reset, I begin completely fresh. The Memory Bank is
 </memory_bank>
 
 # Standard Development Rules
+
 <standard_rules>
+
 ## Go/golang Rules
 
 - **API/Type Troubleshooting:** Use `go doc <pkg> <optional_type>` to find interface definitions or troubleshoot API/type errors.

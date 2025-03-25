@@ -161,28 +161,28 @@ func TestAddressRetrieval(t *testing.T) {
 }
 
 func TestDetachedMode(t *testing.T) {
-t.Parallel() // allow parallel execution
-t.Log("Starting TestDetachedMode")
+	t.Parallel() // allow parallel execution
+	t.Log("Starting TestDetachedMode")
 
-// Create a mux with a custom p2pinfo endpoint.
-mux := http.NewServeMux()
-t.Log("Created ServeMux")
+	// Create a mux with a custom p2pinfo endpoint.
+	mux := http.NewServeMux()
+	t.Log("Created ServeMux")
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-	w.WriteHeader(http.StatusOK)
-	fmt.Fprint(w, "ok")
+		w.WriteHeader(http.StatusOK)
+		fmt.Fprint(w, "ok")
 	})
-	
+
 	ctx := context.Background()
 	// WithDetachedPredicator is used to block until the server is ready.
 	// Use WithHTTPPort(0) for dynamic port allocation
 	server, err := NewServer(ctx, mux, WithHTTPPort(0), WithDetachedServer())
 	if err != nil {
-	t.Fatalf("Failed to create detached server: %v, server: %v", err, server)
+		t.Fatalf("Failed to create detached server: %v, server: %v", err, server)
 	}
 	t.Log("Created detached server")
-	
+
 	if err := server.Close(); err != nil {
-	t.Fatalf("Failed to close server: %v", err)
+		t.Fatalf("Failed to close server: %v", err)
 	}
 	t.Log("Closed server")
-	}
+}

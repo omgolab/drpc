@@ -1,8 +1,8 @@
 package proc
 
 import (
+	"strings"
 	"testing"
-    "strings"
 )
 
 func TestKillPort(t *testing.T) {

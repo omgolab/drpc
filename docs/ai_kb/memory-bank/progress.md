@@ -1,9 +1,11 @@
 # DRPC Project Progress
 
 ## What Works
+
 - Project structure initialized
 
 ## What's Left to Build
+
 - Core protocol definition
 - Go implementation:
   - Client library
@@ -23,7 +25,9 @@
 - Tests
 
 ## Current Status
+
 Project is in initial setup phase. Basic structure is being established.
 
 ## Known Issues
+
 None at this stage as implementation has not begun.

@@ -74,8 +74,13 @@ func NewClient[T any](
 		return zeroValue, fmt.Errorf("no valid peer addresses found")
 	}
 
-	// Creating a new libp2p host for the client
-	clientHost, err := libp2p.New(libp2p.NoListenAddrs)
+	// Creating a new libp2p host for the client using the robust implementation from core.CreateLibp2pHost
+	// but still maintaining client behavior by passing NoListenAddrs option
+	clientHost, err := core.CreateLibp2pHost(
+		ctx,
+		logger,
+		libp2p.NoListenAddrs, // use NoListenAddrs for client mode
+	)
 	if err != nil {
 		logger.Error("Failed to create libp2p host", err)
 		return zeroValue, fmt.Errorf("failed to create libp2p host: %w", err)

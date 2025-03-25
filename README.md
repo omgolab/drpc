@@ -4,18 +4,20 @@ dRPC is a Go library that allows you to use ConnectRPC services over the libp2p 
 
 ## Features
 
-*   **ConnectRPC Compatibility:** Works seamlessly with existing ConnectRPC services.
-*   **libp2p Transport:** Uses libp2p for peer discovery and connection management.
-*   **Decentralized Architecture:** Enables building decentralized applications.
-*   **Resilience:** Provides resilience against network failures.
-* **HTTP Gateway:** Offers an HTTP gateway for non-libp2p clients.
+- **ConnectRPC Compatibility:** Works seamlessly with existing ConnectRPC services.
+- **libp2p Transport:** Uses libp2p for peer discovery and connection management.
+- **Decentralized Architecture:** Enables building decentralized applications.
+- **Resilience:** Provides resilience against network failures.
+- **HTTP Gateway:** Offers an HTTP gateway for non-libp2p clients.
 
 ## Architecture
 
 ```
 [ConnectRPC Client] <-> [libp2p] <-> [dRPC Server] <-> [ConnectRPC Service]
 ```
+
 The dRPC server can also expose an HTTP gateway:
+
 ```
 [HTTP Client] <-> [HTTP Gateway] <-> [dRPC Server]
 ```
@@ -24,10 +26,10 @@ The dRPC server can also expose an HTTP gateway:
 
 ### Prerequisites
 
-*   Go 1.20 or later
-*   [libp2p](https://libp2p.io/) (installed automatically as a Go dependency)
-*   [ConnectRPC](https://connectrpc.com/) (installed automatically as a Go dependency)
-*   [buf](https://buf.build/) (for generating code from `.proto` files)
+- Go 1.20 or later
+- [libp2p](https://libp2p.io/) (installed automatically as a Go dependency)
+- [ConnectRPC](https://connectrpc.com/) (installed automatically as a Go dependency)
+- [buf](https://buf.build/) (for generating code from `.proto` files)
 
 ### Installation
 
@@ -36,7 +38,9 @@ go get github.com/omgolab/drpc
 ```
 
 ### Usage
+
 First define your service using protocol buffer, for example save the following into `proto/greeter/v1/greeter.proto`
+
 ```protobuf
 syntax = "proto3";
 
@@ -58,6 +62,7 @@ message SayHelloResponse {
 ```
 
 Then run following command to generate go code from proto definition
+
 ```
 buf generate
 ```
@@ -365,11 +370,12 @@ func testStreaming(ctx context.Context, serverMultiaddr string) error {
 	return nil
 }
 ```
-These examples use the `examples/echo` service.  You'll need to adapt them to your specific service definition.
+
+These examples use the `examples/echo` service. You'll need to adapt them to your specific service definition.
 
 ## Running the Examples
 
-1.  **Generate the code:**  From the `examples/echo` directory, run `buf generate`.
+1.  **Generate the code:** From the `examples/echo` directory, run `buf generate`.
 2.  **Build:** From the root of the repository, run:
     ```bash
     go build ./examples/echo/cmd/server
@@ -379,7 +385,7 @@ These examples use the `examples/echo` service.  You'll need to adapt them to yo
     ```bash
     ./server
     ```
-   This will start the server in detached mode, logging output to `server.log` and errors to `server.err`.
+    This will start the server in detached mode, logging output to `server.log` and errors to `server.err`.
 4.  **Run the client:** In a separate terminal, run:
     ```bash
     ./client

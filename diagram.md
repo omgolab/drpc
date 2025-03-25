@@ -25,13 +25,13 @@ graph LR
 ```
 
 ## Communication paths for dRPC client
+
 Here are the possible communication paths from "dRPC Client" to "dRPC Handler":
 
 1. dRPC Client -> Listener -> Gateway Handler -> Host libp2p Peer -> dRPC Handler
 2. dRPC Client -> Listener -> Gateway Handler -> Relay libp2p Peer -> Host libp2p Peer -> dRPC Handler
 3. dRPC Client -> Host libp2p Peer -> dRPC Handler
 4. dRPC Client -> Relay libp2p Peer -> Host libp2p Peer -> dRPC Handler
-
 
 ## Sequence Diagram
 

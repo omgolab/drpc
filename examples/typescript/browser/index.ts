@@ -30,8 +30,14 @@ async function main() {
   // Test streaming via direct libp2p
   console.log("Testing streaming via direct libp2p...");
   try {
-    const request = new StreamingEchoRequest({ message: "Direct libp2p stream" });
-    const stream = await client.streamingEcho((async function*() { yield request; })());
+    const request = new StreamingEchoRequest({
+      message: "Direct libp2p stream",
+    });
+    const stream = await client.streamingEcho(
+      (async function* () {
+        yield request;
+      })(),
+    );
     for await (const response of stream) {
       console.log("Received:", response.message);
     }
@@ -60,8 +66,14 @@ async function main() {
   // Test streaming via HTTP Connect-RPC
   console.log("Testing streaming via HTTP Connect-RPC...");
   try {
-    const request = new StreamingEchoRequest({ message: "HTTP Connect stream" });
-    const stream = await client.streamingEcho((async function*() { yield request; })());
+    const request = new StreamingEchoRequest({
+      message: "HTTP Connect stream",
+    });
+    const stream = await client.streamingEcho(
+      (async function* () {
+        yield request;
+      })(),
+    );
     for await (const response of stream) {
       console.log("Received:", response.message);
     }
@@ -93,7 +105,11 @@ async function main() {
   console.log("Testing streaming via gateway...");
   try {
     const request = new StreamingEchoRequest({ message: "Gateway stream" });
-    const stream = await gatewayClient.streamingEcho((async function*() { yield request as any; })());
+    const stream = await gatewayClient.streamingEcho(
+      (async function* () {
+        yield request as any;
+      })(),
+    );
     for await (const response of stream) {
       console.log("Received:", response.message);
     }

@@ -115,7 +115,7 @@ func ForwardHTTPRequest(w http.ResponseWriter, r *http.Request, p2pHost host.Hos
 		},
 	}
 
-	// Execute the request
+	// Execute the request via the client which uses our lip2p connection
 	resp, err := client.Do(req)
 	if err != nil {
 		logger.Printf("Failed to execute request: %v", err)
