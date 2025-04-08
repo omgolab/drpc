@@ -10,3 +10,5 @@ examples/echo/server
 **/*.log
 **/server.err
 server_addr.tmp
+**/.DS_Store
+*.err

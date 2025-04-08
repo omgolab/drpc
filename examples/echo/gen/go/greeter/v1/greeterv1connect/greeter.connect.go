@@ -38,12 +38,16 @@ const (
 	// GreeterServiceStreamingEchoProcedure is the fully-qualified name of the GreeterService's
 	// StreamingEcho RPC.
 	GreeterServiceStreamingEchoProcedure = "/greeter.v1.GreeterService/StreamingEcho"
+	// GreeterServiceBidiStreamingEchoProcedure is the fully-qualified name of the GreeterService's
+	// BidiStreamingEcho RPC.
+	GreeterServiceBidiStreamingEchoProcedure = "/greeter.v1.GreeterService/BidiStreamingEcho"
 )
 
 // GreeterServiceClient is a client for the greeter.v1.GreeterService service.
 type GreeterServiceClient interface {
 	SayHello(context.Context, *connect.Request[v1.SayHelloRequest]) (*connect.Response[v1.SayHelloResponse], error)
 	StreamingEcho(context.Context, *connect.Request[v1.StreamingEchoRequest]) (*connect.ServerStreamForClient[v1.StreamingEchoResponse], error)
+	BidiStreamingEcho(context.Context) *connect.BidiStreamForClient[v1.BidiStreamingEchoRequest, v1.BidiStreamingEchoResponse]
 }
 
 // NewGreeterServiceClient constructs a client for the greeter.v1.GreeterService service. By
@@ -69,13 +73,20 @@ func NewGreeterServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(greeterServiceMethods.ByName("StreamingEcho")),
 			connect.WithClientOptions(opts...),
 		),
+		bidiStreamingEcho: connect.NewClient[v1.BidiStreamingEchoRequest, v1.BidiStreamingEchoResponse](
+			httpClient,
+			baseURL+GreeterServiceBidiStreamingEchoProcedure,
+			connect.WithSchema(greeterServiceMethods.ByName("BidiStreamingEcho")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // greeterServiceClient implements GreeterServiceClient.
 type greeterServiceClient struct {
-	sayHello      *connect.Client[v1.SayHelloRequest, v1.SayHelloResponse]
-	streamingEcho *connect.Client[v1.StreamingEchoRequest, v1.StreamingEchoResponse]
+	sayHello          *connect.Client[v1.SayHelloRequest, v1.SayHelloResponse]
+	streamingEcho     *connect.Client[v1.StreamingEchoRequest, v1.StreamingEchoResponse]
+	bidiStreamingEcho *connect.Client[v1.BidiStreamingEchoRequest, v1.BidiStreamingEchoResponse]
 }
 
 // SayHello calls greeter.v1.GreeterService.SayHello.
@@ -88,10 +99,16 @@ func (c *greeterServiceClient) StreamingEcho(ctx context.Context, req *connect.R
 	return c.streamingEcho.CallServerStream(ctx, req)
 }
 
+// BidiStreamingEcho calls greeter.v1.GreeterService.BidiStreamingEcho.
+func (c *greeterServiceClient) BidiStreamingEcho(ctx context.Context) *connect.BidiStreamForClient[v1.BidiStreamingEchoRequest, v1.BidiStreamingEchoResponse] {
+	return c.bidiStreamingEcho.CallBidiStream(ctx)
+}
+
 // GreeterServiceHandler is an implementation of the greeter.v1.GreeterService service.
 type GreeterServiceHandler interface {
 	SayHello(context.Context, *connect.Request[v1.SayHelloRequest]) (*connect.Response[v1.SayHelloResponse], error)
 	StreamingEcho(context.Context, *connect.Request[v1.StreamingEchoRequest], *connect.ServerStream[v1.StreamingEchoResponse]) error
+	BidiStreamingEcho(context.Context, *connect.BidiStream[v1.BidiStreamingEchoRequest, v1.BidiStreamingEchoResponse]) error
 }
 
 // NewGreeterServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -113,12 +130,20 @@ func NewGreeterServiceHandler(svc GreeterServiceHandler, opts ...connect.Handler
 		connect.WithSchema(greeterServiceMethods.ByName("StreamingEcho")),
 		connect.WithHandlerOptions(opts...),
 	)
+	greeterServiceBidiStreamingEchoHandler := connect.NewBidiStreamHandler(
+		GreeterServiceBidiStreamingEchoProcedure,
+		svc.BidiStreamingEcho,
+		connect.WithSchema(greeterServiceMethods.ByName("BidiStreamingEcho")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/greeter.v1.GreeterService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case GreeterServiceSayHelloProcedure:
 			greeterServiceSayHelloHandler.ServeHTTP(w, r)
 		case GreeterServiceStreamingEchoProcedure:
 			greeterServiceStreamingEchoHandler.ServeHTTP(w, r)
+		case GreeterServiceBidiStreamingEchoProcedure:
+			greeterServiceBidiStreamingEchoHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -134,4 +159,8 @@ func (UnimplementedGreeterServiceHandler) SayHello(context.Context, *connect.Req
 
 func (UnimplementedGreeterServiceHandler) StreamingEcho(context.Context, *connect.Request[v1.StreamingEchoRequest], *connect.ServerStream[v1.StreamingEchoResponse]) error {
 	return connect.NewError(connect.CodeUnimplemented, errors.New("greeter.v1.GreeterService.StreamingEcho is not implemented"))
+}
+
+func (UnimplementedGreeterServiceHandler) BidiStreamingEcho(context.Context, *connect.BidiStream[v1.BidiStreamingEchoRequest, v1.BidiStreamingEchoResponse]) error {
+	return connect.NewError(connect.CodeUnimplemented, errors.New("greeter.v1.GreeterService.BidiStreamingEcho is not implemented"))
 }

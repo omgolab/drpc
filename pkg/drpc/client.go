@@ -59,7 +59,8 @@ func NewClient[T any](
 		// Create the ConnectRPC client
 		return newServiceClient(
 			httpClient,
-			serverAddr, // Use the provided HTTP URL directly
+			serverAddr,            // Use the provided HTTP URL directly
+			client.connectOpts..., // Pass collected connect options
 		), nil
 	}
 
@@ -79,7 +80,8 @@ func NewClient[T any](
 	clientHost, err := core.CreateLibp2pHost(
 		ctx,
 		logger,
-		libp2p.NoListenAddrs, // use NoListenAddrs for client mode
+		append(client.libp2pOptions, libp2p.NoListenAddrs, libp2p.EnableRelay()),
+		client.dhtOptions...,
 	)
 	if err != nil {
 		logger.Error("Failed to create libp2p host", err)
@@ -122,28 +124,57 @@ func NewClient[T any](
 	// Create the ConnectRPC client
 	return newServiceClient(
 		httpClient,
-		"http://localhost", // Placeholder URL, as we're using a custom dialer
+		"http://localhost",    // Placeholder URL, as we're using a custom dialer
+		client.connectOpts..., // Pass collected connect options
 	), nil
 }
 
 // dialWithPool uses a libp2p host and connection pool as dialer.
 func dialWithPool(ctx context.Context, h host.Host, connPool *pool.ConnectionPool, pid protocol.ID, peerID peer.ID, currentStream *network.Stream) (net.Conn, error) {
+	// If we already have a stream, check if it's still valid and reuse it
+	if *currentStream != nil {
+		// Only check direction and basic connection state
+		// Direction check is unique to dialWithPool because we specifically need outbound streams
+		if (*currentStream).Stat().Direction == network.DirOutbound &&
+			(*currentStream).Conn() != nil &&
+			!(*currentStream).Conn().IsClosed() {
+			// Stream is valid, wrap and return it (reuse as-is)
+			return &core.Conn{Stream: *currentStream}, nil
+		}
+
+		// If stream can't be reused, close it and get a new one
+		// The ManagedStream.Close() will handle proper release to the pool
+		(*currentStream).Close()
+		*currentStream = nil
+	}
+
+	//FIXME: after integration tests, we can remove this part till 
+	// Check if we're connecting through a relay
 	connectedness := h.Network().Connectedness(peerID)
 	if connectedness != network.Connected {
 		return nil, fmt.Errorf("not connected to peer (state: %v)", connectedness)
 	}
 
-	var protocolID protocol.ID = pid
-	if isRelayAddr(h.Peerstore().PeerInfo(peerID).Addrs[0].String()) {
+	// Keep the protocol ID check for relay connections
+	// This is needed for relay connections to work properly
+	protocolID := pid
+
+	// Check if any of the peer's addresses include a circuit relay
+	isRelayConn := false
+	for _, addr := range h.Peerstore().Addrs(peerID) {
+		addrStr := addr.String()
+		if IsRelayAddr(addrStr) {
+			isRelayConn = true
+			break
+		}
+	}
+
+	// If this is a relay connection, use the relay protocol ID
+	if isRelayConn {
 		protocolID = protocol.ID("/libp2p/circuit/relay/0.2.0/hop")
 	}
 
-	// Release the current stream if it exists
-	if *currentStream != nil {
-		connPool.ReleaseStream(peerID, *currentStream)
-	}
-
-	// Get a new stream from the pool
+	// Get a new stream from the pool using the appropriate protocol ID
 	stream, err := connPool.GetStream(ctx, peerID, protocolID)
 	if err != nil {
 		return nil, err
@@ -153,7 +184,9 @@ func dialWithPool(ctx context.Context, h host.Host, connPool *pool.ConnectionPoo
 	return &core.Conn{Stream: stream}, nil
 }
 
-func isRelayAddr(addr string) bool {
+// IsRelayAddr checks if the given address string contains the p2p-circuit indicator.
+// Renamed from isRelayAddr to export it.
+func IsRelayAddr(addr string) bool {
 	isRelay := (addr != "" && (len(addr) > 11 && contains(addr, "/p2p-circuit")))
 	return isRelay
 }

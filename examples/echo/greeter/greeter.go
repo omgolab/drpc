@@ -3,6 +3,7 @@ package greeter
 import (
 	"context"
 	"fmt"
+	"io"
 	"time"
 
 	"connectrpc.com/connect"
@@ -42,4 +43,34 @@ func (s *Server) StreamingEcho(
 	}
 	time.Sleep(time.Millisecond * 100)
 	return nil
+}
+
+// BidiStreamingEcho implements the BidiStreamingEcho bidirectional streaming method.
+func (s *Server) BidiStreamingEcho(
+	ctx context.Context,
+	stream *connect.BidiStream[gv1.BidiStreamingEchoRequest, gv1.BidiStreamingEchoResponse],
+) error {
+	// Process each incoming request and send a response
+	for {
+		// Receive a message from the client
+		request, err := stream.Receive()
+		if err == io.EOF {
+			// Client has closed the stream
+			return nil
+		}
+		if err != nil {
+			return fmt.Errorf("receive error: %w", err)
+		}
+
+		// Create a greeting response
+		greeting := fmt.Sprintf("Hello, %s!", request.Name)
+		response := &gv1.BidiStreamingEchoResponse{
+			Greeting: greeting,
+		}
+
+		// Send the response back to the client
+		if err := stream.Send(response); err != nil {
+			return fmt.Errorf("send error: %w", err)
+		}
+	}
 }

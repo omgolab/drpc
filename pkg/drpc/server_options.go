@@ -4,7 +4,10 @@ import (
 	"errors"
 	"fmt"
 
+	// Import time package
 	"github.com/libp2p/go-libp2p"
+	dht "github.com/libp2p/go-libp2p-kad-dht" // Import DHT package
+	"github.com/omgolab/drpc/pkg/detach"
 	glog "github.com/omgolab/go-commons/pkg/log"
 )
 
@@ -13,9 +16,10 @@ type cfg struct {
 	httpHost               string
 	logger                 glog.Logger
 	libp2pOptions          []libp2p.Option
-	dhtBootstrap           bool
+	dhtOptions             []dht.Option // New field for DHT options
 	forceCloseExistingPort bool
-	isDetachedServer       bool
+	isDetachServer         bool
+	detachOptions          []detach.DetachOption
 }
 
 func getDefaultConfig() cfg {
@@ -24,18 +28,27 @@ func getDefaultConfig() cfg {
 		httpPort:               9090,
 		httpHost:               "localhost",
 		logger:                 l,
-		dhtBootstrap:           true,
+		dhtOptions:             nil, // Default to nil (core/host.go might apply defaults)
 		forceCloseExistingPort: false,
-		isDetachedServer:       false,
+		isDetachServer:         false,
+		detachOptions:          nil, // Default to nil, detach package will apply defaults
 	}
 }
 
-type Option func(cfg *cfg) error
+type ServerOption func(cfg *cfg) error
 
 // WithLibP2POptions sets the libp2p options
-func WithLibP2POptions(opts ...libp2p.Option) Option {
+func WithLibP2POptions(opts ...libp2p.Option) ServerOption {
 	return func(cfg *cfg) error {
 		cfg.libp2pOptions = opts
+		return nil
+	}
+}
+
+// WithDHTOptions sets the Kademlia DHT options
+func WithDHTOptions(opts ...dht.Option) ServerOption {
+	return func(cfg *cfg) error {
+		cfg.dhtOptions = opts
 		return nil
 	}
 }
@@ -43,7 +56,7 @@ func WithLibP2POptions(opts ...libp2p.Option) Option {
 // WithHTTPPort sets the HTTP gateway port
 // default port is 90090
 // pass -1 to disable HTTP server interface
-func WithHTTPPort(port int) Option {
+func WithHTTPPort(port int) ServerOption {
 	return func(cfg *cfg) error {
 		if port < -1 || port > 65535 {
 			return fmt.Errorf("invalid port number: %d", port)
@@ -55,7 +68,7 @@ func WithHTTPPort(port int) Option {
 
 // WithHTTPHost sets the HTTP gateway host
 // default is "localhost"
-func WithHTTPHost(host string) Option {
+func WithHTTPHost(host string) ServerOption {
 	return func(cfg *cfg) error {
 		cfg.httpHost = host
 		return nil
@@ -63,7 +76,7 @@ func WithHTTPHost(host string) Option {
 }
 
 // WithLogger sets the logger
-func WithLogger(log glog.Logger) Option {
+func WithLogger(log glog.Logger) ServerOption {
 	return func(cfg *cfg) error {
 		if log == nil {
 			return errors.New("invalid logger")
@@ -74,25 +87,28 @@ func WithLogger(log glog.Logger) Option {
 }
 
 // WithForceCloseExistingPort forces closing of any existing process on the configured port.
-func WithForceCloseExistingPort(forceClose bool) Option {
+func WithForceCloseExistingPort(forceClose bool) ServerOption {
 	return func(cfg *cfg) error {
 		cfg.forceCloseExistingPort = forceClose
 		return nil
 	}
 }
 
-// WithNoBootstrap disables bootstrapping
-func WithNoBootstrap(isEnabled bool) Option {
+// WithDetachedServer configures whether the server should attempt to start in detached mode.
+// Set to true when running within tests or embedded scenarios.
+func WithDetachedServer() ServerOption {
 	return func(cfg *cfg) error {
-		cfg.dhtBootstrap = isEnabled
+		cfg.isDetachServer = true
 		return nil
 	}
 }
 
-// New option to set the isDetachedServer flag
-func WithDetachedServer() Option {
+// WithDetachOptions sets the options for the detached process functionality.
+// These options will be passed to the detach package when starting a detached server.
+func WithDetachOptions(opts ...detach.DetachOption) ServerOption {
 	return func(cfg *cfg) error {
-		cfg.isDetachedServer = true
+		cfg.isDetachServer = true
+		cfg.detachOptions = append(cfg.detachOptions, opts...)
 		return nil
 	}
 }

@@ -37,7 +37,6 @@ func main() {
 		// Predicate function (always returns nil, effectively disabling the check)
 		drpc.WithDetachedServer(),
 		drpc.WithHTTPHost("localhost"),
-		drpc.WithNoBootstrap(true),
 	)
 	if err != nil {
 		log.Fatal("failed to create server", err)

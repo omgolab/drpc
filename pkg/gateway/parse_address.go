@@ -221,3 +221,39 @@ func parseMultiaddrs(addrStr string) ([]ma.Multiaddr, error) {
 	}
 	return addrs, nil
 }
+
+// ExtractRelayAddrInfo attempts to extract the relay peer's AddrInfo from a circuit address string.
+// It expects an address like /p2p/relay-id/p2p-circuit/...
+func ExtractRelayAddrInfo(addrStr string) (*peer.AddrInfo, error) {
+	maddr, err := ma.NewMultiaddr(addrStr)
+	if err != nil {
+		return nil, fmt.Errorf("invalid multiaddress %s: %w", addrStr, err)
+	}
+
+	// Check if it's a circuit address
+	_, err = maddr.ValueForProtocol(ma.P_CIRCUIT) // P_CIRCUIT is the code for /p2p-circuit
+	if err != nil {
+		// Not a circuit address or malformed
+		return nil, fmt.Errorf("not a circuit address or missing circuit component: %w", err)
+	}
+
+	// Extract the relay part (everything before /p2p-circuit)
+	relayMaStr, _ := ma.SplitFunc(maddr, func(c ma.Component) bool {
+		return c.Protocol().Code == ma.P_CIRCUIT
+	})
+
+	if relayMaStr == nil {
+		return nil, fmt.Errorf("could not extract relay part from circuit address %s", addrStr)
+	}
+
+	// Convert the relay part to AddrInfo
+	relayInfo, err := peer.AddrInfoFromP2pAddr(relayMaStr)
+	if err != nil {
+		return nil, fmt.Errorf("could not get AddrInfo from relay part %s: %w", relayMaStr.String(), err)
+	}
+	if relayInfo == nil || relayInfo.ID == "" {
+		return nil, fmt.Errorf("extracted relay AddrInfo is invalid for %s", relayMaStr.String())
+	}
+
+	return relayInfo, nil
+}

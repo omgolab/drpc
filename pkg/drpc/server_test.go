@@ -6,9 +6,13 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time" // Import time package
 
 	"github.com/libp2p/go-libp2p"
+	"github.com/omgolab/drpc/pkg/detach"
 )
+
+const testTimeout = 10 * time.Second // Define a reasonable timeout for tests
 
 func TestBasicServerCreation(t *testing.T) {
 	t.Parallel() // allow parallel execution
@@ -18,7 +22,8 @@ func TestBasicServerCreation(t *testing.T) {
 		fmt.Fprint(w, "OK")
 	})
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout) // Add timeout
+	defer cancel()                                                        // Ensure cancellation
 	server, err := NewServer(ctx, mux)
 	if err != nil {
 		t.Fatalf("Failed to create server: %v", err)
@@ -40,7 +45,8 @@ func TestWithOptions(t *testing.T) {
 		fmt.Fprint(w, "OK")
 	})
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout) // Add timeout
+	defer cancel()                                                        // Ensure cancellation
 	server, err := NewServer(
 		ctx,
 		mux,
@@ -68,7 +74,8 @@ func TestP2PServerStart(t *testing.T) {
 		fmt.Fprint(w, "OK")
 	})
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout) // Add timeout
+	defer cancel()                                                        // Ensure cancellation
 	server, err := NewServer(ctx, mux, WithLibP2POptions(libp2p.NoListenAddrs))
 	if err != nil {
 		t.Fatalf("Failed to create server: %v", err)
@@ -90,7 +97,8 @@ func TestHTTPServerStart(t *testing.T) {
 		fmt.Fprint(w, "OK")
 	})
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout) // Add timeout
+	defer cancel()                                                        // Ensure cancellation
 	// Use WithHTTPPort(0) for dynamic port allocation
 	server, err := NewServer(ctx, mux, WithLibP2POptions(libp2p.NoListenAddrs), WithHTTPPort(0))
 	if err != nil {
@@ -113,7 +121,8 @@ func TestServerClose(t *testing.T) {
 		fmt.Fprint(w, "OK")
 	})
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout) // Add timeout
+	defer cancel()                                                        // Ensure cancellation
 	server, err := NewServer(ctx, mux, WithLibP2POptions(libp2p.NoListenAddrs))
 	if err != nil {
 		t.Fatalf("Failed to create server: %v", err)
@@ -132,12 +141,17 @@ func TestAddressRetrieval(t *testing.T) {
 		fmt.Fprint(w, "OK")
 	})
 
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), testTimeout) // Add timeout
+	defer cancel()                                                        // Ensure cancellation
 	// Use WithHTTPPort(0) for dynamic port allocation
 	server, err := NewServer(ctx, mux, WithLibP2POptions(libp2p.NoListenAddrs), WithHTTPPort(0))
 	if err != nil {
 		t.Fatalf("Failed to create server: %v", err)
 	}
+
+	// Add a small delay to allow the HTTP listener goroutine to start
+	// This is a common pattern when testing asynchronous server startup.
+	time.Sleep(100 * time.Millisecond)
 
 	addrs := server.Addrs()
 	if len(addrs) == 0 {
@@ -172,10 +186,13 @@ func TestDetachedMode(t *testing.T) {
 		fmt.Fprint(w, "ok")
 	})
 
-	ctx := context.Background()
-	// WithDetachedPredicator is used to block until the server is ready.
+	ctx := context.Background() // Use background context directly
+	// WithDetachedServer to false is used to block until the server is ready.
 	// Use WithHTTPPort(0) for dynamic port allocation
-	server, err := NewServer(ctx, mux, WithHTTPPort(0), WithDetachedServer())
+	server, err := NewServer(ctx, mux,
+		WithHTTPPort(0),
+		WithDetachOptions(detach.WithExitFunc(func(i int) {})), // Use the new option
+	)
 	if err != nil {
 		t.Fatalf("Failed to create detached server: %v, server: %v", err, server)
 	}

@@ -22,7 +22,6 @@ type listener struct {
 
 // NewStreamBridgeListener bridges a libp2p network.Stream to a net.Conn
 func NewStreamBridgeListener(
-	ctx context.Context,
 	h host.Host,
 	pid protocol.ID,
 ) net.Listener {
@@ -30,7 +29,9 @@ func NewStreamBridgeListener(
 		h:        h,
 		streamCh: make(chan network.Stream),
 	}
-	l.ctx, l.cancel = context.WithCancel(ctx)
+	// Use context.Background() so the listener's lifecycle isn't tied to the setup context.
+	// It will only close when l.Close() is called.
+	l.ctx, l.cancel = context.WithCancel(context.Background())
 
 	h.SetStreamHandler(pid, func(s network.Stream) {
 		l.streamCh <- s

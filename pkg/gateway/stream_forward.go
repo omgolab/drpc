@@ -61,8 +61,8 @@ func ForwardHTTPRequest(w http.ResponseWriter, r *http.Request, p2pHost host.Hos
 		return
 	}
 
-	// Ensure stream is released back to the pool
-	defer connPool.ReleaseStream(connectedPeerID, stream)
+	// Ensure stream is released back to the pool by calling Close()
+	defer stream.Close()
 
 	logger.Printf("ForwardHTTPRequest - Connected to PeerID: %s", connectedPeerID.String())
 	logger.Printf("ForwardHTTPRequest - Forwarding to service: %s", servicePath)

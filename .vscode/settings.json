@@ -4,6 +4,7 @@
     "connectrpc",
     "drpc",
     "glog",
+    "greeterv",
     "libp",
     "maddr",
     "mnet",
