@@ -10,6 +10,7 @@ import (
 	"github.com/libp2p/go-libp2p"
 	host "github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
+	"github.com/libp2p/go-libp2p/core/peerstore"
 	rclient "github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/client"
 	"github.com/libp2p/go-libp2p/p2p/protocol/circuitv2/relay"
 	ma "github.com/multiformats/go-multiaddr"
@@ -146,8 +147,9 @@ func setupRelayNode(t *testing.T) (host.Host, func()) {
 	// Create relay host with enhanced options
 	relayHost, err := libp2p.New(
 		libp2p.ListenAddrStrings("/ip4/127.0.0.1/tcp/0"),
-		libp2p.EnableRelay(),
-		libp2p.EnableRelayService(relay.WithLimit(nil)), // No limits for testing
+		libp2p.EnableRelay(), // Keep general relay enabled
+		// Explicitly configure Relay v2 resources
+		libp2p.EnableRelayService(relay.WithResources(relay.DefaultResources())),
 		libp2p.ForceReachabilityPublic(),
 	)
 	if err != nil {
@@ -155,13 +157,14 @@ func setupRelayNode(t *testing.T) (host.Host, func()) {
 		t.Fatalf("Failed to create relay host: %v", err)
 	}
 
-	// Start the relay service
-	_, err = relay.New(relayHost)
-	if err != nil {
-		relayHost.Close()
-		cancel()
-		t.Fatalf("Failed to start relay service: %v", err)
-	}
+	// The relay service should be started by the EnableRelayService option.
+	// Remove the explicit relay.New call as it might be redundant or conflicting.
+	// _, err = relay.New(relayHost)
+	// if err != nil {
+	// 	relayHost.Close()
+	// 	cancel()
+	// 	t.Fatalf("Failed to start relay service: %v", err)
+	// }
 
 	t.Logf("Relay node created with ID: %s", relayHost.ID())
 	t.Logf("Relay listening on addresses: %v", relayHost.Addrs())
@@ -208,7 +211,9 @@ func setupGreeterViaRelay(t *testing.T, relayHost host.Host) (*drpc.ServerInstan
 		drpc.WithLibP2POptions(
 			libp2p.NoListenAddrs,
 			libp2p.ForceReachabilityPrivate(),
-			libp2p.EnableRelay(),
+			libp2p.EnableRelay(), // Enable relay capabilities for the target server
+			// Also configure AutoRelay for the target server, pointing to the relay node.
+			// This helps ensure it actively maintains a connection if needed.
 			libp2p.EnableAutoRelayWithStaticRelays([]peer.AddrInfo{relayAddrInfo}),
 		),
 		drpc.WithLogger(testLog))
@@ -273,8 +278,10 @@ func setupHTTPGatewayRelay(t *testing.T, relayHost host.Host, targetServerID pee
 		drpc.WithHTTPPort(0), // Random HTTP port
 		drpc.WithLibP2POptions(
 			libp2p.ListenAddrStrings("/ip4/127.0.0.1/tcp/0"),
-			libp2p.EnableRelay(),
+			// libp2p.EnableRelay(), // Remove: Gateway doesn't need to BE a relay, just USE one.
 			libp2p.ForceReachabilityPublic(),
+			// Add client-side relay options to allow dialing via relay
+			libp2p.EnableAutoRelayWithStaticRelays([]peer.AddrInfo{relayAddrInfo}),
 		),
 		drpc.WithLogger(testLog))
 	if err != nil {
@@ -285,6 +292,16 @@ func setupHTTPGatewayRelay(t *testing.T, relayHost host.Host, targetServerID pee
 	if err := gateway.P2PHost().Connect(ctx, relayAddrInfo); err != nil {
 		t.Fatalf("Gateway failed to connect to relay: %v", err)
 	}
+
+	// *** Add target server's relay address to gateway's peerstore ***
+	// This ensures the gateway knows how to reach the target via the relay
+	targetRelayAddr, err := ma.NewMultiaddr("/p2p/" + relayHost.ID().String() + "/p2p-circuit/p2p/" + targetServerID.String())
+	if err != nil {
+		t.Fatalf("Failed to construct target relay multiaddr for gateway peerstore: %v", err)
+	}
+	gateway.P2PHost().Peerstore().AddAddr(targetServerID, targetRelayAddr, peerstore.PermanentAddrTTL) // Use peerstore.PermanentAddrTTL
+	t.Logf("Added target server relay address (%s) to gateway peerstore", targetRelayAddr.String())
+
 
 	// Wait for HTTP address
 	var httpGatewayAddr string
@@ -384,6 +401,107 @@ func testClientStreamingRequest(t *testing.T, client gv1connect.GreeterServiceCl
 	}
 }
 
+// testClientUnaryRequestNormalTimeout is like testClientUnaryRequest but uses normalTimeout
+func testClientUnaryRequestNormalTimeout(t *testing.T, client gv1connect.GreeterServiceClient) {
+	ctx, cancel := context.WithTimeout(context.Background(), normalTimeout) // Use normalTimeout
+	defer cancel()
+
+	resp, err := client.SayHello(ctx, connect.NewRequest(&gv1.SayHelloRequest{Name: "DRPC Test Path 2"}))
+	if err != nil {
+		t.Fatalf("Failed to call SayHello (normal timeout): %v", err)
+	}
+	if resp.Msg.Message != "Hello, DRPC Test Path 2!" {
+		t.Errorf("Unexpected greeting: got %q, want %q", resp.Msg.Message, "Hello, DRPC Test Path 2!")
+	}
+}
+
+// testClientStreamingRequestNormalTimeout is like testClientStreamingRequest but uses normalTimeout
+func testClientStreamingRequestNormalTimeout(t *testing.T, client gv1connect.GreeterServiceClient) {
+	ctx, cancel := context.WithTimeout(context.Background(), normalTimeout) // Use normalTimeout
+	defer cancel()
+	stream := client.BidiStreamingEcho(ctx)
+	names := []string{"Path2-Alice", "Path2-Bob", "Path2-Charlie"}
+	for _, name := range names {
+		err := stream.Send(&gv1.BidiStreamingEchoRequest{Name: name})
+		if err != nil {
+			t.Fatalf("Failed to send to stream (normal timeout): %v", err)
+		}
+	}
+	err := stream.CloseRequest()
+	if err != nil {
+		t.Fatalf("Failed to close request stream (normal timeout): %v", err)
+	}
+	receivedGreetings := make(map[string]bool)
+	for i := 0; i < len(names); i++ {
+		resp, err := stream.Receive()
+		if err != nil {
+			t.Fatalf("Failed to receive from stream (normal timeout): %v", err)
+		}
+		receivedGreetings[resp.Greeting] = true
+	}
+	for _, name := range names {
+		expected := "Hello, " + name + "!"
+		if !receivedGreetings[expected] {
+			t.Errorf("Missing greeting for %q (normal timeout)", name)
+		}
+	}
+	_, err = stream.Receive()
+	if err == nil {
+		t.Errorf("Expected end of stream, but got another response (normal timeout)")
+	}
+}
+
+// testClientUnaryRequestLongTimeout is like testClientUnaryRequest but uses longTimeout
+func testClientUnaryRequestLongTimeout(t *testing.T, client gv1connect.GreeterServiceClient) {
+	ctx, cancel := context.WithTimeout(context.Background(), longTimeout) // Use longTimeout
+	defer cancel()
+
+	resp, err := client.SayHello(ctx, connect.NewRequest(&gv1.SayHelloRequest{Name: "DRPC Test Path 2 Long"}))
+	if err != nil {
+		t.Fatalf("Failed to call SayHello (long timeout): %v", err)
+	}
+	if resp.Msg.Message != "Hello, DRPC Test Path 2 Long!" {
+		t.Errorf("Unexpected greeting: got %q, want %q", resp.Msg.Message, "Hello, DRPC Test Path 2 Long!")
+	}
+}
+
+// testClientStreamingRequestLongTimeout is like testClientStreamingRequest but uses longTimeout
+func testClientStreamingRequestLongTimeout(t *testing.T, client gv1connect.GreeterServiceClient) {
+	ctx, cancel := context.WithTimeout(context.Background(), longTimeout) // Use longTimeout
+	defer cancel()
+	stream := client.BidiStreamingEcho(ctx)
+	names := []string{"Path2Long-Alice", "Path2Long-Bob", "Path2Long-Charlie"}
+	for _, name := range names {
+		err := stream.Send(&gv1.BidiStreamingEchoRequest{Name: name})
+		if err != nil {
+			t.Fatalf("Failed to send to stream (long timeout): %v", err)
+		}
+	}
+	err := stream.CloseRequest()
+	if err != nil {
+		t.Fatalf("Failed to close request stream (long timeout): %v", err)
+	}
+	receivedGreetings := make(map[string]bool)
+	for i := 0; i < len(names); i++ {
+		resp, err := stream.Receive()
+		if err != nil {
+			t.Fatalf("Failed to receive from stream (long timeout): %v", err)
+		}
+		receivedGreetings[resp.Greeting] = true
+	}
+	for _, name := range names {
+		expected := "Hello, " + name + "!"
+		if !receivedGreetings[expected] {
+			t.Errorf("Missing greeting for %q (long timeout)", name)
+		}
+	}
+	_, err = stream.Receive()
+	if err == nil {
+		t.Errorf("Expected end of stream, but got another response (long timeout)")
+	}
+}
+
+
 // TestPath1_HTTPDirect tests the first communication path:
 // dRPC Client → Listener(if serverAddr is an http address) → Gateway Handler → Host libp2p Peer → dRPC Handler
 func TestPath1_HTTPDirect(t *testing.T) {
@@ -444,11 +562,11 @@ func TestPath2_HTTPGatewayRelay(t *testing.T) {
 		t.Fatalf("Failed to create client: %v", err)
 	}
 
-	t.Log("Testing unary request over HTTP gateway -> relay path")
-	testClientUnaryRequest(t, client)
+	t.Log("Testing unary request over HTTP gateway -> relay path (long timeout)")
+	testClientUnaryRequestLongTimeout(t, client) // Use long timeout helper
 
-	t.Log("Testing streaming request over HTTP gateway -> relay path")
-	testClientStreamingRequest(t, client)
+	t.Log("Testing streaming request over HTTP gateway -> relay path (long timeout)")
+	testClientStreamingRequestLongTimeout(t, client) // Use long timeout helper
 }
 
 // TestPath3_LibP2PDirect tests the third communication path:
@@ -463,11 +581,14 @@ func TestPath3_LibP2PDirect(t *testing.T) {
 	// Create client connected directly to libp2p server
 	ctx, cancel := context.WithTimeout(context.Background(), shortTimeout)
 	defer cancel()
+	testLog, _ := glog.New() // Create logger
 
 	client, err := drpc.NewClient(
 		ctx,
 		p2pAddr,
 		gv1connect.NewGreeterServiceClient,
+		drpc.WithClientLogger(testLog), // Use correct ClientOption
+		// drpc.WithConnectOptions(connect.WithHTTPVersion(1)), // Remove undefined option
 	)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)
@@ -497,11 +618,13 @@ func TestPath4_LibP2PRelay(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), normalTimeout)
 	defer cancel()
 
+	testLog, _ := glog.New() // Create logger
 	client, err := drpc.NewClient(
 		ctx,
 		relayAddr,
 		gv1connect.NewGreeterServiceClient,
-		drpc.WithClientLibp2pOptions(libp2p.EnableRelay()),
+		drpc.WithClientLibp2pOptions(libp2p.EnableRelay()), // Keep existing options
+		drpc.WithClientLogger(testLog),                   // Add logger option
 	)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)

@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strings"
 
+	"crypto/tls"
+
 	"connectrpc.com/connect"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/host"
@@ -18,6 +20,7 @@ import (
 	"github.com/omgolab/drpc/pkg/core/pool"
 	"github.com/omgolab/drpc/pkg/gateway"
 	glog "github.com/omgolab/go-commons/pkg/log"
+	"golang.org/x/net/http2"
 )
 
 // NewClient creates a new ConnectRPC client that uses libp2p for transport.
@@ -50,9 +53,18 @@ func NewClient[T any](
 	if strings.HasPrefix(serverAddr, "http://") || strings.HasPrefix(serverAddr, "https://") {
 		// For HTTP paths, we can directly use the ConnectRPC client with the http address
 		// This handles Path 1 and Path 2 (gateway handler will resolve between direct or relay)
+		// Use a dedicated http2 transport for h2c (HTTP/2 over cleartext)
 		httpClient := &http.Client{
-			Transport: &http.Transport{
-				ForceAttemptHTTP2: true,
+			Transport: &http2.Transport{
+				// Allow non-TLS HTTP/2
+				AllowHTTP: true,
+				// Need a custom dialer that skips TLS for http:// addresses
+				DialTLSContext: func(ctx context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
+					// If you need context dialing:
+					// var d net.Dialer
+					// return d.DialContext(ctx, network, addr)
+					return net.Dial(network, addr)
+				},
 			},
 		}
 
@@ -75,12 +87,32 @@ func NewClient[T any](
 		return zeroValue, fmt.Errorf("no valid peer addresses found")
 	}
 
-	// Creating a new libp2p host for the client using the robust implementation from core.CreateLibp2pHost
-	// but still maintaining client behavior by passing NoListenAddrs option
+	// Creating a new libp2p host for the client.
+	// If connecting via relay, configure AutoRelay.
+	libp2pOpts := append(client.libp2pOptions, libp2p.NoListenAddrs) // Start with base options
+
+	// Check if the target address is a relay address
+	isCircuitAddr := gateway.IsRelayAddr(serverAddr) // Use helper from gateway package
+	if isCircuitAddr {
+		relayInfo, err := gateway.ExtractRelayAddrInfo(serverAddr) // Extract relay info
+		if err != nil {
+			return zeroValue, fmt.Errorf("failed to extract relay info from address %s: %w", serverAddr, err)
+		}
+		if relayInfo == nil {
+			return zeroValue, fmt.Errorf("extracted nil relay info from address %s", serverAddr)
+		}
+		// Add relay client options
+		libp2pOpts = append(libp2pOpts,
+			libp2p.EnableRelay(), // Needed for client-side? Yes.
+			libp2p.EnableAutoRelayWithStaticRelays([]peer.AddrInfo{*relayInfo}),
+		)
+		logger.Info("Configuring client host to use relay", glog.LogFields{"relayID": relayInfo.ID.String()})
+	}
+
 	clientHost, err := core.CreateLibp2pHost(
 		ctx,
 		logger,
-		append(client.libp2pOptions, libp2p.NoListenAddrs, libp2p.EnableRelay()),
+		libp2pOpts,
 		client.dhtOptions...,
 	)
 	if err != nil {
@@ -109,11 +141,19 @@ func NewClient[T any](
 	logger.Info("Successfully connected to peer", glog.LogFields{"peerID": connectedPeerID.String()})
 
 	// Custom transport that uses the libp2p dialer with connection pool
+	// Keep track of the current stream for reuse? Maybe not needed if transport handles it. Let's keep for now.
 	var currentStream network.Stream
+
+	// Use standard http.Transport for libp2p connections.
+	// This will use HTTP/1.1, avoiding http2 framing issues over the stream.
 	transport := &http.Transport{
 		DialContext: func(ctx context.Context, net, addr string) (net.Conn, error) {
+			// Use the dialWithPool function to get a libp2p stream wrapped as net.Conn
 			return dialWithPool(ctx, clientHost, connPool, config.PROTOCOL_ID, connectedPeerID, &currentStream)
 		},
+		// Ensure HTTP/2 is not attempted by this transport
+		ForceAttemptHTTP2: false,
+		DisableKeepAlives: false,
 	}
 
 	// Create a custom HTTP client with the libp2p transport
@@ -148,36 +188,11 @@ func dialWithPool(ctx context.Context, h host.Host, connPool *pool.ConnectionPoo
 		*currentStream = nil
 	}
 
-	//FIXME: after integration tests, we can remove this part till 
-	// Check if we're connecting through a relay
-	connectedness := h.Network().Connectedness(peerID)
-	if connectedness != network.Connected {
-		return nil, fmt.Errorf("not connected to peer (state: %v)", connectedness)
-	}
-
-	// Keep the protocol ID check for relay connections
-	// This is needed for relay connections to work properly
-	protocolID := pid
-
-	// Check if any of the peer's addresses include a circuit relay
-	isRelayConn := false
-	for _, addr := range h.Peerstore().Addrs(peerID) {
-		addrStr := addr.String()
-		if IsRelayAddr(addrStr) {
-			isRelayConn = true
-			break
-		}
-	}
-
-	// If this is a relay connection, use the relay protocol ID
-	if isRelayConn {
-		protocolID = protocol.ID("/libp2p/circuit/relay/0.2.0/hop")
-	}
-
-	// Get a new stream from the pool using the appropriate protocol ID
-	stream, err := connPool.GetStream(ctx, peerID, protocolID)
+	// Get a new stream from the pool using the application protocol ID (pid)
+	// Libp2p handles the underlying relay mechanism transparently.
+	stream, err := connPool.GetStream(ctx, peerID, pid) // Always use the provided application protocol ID
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get stream from pool for peer %s with protocol %s: %w", peerID, pid, err)
 	}
 	*currentStream = stream
 

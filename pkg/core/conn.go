@@ -8,7 +8,7 @@ import (
 	mn "github.com/multiformats/go-multiaddr/net"
 )
 
-var _ net.Conn = (*Conn)(nil)
+var _ net.Conn = (*Conn)(nil) // Ensure Conn still implements net.Conn
 
 // Helper to convert multiaddr to net.Addr, or return fallback on error.
 func netAddrOrFallback(ma multiaddr.Multiaddr) net.Addr {

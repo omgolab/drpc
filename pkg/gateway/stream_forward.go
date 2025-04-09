@@ -7,13 +7,20 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
+	"strings"
 	"sync"
 
 	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/omgolab/drpc/pkg/config"
 	"github.com/omgolab/drpc/pkg/core"
 	"github.com/omgolab/drpc/pkg/core/pool"
 	glog "github.com/omgolab/go-commons/pkg/log"
+)
+
+const (
+	// GatewayPrefix is the URL path prefix used to identify gateway requests.
+	GatewayPrefix = "/gateway/"
 )
 
 // Global buffer pool for optimized copying
@@ -26,10 +33,16 @@ var bufferPool = &sync.Pool{
 
 // ForwardHTTPRequest handles the entire request forwarding process using standard Go HTTP client
 func ForwardHTTPRequest(w http.ResponseWriter, r *http.Request, p2pHost host.Host, logger glog.Logger) {
-	// Parse addresses and service path from the URL
-	peerAddrs, servicePath, err := ParseAddresses(r.URL.Path)
+	// Strip the gateway prefix and ensure the remaining path starts with '/'
+	pathWithoutPrefix := strings.TrimPrefix(r.URL.Path, GatewayPrefix)
+	if !strings.HasPrefix(pathWithoutPrefix, "/") {
+		pathWithoutPrefix = "/" + pathWithoutPrefix // Ensure it starts with / for ParseAddresses
+	}
+
+	// Parse addresses and service path from the URL (without the gateway prefix)
+	peerAddrs, servicePath, err := ParseAddresses(pathWithoutPrefix)
 	if err != nil {
-		logger.Printf("Failed to parse addresses: %v", err)
+		logger.Printf("Failed to parse addresses from path '%s': %v", pathWithoutPrefix, err)
 		http.Error(w, fmt.Sprintf("Failed to parse addresses: %v", err), http.StatusBadRequest)
 		return
 	}
@@ -53,44 +66,62 @@ func ForwardHTTPRequest(w http.ResponseWriter, r *http.Request, p2pHost host.Hos
 		return
 	}
 
-	// Get stream from pool
-	stream, err := connPool.GetStream(r.Context(), connectedPeerID, config.PROTOCOL_ID)
-	if err != nil {
-		logger.Printf("Failed to create stream with peer %s: %v", connectedPeerID, err)
-		http.Error(w, fmt.Sprintf("Failed to create stream with peer %s: %v", connectedPeerID, err), http.StatusInternalServerError)
-		return
-	}
-
-	// Ensure stream is released back to the pool by calling Close()
-	defer stream.Close()
-
 	logger.Printf("ForwardHTTPRequest - Connected to PeerID: %s", connectedPeerID.String())
 	logger.Printf("ForwardHTTPRequest - Forwarding to service: %s", servicePath)
 
-	// Create a net.Conn from the libp2p stream
-	conn := &core.Conn{Stream: stream}
+	// Note: We don't get a single stream here anymore.
+	// The transport's DialContext will get streams as needed.
 
-	// Create a custom transport that uses our single connection
+	// Create a standard http transport that dials a new stream for each connection attempt
 	transport := &http.Transport{
-		// Override the dial function to return our existing connection
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			return conn, nil
+			// Determine the correct protocol ID based on whether it's a relay connection
+			protocolID := config.PROTOCOL_ID // Default to application protocol
+			isRelay := false
+			for _, maddr := range p2pHost.Peerstore().Addrs(connectedPeerID) {
+				if IsRelayAddr(maddr.String()) {
+					isRelay = true
+					break
+				}
+			}
+			// Use hop protocol if dialing via relay, otherwise use application protocol
+			if isRelay {
+				logger.Printf("DialContext: Detected relay connection to %s, using hop protocol", connectedPeerID)
+				protocolID = protocol.ID("/libp2p/circuit/relay/0.2.0/hop") // Use hop protocol for relay dial
+			} else {
+				logger.Printf("DialContext: Detected direct connection to %s, using app protocol %s", connectedPeerID, protocolID)
+			}
+
+			// Get a new stream from the pool for this specific dial using the determined protocol ID
+			stream, err := connPool.GetStream(ctx, connectedPeerID, protocolID)
+			if err != nil {
+				logger.Printf("Failed to get stream for dial to %s using protocol %s: %v", connectedPeerID, protocolID, err)
+				return nil, err
+			}
+			// Return the stream wrapped in net.Conn
+			// The http.Client will manage closing this conn/stream
+			return &core.Conn{Stream: stream}, nil
 		},
-		// Enable keep-alives for better performance
-		DisableKeepAlives: false,
+		// Explicitly disable HTTP/2 for this internal transport to force HTTP/1.1
+		// This might avoid framing issues over the libp2p stream.
+		ForceAttemptHTTP2: false,
+		DisableKeepAlives: false, // Keep this for potential performance benefits if HTTP/1.1 works
 	}
 
 	// Clone the request to modify it
 	req := r.Clone(r.Context())
 
-	// Modify the request path to include the service path
-	req.URL.Path = "/" + servicePath
-	req.URL.RawPath = "/" + servicePath
+	// Modify the request path to be the service path expected by the ConnectRPC handler
+	// servicePath already includes the leading '/'
+	req.URL.Path = servicePath
+	req.URL.RawPath = servicePath // Use RawPath if available, otherwise Path
 	req.URL.Scheme = "http"
 	req.URL.Host = "localhost" // Placeholder, actual routing happens via the transport
 
 	// Remove the host header as it might be incorrect for the destination
 	req.Host = ""
+	// Clear RequestURI, as it should not be set in client requests
+	req.RequestURI = ""
 
 	// Set Connect-RPC headers if needed
 	if r.Header.Get("Content-Type") == "" {
@@ -106,13 +137,15 @@ func ForwardHTTPRequest(w http.ResponseWriter, r *http.Request, p2pHost host.Hos
 		logger.Printf("ForwardHTTPRequest - Request: %s", string(rawReq))
 	}
 
-	// Create an HTTP client with our custom transport
+	// Create an HTTP client with our custom http2 transport
+	// Ensure client doesn't force HTTP/1.1 which might conflict
 	client := &http.Client{
 		Transport: transport,
-		// Don't follow redirects - we want to forward as is
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
-			return http.ErrUseLastResponse
+			return http.ErrUseLastResponse // Don't follow redirects
 		},
+		// Do NOT set Timeout here, rely on context cancellation
+		// Do NOT set Jar (cookie handling) unless specifically needed
 	}
 
 	// Execute the request via the client which uses our lip2p connection

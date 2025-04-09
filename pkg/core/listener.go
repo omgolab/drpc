@@ -27,7 +27,7 @@ func NewStreamBridgeListener(
 ) net.Listener {
 	l := listener{
 		h:        h,
-		streamCh: make(chan network.Stream),
+		streamCh: make(chan network.Stream, 1), // Use a buffered channel (size 1)
 	}
 	// Use context.Background() so the listener's lifecycle isn't tied to the setup context.
 	// It will only close when l.Close() is called.

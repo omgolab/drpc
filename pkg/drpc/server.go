@@ -14,6 +14,8 @@ import (
 	"github.com/omgolab/drpc/pkg/detach"
 	"github.com/omgolab/drpc/pkg/gateway"
 	"github.com/omgolab/drpc/pkg/proc"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 )
 
 // ServerInstance represents a dual-protocol server (libp2p and HTTP)
@@ -87,7 +89,7 @@ func (s *ServerInstance) setupRpcLpBridgeServer(ctx context.Context, cfg *cfg) e
 
 	s.p2pHost = lh
 
-	// Create rpc server
+	// Create rpc server for the p2p listener
 	rpcServer := &http.Server{
 		Handler: s.handlerMux,
 		Addr:    bridgeListener.Addr().String(),
@@ -106,10 +108,16 @@ func (s *ServerInstance) setupRpcLpBridgeServer(ctx context.Context, cfg *cfg) e
 
 // setupHTTPServer configures and starts the HTTP server
 func (s *ServerInstance) setupHTTPServer(cfg *cfg, httpAddr string) error {
-	// Create HTTP server with gateway routes
+	// Create HTTP server with h2c support using the gateway handler
+	h2s := &http2.Server{}
 	httpServer := &http.Server{
-		Handler: gateway.SetupHandler(s.handlerMux, cfg.logger, s.p2pHost),
+		Handler: h2c.NewHandler(gateway.SetupHandler(s.handlerMux, cfg.logger, s.p2pHost), h2s),
 		Addr:    httpAddr,
+	}
+
+	// Explicitly configure the server for HTTP/2 support via h2c
+	if err := http2.ConfigureServer(httpServer, h2s); err != nil {
+		return fmt.Errorf("failed to configure http2 server: %w", err)
 	}
 
 	// Check if port is in use and force close if needed

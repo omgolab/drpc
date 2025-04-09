@@ -107,19 +107,90 @@ func ParseAddresses(addrStr string) (map[peer.ID][]ma.Multiaddr, string, error) 
 			}
 		}
 	} else {
-		// Handle direct libp2p format (comma separated)
-		addrSegments := strings.Split(addrStr, ",")
-		for _, addr := range addrSegments {
-			addr = strings.TrimSpace(addr)
-			if addr == "" {
-				continue
+		// Handle direct libp2p format (potentially with service path suffix)
+		// Example: /p2p/Qm.../greeter.v1/SayHello
+		// Iterate through components to find the end of the valid multiaddr
+
+		var validAddr ma.Multiaddr
+		var remainingPath string
+		var err error
+
+		currentAddrStr := ""
+		components := strings.Split(strings.TrimPrefix(addrStr, "/"), "/") // Split into parts
+
+		for i := 0; i < len(components); i += 2 { // Process protocol/value pairs
+			if i+1 >= len(components) {
+				// Odd number of components, likely the start of the service path
+				remainingPath = "/" + strings.Join(components[i:], "/")
+				break
+			}
+			protoName := components[i]
+			protoValue := components[i+1]
+
+			// Check if the protocol name is standard
+			if !isMultiAddrProtocol(protoName) {
+				// Found the start of the service path
+				remainingPath = "/" + strings.Join(components[i:], "/")
+				break // Stop processing components
 			}
 
-			err := parseAndAddToMap(addr, peerAddrs)
-			if err != nil {
-				return nil, "", err
+			// Append the current valid component pair
+			currentAddrStr += "/" + protoName + "/" + protoValue
+
+			// Special handling for /p2p/ protocol - it marks the end of the address part
+			// if protoName == "p2p" {
+			// 	// Assume anything after /p2p/<peerid> is the service path
+			// 	if i+2 < len(components) {
+			// 		remainingPath = "/" + strings.Join(components[i+2:], "/")
+			// 	}
+			// 	break // Stop processing components after /p2p/
+			// }
+			// Let's remove the special handling for now and rely on isMultiAddrProtocol check
+		}
+
+		// Attempt to parse the built address string
+		if currentAddrStr == "" {
+			return nil, "", fmt.Errorf("no valid multiaddress components found in %s", addrStr)
+		}
+		validAddr, err = ma.NewMultiaddr(currentAddrStr)
+		if err != nil {
+			// If parsing failed here, it means the loop included non-addr components.
+			// This shouldn't happen if isMultiAddrProtocol is correct.
+			// However, let's try parsing without the last component pair as a fallback.
+			parts := strings.Split(currentAddrStr, "/")
+			if len(parts) > 3 { // Need at least /proto/value/
+				shorterAddrStr := strings.Join(parts[:len(parts)-2], "/")
+				validAddr, err = ma.NewMultiaddr(shorterAddrStr)
+				if err == nil {
+					// Successfully parsed shorter address, assume last pair was service path start
+					remainingPath = "/" + strings.Join(parts[len(parts)-2:], "/") + remainingPath
+				} else {
+					// Still failed, return original error
+					return nil, "", fmt.Errorf("failed to parse extracted multiaddress '%s': %w", currentAddrStr, err)
+				}
+			} else {
+				// Cannot shorten further, return original error
+				return nil, "", fmt.Errorf("failed to parse extracted multiaddress '%s': %w", currentAddrStr, err)
 			}
 		}
+
+		// Assign the identified service path
+		servicePath = remainingPath
+
+		// Extract Peer ID directly from the valid multiaddress part
+		peerIDValue, err := validAddr.ValueForProtocol(ma.P_P2P)
+		if err != nil {
+			// This should ideally not happen if validAddr parsing succeeded and contained /p2p/
+			return nil, "", fmt.Errorf("could not extract peer ID from address '%s': %w", validAddr.String(), err)
+		}
+		peerID, err := peer.Decode(peerIDValue)
+		if err != nil {
+			return nil, "", fmt.Errorf("could not decode peer ID '%s': %w", peerIDValue, err)
+		}
+
+		// Add the extracted valid multiaddress to the map, associated with the peer ID.
+		// The connection logic needs the full address (including relay info) to connect correctly.
+		peerAddrs[peerID] = append(peerAddrs[peerID], validAddr)
 	}
 
 	if len(peerAddrs) == 0 {
@@ -152,7 +223,7 @@ func parseAndAddToMap(addrStr string, peerMap map[peer.ID][]ma.Multiaddr) error 
 func isMultiAddrProtocol(proto string) bool {
 	switch proto {
 	case "ip4", "ip6", "dns", "dns4", "dns6", "tcp", "udp", "p2p", "ipfs",
-		"http", "https", "ws", "wss", "quic", "quic-v1", "webtransport", "webrtc":
+		"http", "https", "ws", "wss", "quic", "quic-v1", "webtransport", "webrtc", "p2p-circuit": // Added p2p-circuit
 		return true
 	default:
 		return false
@@ -256,4 +327,12 @@ func ExtractRelayAddrInfo(addrStr string) (*peer.AddrInfo, error) {
 	}
 
 	return relayInfo, nil
+}
+
+// IsRelayAddr checks if the given address string contains the p2p-circuit indicator.
+func IsRelayAddr(addr string) bool {
+	// Basic check for the presence of "/p2p-circuit"
+	// Note: A more robust check might involve full multiaddr parsing,
+	// but this is often sufficient and faster for quick checks.
+	return strings.Contains(addr, "/p2p-circuit")
 }
