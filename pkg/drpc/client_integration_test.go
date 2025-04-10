@@ -51,22 +51,20 @@ func setupGreeterHTTP(t *testing.T) (*drpc.ServerInstance, string, func()) {
 
 	// Wait for HTTP address to be available
 	var httpAddr string
-	for attempt := 0; attempt < 25; attempt++ {
-		select {
-		case <-ctx.Done():
-			t.Fatalf("Context deadline exceeded while waiting for HTTP address")
-		default:
-			if addr := server.HTTPAddr(); addr != "" {
-				httpAddr = "http://" + addr
-				t.Logf("Server listening on HTTP address: %s", httpAddr)
-				break
-			}
-			time.Sleep(100 * time.Millisecond)
+	select {
+	case <-ctx.Done():
+		t.Fatalf("Context deadline exceeded while waiting for HTTP address")
+	default:
+		if addr := server.HTTPAddr(); addr != "" {
+			httpAddr = "http://" + addr
+			t.Logf("Server listening on HTTP address: %s", httpAddr)
+			break
 		}
+		time.Sleep(100 * time.Millisecond)
 	}
 
 	if httpAddr == "" {
-		t.Fatalf("Failed to get HTTP address after multiple attempts")
+		t.Fatalf("Failed to get HTTP address")
 	}
 
 	// Return cleanup function
@@ -302,7 +300,6 @@ func setupHTTPGatewayRelay(t *testing.T, relayHost host.Host, targetServerID pee
 	gateway.P2PHost().Peerstore().AddAddr(targetServerID, targetRelayAddr, peerstore.PermanentAddrTTL) // Use peerstore.PermanentAddrTTL
 	t.Logf("Added target server relay address (%s) to gateway peerstore", targetRelayAddr.String())
 
-
 	// Wait for HTTP address
 	var httpGatewayAddr string
 	for attempt := 0; attempt < 25; attempt++ {
@@ -501,7 +498,6 @@ func testClientStreamingRequestLongTimeout(t *testing.T, client gv1connect.Greet
 	}
 }
 
-
 // TestPath1_HTTPDirect tests the first communication path:
 // dRPC Client → Listener(if serverAddr is an http address) → Gateway Handler → Host libp2p Peer → dRPC Handler
 func TestPath1_HTTPDirect(t *testing.T) {
@@ -624,7 +620,7 @@ func TestPath4_LibP2PRelay(t *testing.T) {
 		relayAddr,
 		gv1connect.NewGreeterServiceClient,
 		drpc.WithClientLibp2pOptions(libp2p.EnableRelay()), // Keep existing options
-		drpc.WithClientLogger(testLog),                   // Add logger option
+		drpc.WithClientLogger(testLog),                     // Add logger option
 	)
 	if err != nil {
 		t.Fatalf("Failed to create client: %v", err)

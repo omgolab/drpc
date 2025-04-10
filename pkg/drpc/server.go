@@ -20,12 +20,13 @@ import (
 
 // ServerInstance represents a dual-protocol server (libp2p and HTTP)
 type ServerInstance struct {
-	p2pHost      host.Host
-	p2pServer    *http.Server
-	httpServer   *http.Server
-	httpListener net.Listener    // Store the actual HTTP listener
-	ctx          context.Context // Context for server lifecycle management
-	handlerMux   *http.ServeMux  // Handler for both HTTP and p2p
+	p2pHost        host.Host
+	p2pServer      *http.Server
+	httpServer     *http.Server
+	httpListener   net.Listener    // Store the actual HTTP listener
+	ctx            context.Context // Context for server lifecycle management
+	handlerMux     *http.ServeMux  // Handler for both HTTP and p2p
+	httpListenerCh chan struct{}   // Channel to signal when HTTP listener is ready
 }
 
 // NewServer creates a new ConnectRPC server that uses both libp2p and HTTP for transport.
@@ -67,6 +68,7 @@ func NewServer(
 	// Start HTTP server if enabled
 	if cfg.httpPort >= 0 {
 		httpAddr := fmt.Sprintf("%s:%d", cfg.httpHost, cfg.httpPort)
+		server.httpListenerCh = make(chan struct{})
 
 		if err := server.setupHTTPServer(&cfg, httpAddr); err != nil {
 			return nil, err
@@ -132,9 +134,15 @@ func (s *ServerInstance) setupHTTPServer(cfg *cfg, httpAddr string) error {
 		l, err := net.Listen("tcp", httpAddr)
 		if err != nil {
 			cfg.logger.Error("http server listen error", err)
+			if s.httpListenerCh != nil {
+				close(s.httpListenerCh) // Signal that listener failed
+			}
 			return
 		}
 		s.httpListener = l // Store the listener
+		if s.httpListenerCh != nil {
+			close(s.httpListenerCh) // Signal that listener is ready
+		}
 		if err := httpServer.Serve(l); err != nil && err != http.ErrServerClosed {
 			cfg.logger.Error("http server error", err)
 		}
@@ -187,10 +195,20 @@ func (s *ServerInstance) P2PHost() host.Host {
 }
 
 // HTTPAddr returns the listening HTTP address (host:port) as a string.
-// Returns an empty string if the HTTP server is not listening.
+// Blocks until the HTTP server is listening or context is canceled.
 func (s *ServerInstance) HTTPAddr() string {
-	if s.httpListener != nil {
-		return s.httpListener.Addr().String()
+	if s.httpServer == nil || s.httpListenerCh == nil {
+		return "" // Return immediately if no HTTP server is configured
+	}
+
+	// Wait for the HTTP listener to be ready
+	select {
+	case <-s.httpListenerCh:
+		if s.httpListener != nil {
+			return s.httpListener.Addr().String()
+		}
+	case <-s.ctx.Done():
+		// Context was canceled
 	}
 	return ""
 }
