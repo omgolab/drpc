@@ -20,8 +20,8 @@ type listener struct {
 	cancel   context.CancelFunc
 }
 
-// NewStreamBridgeListener bridges a libp2p network.Stream to a net.Conn
-func NewStreamBridgeListener(
+// NewLibp2pListener bridges a libp2p network.Stream to a net.Conn
+func NewLibp2pListener(
 	h host.Host,
 	pid protocol.ID,
 ) net.Listener {

@@ -17,19 +17,19 @@ const (
 // Connection constants
 const (
 	// CONNECTION_TIMEOUT is the maximum time to wait when establishing connections
-	CONNECTION_TIMEOUT = 30 * time.Second
+	CONNECTION_TIMEOUT = 60 * time.Second
 )
 
 // Discovery constants
 const (
-	// DISCOVERY_TAG is the tag used for peer discovery
+	// DISCOVERY_TAG is the tag used for general peer discovery
 	DISCOVERY_TAG = "drpc"
 
 	// DHT_PEER_DISCOVERY_INTERVAL is the interval between DHT peer discovery attempts
 	DHT_PEER_DISCOVERY_INTERVAL = 60 * time.Second
 
 	// PEER_CONNECTION_TIMEOUT is the timeout for connecting to a discovered peer
-	PEER_CONNECTION_TIMEOUT = 10 * time.Second
+	PEER_CONNECTION_TIMEOUT = 60 * time.Second
 
 	// AUTONAT_REFRESH_INTERVAL is how often to refresh NAT status
 	AUTONAT_REFRESH_INTERVAL = 30 * time.Second

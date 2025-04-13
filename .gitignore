@@ -12,3 +12,4 @@ examples/echo/server
 server_addr.tmp
 **/.DS_Store
 *.err
+vendor_docs/

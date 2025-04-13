@@ -28,5 +28,10 @@
   "github.copilot.chat.edits.temporalContext.enabled": true,
   "github.copilot.chat.generateTests.codeLens": true,
   "github.copilot.chat.languageContext.typescript.enabled": true,
-  "github.copilot.chat.search.semanticTextResults": true
+  "github.copilot.chat.search.semanticTextResults": true,
+  "gopls": {
+    "build.directoryFilters": [
+      "-docs/vendors"
+    ]
+  }
 }

@@ -19,9 +19,10 @@
 ## Next Steps
 
 1.  **Resolve LibP2P Integration Issues:** Deep dive into the root causes of failures in `TestPath2`, `TestPath3`, and `TestPath4`. This may involve:
-    *   Verifying libp2p relay setup and functionality.
+    *   Verifying libp2p relay setup and functionality (including interaction with AutoRelay and discovered peers).
     *   Investigating potential incompatibilities between ConnectRPC streaming and direct libp2p streams.
     *   Debugging gateway relay stream opening.
+2.  **Enhance Relay Usage:** Implement logic in the server to utilize the dynamically discovered relays (e.g., configure AutoRelay, attempt reservations, potentially advertise through them).
 2.  Implement robust authentication mechanism.
 3.  Implement comprehensive error handling across Go and TypeScript.
 4.  Add streaming support verification once transport issues are resolved.
@@ -31,6 +32,7 @@
 ## Active Decisions and Considerations
 
 - How to best handle streaming over libp2p (direct vs. relayed, potential protocol adjustments).
+- How the server should select and utilize dynamically discovered relays (vs. relying solely on AutoRelay or static configuration).
 - Choosing the final serialization format (Protocol Buffers likely).
 - Finalizing authentication mechanism.
 - Defining a comprehensive set of error codes and handling strategies.

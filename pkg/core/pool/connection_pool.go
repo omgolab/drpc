@@ -68,15 +68,17 @@ type ConnectionPool struct {
 	connections map[peer.ID]*peerConnection
 	maxIdleTime time.Duration
 	maxStreams  int
+	logger      glog.Logger // Added logger
 	mu          sync.RWMutex
 }
 
-func NewConnectionPool(p2pHost host.Host, maxIdleTime time.Duration, maxStreams int) *ConnectionPool {
+func NewConnectionPool(p2pHost host.Host, maxIdleTime time.Duration, maxStreams int, logger glog.Logger) *ConnectionPool { // Added logger param
 	pool := &ConnectionPool{
 		p2pHost:     p2pHost,
 		connections: make(map[peer.ID]*peerConnection),
 		maxIdleTime: maxIdleTime,
 		maxStreams:  maxStreams,
+		logger:      logger, // Assign logger
 	}
 
 	// Start cleanup goroutine
@@ -148,6 +150,15 @@ func (p *ConnectionPool) getStreamFromPeerConn(
 		}, false, nil
 	}
 	peerConn.mu.Unlock()
+
+	// // Create a new stream if none available
+	// p.logger.Debug(fmt.Sprintf("Pool: Attempting to create new stream to %s with protocol %s", peerID, protocolID)) // Use Debug + Sprintf
+	// stream, err := p.p2pHost.NewStream(network.WithAllowLimitedConn(ctx, "drpc-gateway-relay"), peerID, protocolID) // Allow limited (relayed) connections
+	// if err != nil {
+	// 	p.logger.Error(fmt.Sprintf("Pool: Failed to create new stream to %s", peerID), err) // Pass error separately
+	// 	return nil, true, err
+	// }
+	// p.logger.Debug(fmt.Sprintf("Pool: Successfully created new stream to %s", peerID)) // Use Debug + Sprintf
 
 	// Create a new stream if none available
 	stream, err := p.p2pHost.NewStream(ctx, peerID, protocolID)

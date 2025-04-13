@@ -121,7 +121,7 @@ func NewClient[T any](
 	}
 
 	// Get connection pool from manager
-	connPool := pool.GetPool(clientHost)
+	connPool := pool.GetPool(clientHost, logger) // Pass logger
 
 	// Convert the peer addresses map to the format expected by connection logic
 	addrInfoMap := gateway.ConvertToAddrInfoMap(peerAddrs)

@@ -3,8 +3,9 @@ package pool
 import (
 	"sync"
 	"time"
-
+	
 	"github.com/libp2p/go-libp2p/core/host"
+	glog "github.com/omgolab/go-commons/pkg/log" // Added import
 )
 
 // Default pool configuration
@@ -26,7 +27,7 @@ type PoolManager struct {
 }
 
 // GetPool returns a connection pool for the given host, creating it if necessary
-func GetPool(h host.Host) *ConnectionPool {
+func GetPool(h host.Host, logger glog.Logger) *ConnectionPool { // Added logger param
 	// Initialize singleton instance if not already done
 	once.Do(func() {
 		defaultInstance = &PoolManager{
@@ -34,11 +35,11 @@ func GetPool(h host.Host) *ConnectionPool {
 		}
 	})
 
-	return defaultInstance.GetOrCreate(h)
+	return defaultInstance.GetOrCreate(h, logger) // Pass logger
 }
 
 // GetOrCreate returns an existing pool for the host or creates a new one
-func (pm *PoolManager) GetOrCreate(h host.Host) *ConnectionPool {
+func (pm *PoolManager) GetOrCreate(h host.Host, logger glog.Logger) *ConnectionPool { // Added logger param
 	// Cache the host ID string to avoid repeated conversion
 	hostID := h.ID().String()
 
@@ -65,6 +66,7 @@ func (pm *PoolManager) GetOrCreate(h host.Host) *ConnectionPool {
 		h,
 		defaultMaxIdleTime,
 		defaultMaxStreams,
+		logger, // Pass logger to constructor
 	)
 	pm.pools[hostID] = pool
 

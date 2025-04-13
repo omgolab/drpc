@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/omgolab/drpc/pkg/config"
+	"github.com/omgolab/drpc/pkg/core/relay"
 	glog "github.com/omgolab/go-commons/pkg/log" // Renamed log to glog
 
 	"github.com/libp2p/go-libp2p"
@@ -17,6 +18,11 @@ import (
 	libp2pmdns "github.com/libp2p/go-libp2p/p2p/discovery/mdns"
 	drouting "github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	dutil "github.com/libp2p/go-libp2p/p2p/discovery/util"
+)
+
+var (
+	_            libp2pmdns.Notifee = (*discoveryNotifee)(nil) // Ensure discoveryNotifee implements the Notifee interface
+	relayManager *relay.RelayManager
 )
 
 // setupDHT initializes the DHT and starts peer discovery if applicable.
@@ -71,6 +77,7 @@ func CreateLibp2pHost(ctx context.Context, log glog.Logger, libp2pOpts []libp2p.
 	var kadDHT *dht.IpfsDHT
 	var dhtErr error
 	var dhtOnce sync.Once
+	relayManager = relay.New(ctx, log, nil) // Initialize relay manager
 
 	// fix for nil options
 	if dhtOpts == nil {
@@ -115,6 +122,10 @@ func CreateLibp2pHost(ctx context.Context, log glog.Logger, libp2pOpts []libp2p.
 		libp2p.EnableRelayService(), // Enable Relay Service if publicly reachable
 		libp2p.EnableAutoNATv2(),    // Enable AutoNATv2
 		libp2p.DisableMetrics(),     // Disable metrics collection for performance
+
+		// Use EnableAutoRelayWithPeerSource with our RelayManager
+		// This provides a persistent store of relay candidates with smart selection
+		libp2p.EnableAutoRelayWithPeerSource(relayManager.GetPeerSource()),
 	}
 
 	// Add any user-provided options
@@ -126,6 +137,9 @@ func CreateLibp2pHost(ctx context.Context, log glog.Logger, libp2pOpts []libp2p.
 		log.Error("Failed to create libp2p host", err)
 		return nil, err
 	}
+
+	// Set up the relay manager with the host
+	relayManager.UpdateHost(ctx, h)
 
 	// Setup mDNS discovery
 	if err := setupMDNS(h, log); err != nil {
@@ -175,6 +189,8 @@ func (n *discoveryNotifee) HandlePeerFound(pi peer.AddrInfo) {
 		n.log.Debug(fmt.Sprintf("Failed connecting to mDNS peer %s: %s", pi.ID.String(), err.Error()))
 		return
 	}
+	// Add to relay manager for potential relay usage
+	relayManager.AddPeer(pi)
 	n.log.Info(fmt.Sprintf("Connected to peer via mDNS: %s", pi.ID.String()))
 }
 
@@ -240,6 +256,8 @@ func connectToFoundPeers(ctx context.Context, h host.Host, log glog.Logger, peer
 			log.Debug(fmt.Sprintf("Failed connecting to DHT peer %s: %s", p.ID.String(), err.Error()))
 		} else {
 			log.Info(fmt.Sprintf("Connected to DHT peer: %s", p.ID.String()))
+			// Add to relay manager for potential relay usage
+			relayManager.AddPeer(p)
 		}
 	}
 }

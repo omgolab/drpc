@@ -12,7 +12,8 @@
 
 - Core protocol definition refinement
 - Go implementation:
-    - Fix remaining tests
+    - Fix remaining tests.
+    - Implement server logic to utilize discovered relays.
 - TypeScript implementation:
     - Client implementations that reflects Go clinet and works in the browser
 - Documentation improvements
@@ -23,7 +24,7 @@
 
 ## Current Status
 
-Core DRPC functionality is partially implemented in Go and TypeScript. Integration tests reveal issues with libp2p transport, particularly relaying and direct streaming compatibility with ConnectRPC.
+Core DRPC functionality is partially implemented in Go and TypeScript. The server can now discover potential relay peers dynamically via DHT, but doesn't yet actively use them. Integration tests reveal issues with libp2p transport, particularly relaying and direct streaming compatibility with ConnectRPC.
 
 ## Known Issues
 

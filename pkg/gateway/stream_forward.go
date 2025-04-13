@@ -11,7 +11,6 @@ import (
 	"sync"
 
 	"github.com/libp2p/go-libp2p/core/host"
-	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/omgolab/drpc/pkg/config"
 	"github.com/omgolab/drpc/pkg/core"
 	"github.com/omgolab/drpc/pkg/core/pool"
@@ -51,7 +50,7 @@ func ForwardHTTPRequest(w http.ResponseWriter, r *http.Request, p2pHost host.Hos
 	addrInfoMap := ConvertToAddrInfoMap(peerAddrs)
 
 	// Get the connection pool from the manager
-	connPool := pool.GetPool(p2pHost)
+	connPool := pool.GetPool(p2pHost, logger)
 
 	// Try connecting to peers in parallel
 	connectedPeerID, err := pool.ConnectToFirstAvailablePeer(
@@ -77,20 +76,9 @@ func ForwardHTTPRequest(w http.ResponseWriter, r *http.Request, p2pHost host.Hos
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 			// Determine the correct protocol ID based on whether it's a relay connection
 			protocolID := config.PROTOCOL_ID // Default to application protocol
-			isRelay := false
-			for _, maddr := range p2pHost.Peerstore().Addrs(connectedPeerID) {
-				if IsRelayAddr(maddr.String()) {
-					isRelay = true
-					break
-				}
-			}
-			// Use hop protocol if dialing via relay, otherwise use application protocol
-			if isRelay {
-				logger.Printf("DialContext: Detected relay connection to %s, using hop protocol", connectedPeerID)
-				protocolID = protocol.ID("/libp2p/circuit/relay/0.2.0/hop") // Use hop protocol for relay dial
-			} else {
-				logger.Printf("DialContext: Detected direct connection to %s, using app protocol %s", connectedPeerID, protocolID)
-			}
+			// Always use the application protocol. Libp2p handles relay negotiation internally
+			// when dialing a /p2p-circuit address with WithAllowLimitedConn.
+			logger.Printf("DialContext: Dialing %s with app protocol %s", connectedPeerID, protocolID)
 
 			// Get a new stream from the pool for this specific dial using the determined protocol ID
 			stream, err := connPool.GetStream(ctx, connectedPeerID, protocolID)
@@ -104,8 +92,8 @@ func ForwardHTTPRequest(w http.ResponseWriter, r *http.Request, p2pHost host.Hos
 		},
 		// Explicitly disable HTTP/2 for this internal transport to force HTTP/1.1
 		// This might avoid framing issues over the libp2p stream.
-		ForceAttemptHTTP2: false,
-		DisableKeepAlives: false, // Keep this for potential performance benefits if HTTP/1.1 works
+		// ForceAttemptHTTP2: false, // Revert: Let http client negotiate (likely HTTP/1.1 first)
+		// DisableKeepAlives: true,  // Disable keep-alives to simplify connection handling
 	}
 
 	// Clone the request to modify it

@@ -81,25 +81,31 @@ func NewServer(
 // setupRpcLpBridgeServer configures and starts the P2P<->RPC server
 func (s *ServerInstance) setupRpcLpBridgeServer(ctx context.Context, cfg *cfg) error {
 	// Create libp2p host
-	lh, err := core.CreateLibp2pHost(ctx, cfg.logger, cfg.libp2pOptions, cfg.dhtOptions...)
+	var err error
+	s.p2pHost, err = core.CreateLibp2pHost(ctx, cfg.logger, cfg.libp2pOptions, cfg.dhtOptions...)
 	if err != nil {
 		return fmt.Errorf("failed to create libp2p host: %w", err)
 	}
 
-	// Create libp2p to HTTP bridgeListener
-	bridgeListener := core.NewStreamBridgeListener(lh, config.PROTOCOL_ID)
+	// Create libp2p to HTTP p2pBridgeListener
+	p2pBridgeListener := core.NewLibp2pListener(s.p2pHost, config.PROTOCOL_ID)
 
-	s.p2pHost = lh
-
-	// Create rpc server for the p2p listener
+	// Create rpc server for the p2p listener, enabling h2c for HTTP/2 over libp2p
+	h2s_p2p := &http2.Server{} // Create separate http2 server instance for p2p
 	rpcServer := &http.Server{
-		Handler: s.handlerMux,
-		Addr:    bridgeListener.Addr().String(),
+		Handler: h2c.NewHandler(s.handlerMux, h2s_p2p), // Wrap handler with h2c
+		Addr:    p2pBridgeListener.Addr().String(),
+	}
+
+	// Start rpc server
+	// Configure the server for HTTP/2
+	if err := http2.ConfigureServer(rpcServer, h2s_p2p); err != nil {
+		return fmt.Errorf("failed to configure http2 for p2p server: %w", err)
 	}
 
 	// Start rpc server
 	go func() {
-		if err := rpcServer.Serve(bridgeListener); err != nil && err != http.ErrServerClosed {
+		if err := rpcServer.Serve(p2pBridgeListener); err != nil && err != http.ErrServerClosed {
 			cfg.logger.Error("p2p server error", err)
 		}
 	}()

@@ -15,11 +15,11 @@ DRPC follows a client-server architecture with the following components:
 ## Core Components
 
 1. **Protocol** - Defines the message format and communication patterns
-2. **Transport** - Handles the network communication layer (TCP, WebSockets, etc.)
-3. **Serialization** - Converts between language-specific types and wire format
-4. **Service Definition** - Interface for defining RPC methods
-5. **Client** - Initiates RPC calls to remote services
-6. **Server** - Implements and exposes RPC services
+2. **Transport** - Handles the network communication layer (HTTP, libp2p). Includes libp2p features like DHT for peer discovery and relay mechanisms (AutoRelay, explicit circuit addresses).
+3. **Serialization** - Converts between language-specific types and wire format (likely Protocol Buffers).
+4. **Service Definition** - Interface for defining RPC methods.
+5. **Client** - Initiates RPC calls to remote services via HTTP, direct libp2p, or relayed libp2p addresses.
+6. **Server** - Implements and exposes RPC services. Can listen on HTTP and/or libp2p. Includes logic for dynamic relay peer discovery using DHT with a specific tag (`RELAY_DISCOVERY_TAG`).
 
 ## Design Patterns
 
