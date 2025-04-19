@@ -59,8 +59,7 @@ func (l *listener) Addr() net.Addr {
 			}
 		}
 	}
-
-	// Investigate: is this correct thing to do?
+	// Fallback to a default address if no valid listen addresses are found
 	return defaultLocalFallbackAddr()
 }
 

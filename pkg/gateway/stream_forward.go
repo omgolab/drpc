@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"net"
@@ -10,11 +9,14 @@ import (
 	"strings"
 	"sync"
 
+	"crypto/tls"
+
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/omgolab/drpc/pkg/config"
 	"github.com/omgolab/drpc/pkg/core"
 	"github.com/omgolab/drpc/pkg/core/pool"
 	glog "github.com/omgolab/go-commons/pkg/log"
+	"golang.org/x/net/http2"
 )
 
 const (
@@ -26,12 +28,20 @@ const (
 var bufferPool = &sync.Pool{
 	New: func() any {
 		// 32KB is a good balance for most HTTP payloads
-		return make([]byte, 32*1024)
+		buffer := make([]byte, 32*1024)
+		return &buffer // Return a pointer to the byte slice
 	},
 }
 
 // ForwardHTTPRequest handles the entire request forwarding process using standard Go HTTP client
 func ForwardHTTPRequest(w http.ResponseWriter, r *http.Request, p2pHost host.Host, logger glog.Logger) {
+	// DEBUG: Log incoming request method, proto, headers
+	if config.DEBUG {
+		logger.Printf("[DEBUG] Incoming request: Method=%s Proto=%s ProtoMajor=%d ProtoMinor=%d URI=%s", r.Method, r.Proto, r.ProtoMajor, r.ProtoMinor, r.RequestURI)
+		for k, v := range r.Header {
+			logger.Printf("[DEBUG] Header: %s: %q", k, v)
+		}
+	}
 	// Strip the gateway prefix and ensure the remaining path starts with '/'
 	pathWithoutPrefix := strings.TrimPrefix(r.URL.Path, GatewayPrefix)
 	if !strings.HasPrefix(pathWithoutPrefix, "/") {
@@ -65,24 +75,19 @@ func ForwardHTTPRequest(w http.ResponseWriter, r *http.Request, p2pHost host.Hos
 		return
 	}
 
-	logger.Printf("ForwardHTTPRequest - Connected to PeerID: %s", connectedPeerID.String())
-	logger.Printf("ForwardHTTPRequest - Forwarding to service: %s", servicePath)
+	if config.DEBUG {
+		logger.Printf("ForwardHTTPRequest - Connected to PeerID: %s", connectedPeerID.String())
+		logger.Printf("ForwardHTTPRequest - Forwarding to service: %s", servicePath)
+	}
 
-	// Note: We don't get a single stream here anymore.
-	// The transport's DialContext will get streams as needed.
-
-	// Create a standard http transport that dials a new stream for each connection attempt
-	transport := &http.Transport{
-		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-			// Determine the correct protocol ID based on whether it's a relay connection
-			protocolID := config.PROTOCOL_ID // Default to application protocol
-			// Always use the application protocol. Libp2p handles relay negotiation internally
-			// when dialing a /p2p-circuit address with WithAllowLimitedConn.
-			logger.Printf("DialContext: Dialing %s with app protocol %s", connectedPeerID, protocolID)
-
-			// Get a new stream from the pool for this specific dial using the determined protocol ID
-			stream, err := connPool.GetStream(ctx, connectedPeerID, protocolID)
+	// We must use http2.Transport for backend requests to support streaming
+	transport := &http2.Transport{
+		AllowHTTP: true,
+		DialTLS: func(network, addr string, _ *tls.Config) (net.Conn, error) {
+			protocolID := config.PROTOCOL_ID
+			stream, err := connPool.GetStream(r.Context(), connectedPeerID, protocolID)
 			if err != nil {
+				logger.Printf("DialTLS: Dialing %s with app protocol %s", connectedPeerID, protocolID)
 				logger.Printf("Failed to get stream for dial to %s using protocol %s: %v", connectedPeerID, protocolID, err)
 				return nil, err
 			}
@@ -90,10 +95,6 @@ func ForwardHTTPRequest(w http.ResponseWriter, r *http.Request, p2pHost host.Hos
 			// The http.Client will manage closing this conn/stream
 			return &core.Conn{Stream: stream}, nil
 		},
-		// Explicitly disable HTTP/2 for this internal transport to force HTTP/1.1
-		// This might avoid framing issues over the libp2p stream.
-		// ForceAttemptHTTP2: false, // Revert: Let http client negotiate (likely HTTP/1.1 first)
-		// DisableKeepAlives: true,  // Disable keep-alives to simplify connection handling
 	}
 
 	// Clone the request to modify it
@@ -120,9 +121,14 @@ func ForwardHTTPRequest(w http.ResponseWriter, r *http.Request, p2pHost host.Hos
 	}
 
 	// Log the request for debugging
-	rawReq, err := httputil.DumpRequestOut(req, false) // Don't include body in logs
-	if err == nil {
-		logger.Printf("ForwardHTTPRequest - Request: %s", string(rawReq))
+	// Dump and log the full outgoing HTTP request, including headers and body
+	if config.DEBUG {
+		rawReq, err := httputil.DumpRequestOut(req, true)
+		if err == nil {
+			logger.Printf("ForwardHTTPRequest - FULL OUTGOING REQUEST:\n%s", string(rawReq))
+		} else {
+			logger.Printf("ForwardHTTPRequest - Failed to dump outgoing request: %v", err)
+		}
 	}
 
 	// Create an HTTP client with our custom http2 transport
@@ -144,6 +150,16 @@ func ForwardHTTPRequest(w http.ResponseWriter, r *http.Request, p2pHost host.Hos
 		return
 	}
 	defer resp.Body.Close()
+
+	// Dump and log the full incoming HTTP response, including headers and body
+	if config.DEBUG {
+		rawResp, err := httputil.DumpResponse(resp, true)
+		if err == nil {
+			logger.Printf("ForwardHTTPRequest - FULL INCOMING RESPONSE:\n%s", string(rawResp))
+		} else {
+			logger.Printf("ForwardHTTPRequest - Failed to dump incoming response: %v", err)
+		}
+	}
 
 	// Copy response headers
 	for key, values := range resp.Header {
@@ -167,8 +183,9 @@ func ForwardHTTPRequest(w http.ResponseWriter, r *http.Request, p2pHost host.Hos
 
 // optimizedCopy uses the global buffer pool for copying
 func optimizedCopy(dst io.Writer, src io.Reader) (int64, error) {
-	buf := bufferPool.Get().([]byte)
-	defer bufferPool.Put(buf)
+	bufPtr := bufferPool.Get().(*[]byte)
+	defer bufferPool.Put(bufPtr)
 
-	return io.CopyBuffer(dst, src, buf)
+	// Dereference the pointer to use the actual byte slice
+	return io.CopyBuffer(dst, src, *bufPtr)
 }

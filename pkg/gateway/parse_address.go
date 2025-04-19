@@ -54,8 +54,8 @@ func ParseAddresses(addrStr string) (map[peer.ID][]ma.Multiaddr, string, error) 
 			}
 
 			// Support comma-separated addresses within each segment too
-			addrSegments := strings.Split(segment, ",")
-			for _, addr := range addrSegments {
+			addrSegments := strings.SplitSeq(segment, ",")
+			for addr := range addrSegments {
 				addr = strings.TrimSpace(addr)
 				if addr == "" {
 					continue
@@ -89,8 +89,8 @@ func ParseAddresses(addrStr string) (map[peer.ID][]ma.Multiaddr, string, error) 
 		servicePath = parts[2]
 
 		// Process comma-separated addresses
-		addrSegments := strings.Split(addrPart, ",")
-		for _, addr := range addrSegments {
+		addrSegments := strings.SplitSeq(addrPart, ",")
+		for addr := range addrSegments {
 			addr = strings.TrimSpace(addr)
 			if addr == "" {
 				continue

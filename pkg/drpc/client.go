@@ -145,15 +145,13 @@ func NewClient[T any](
 	var currentStream network.Stream
 
 	// Use standard http.Transport for libp2p connections.
-	// This will use HTTP/1.1, avoiding http2 framing issues over the stream.
-	transport := &http.Transport{
-		DialContext: func(ctx context.Context, net, addr string) (net.Conn, error) {
-			// Use the dialWithPool function to get a libp2p stream wrapped as net.Conn
+	// Both http.Transport and http2.Transport can be used and works/tested, but http2 is preferred for HTTP/2.
+	transport := &http2.Transport{
+		AllowHTTP: true,
+		DialTLSContext: func(ctx context.Context, network, addr string, tlsCfg *tls.Config) (net.Conn, error) {
+			// Ignore TLS, use libp2p dialer for h2c
 			return dialWithPool(ctx, clientHost, connPool, config.PROTOCOL_ID, connectedPeerID, &currentStream)
 		},
-		// Ensure HTTP/2 is not attempted by this transport
-		ForceAttemptHTTP2: false,
-		DisableKeepAlives: false,
 	}
 
 	// Create a custom HTTP client with the libp2p transport
