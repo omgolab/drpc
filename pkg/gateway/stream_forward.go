@@ -6,7 +6,6 @@ import (
 	"net"
 	"net/http"
 	"net/http/httputil"
-	"strings"
 	"sync"
 
 	"crypto/tls"
@@ -21,7 +20,7 @@ import (
 
 const (
 	// GatewayPrefix is the URL path prefix used to identify gateway requests.
-	GatewayPrefix = "/gateway/"
+	GatewayPrefix = "/@"
 )
 
 // Global buffer pool for optimized copying
@@ -42,16 +41,11 @@ func ForwardHTTPRequest(w http.ResponseWriter, r *http.Request, p2pHost host.Hos
 			logger.Printf("[DEBUG] Header: %s: %q", k, v)
 		}
 	}
-	// Strip the gateway prefix and ensure the remaining path starts with '/'
-	pathWithoutPrefix := strings.TrimPrefix(r.URL.Path, GatewayPrefix)
-	if !strings.HasPrefix(pathWithoutPrefix, "/") {
-		pathWithoutPrefix = "/" + pathWithoutPrefix // Ensure it starts with / for ParseAddresses
-	}
 
 	// Parse addresses and service path from the URL (without the gateway prefix)
-	peerAddrs, servicePath, err := ParseAddresses(pathWithoutPrefix)
+	peerAddrs, servicePath, err := ParseAddresses(r.URL.Path)
 	if err != nil {
-		logger.Printf("Failed to parse addresses from path '%s': %v", pathWithoutPrefix, err)
+		logger.Printf("Failed to parse addresses from path '%s': %v", r.URL.Path, err)
 		http.Error(w, fmt.Sprintf("Failed to parse addresses: %v", err), http.StatusBadRequest)
 		return
 	}

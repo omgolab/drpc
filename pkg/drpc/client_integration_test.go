@@ -20,6 +20,7 @@ import (
 	"github.com/omgolab/drpc/pkg/config"
 	"github.com/omgolab/drpc/pkg/core"
 	"github.com/omgolab/drpc/pkg/drpc"
+	"github.com/omgolab/drpc/pkg/gateway"
 
 	// "github.com/omgolab/drpc/pkg/gateway"
 	"net/http/httputil"
@@ -234,46 +235,25 @@ func setupHTTPGatewayRelay(t *testing.T, relayHost host.Host, targetServerID pee
 	// Create an empty handler (gateway doesn't need service handlers)
 	mux := http.NewServeMux()
 
-	// Get relay address info
-	// relayAddrInfo := peer.AddrInfo{
-	// 	ID:    relayHost.ID(),
-	// 	Addrs: relayHost.Addrs(),
-	// }
-
 	// Create context for gateway setup
 	ctx, cancel := context.WithTimeout(context.Background(), normalTimeout)
 	defer cancel()
 
-	// Create gateway server with HTTP and libp2p
-	gateway, err := drpc.NewServer(ctx, mux,
+	// Create gw server with HTTP and libp2p
+	gw, err := drpc.NewServer(ctx, mux,
 		drpc.WithHTTPPort(0), // Random HTTP port
 		drpc.WithLogger(testLog))
 	if err != nil {
 		t.Fatalf("Failed to create gateway server: %v", err)
 	}
 
-	// Connect gateway to relay
-	// if err := gateway.P2PHost().Connect(ctx, relayAddrInfo); err != nil {
-	// 	t.Fatalf("Gateway failed to connect to relay: %v", err)
-	// }
-	// t.Log("Waiting 1s after gateway connected to relay...") // Add delay
-	// time.Sleep(1 * time.Second)                             // Add delay
-
-	// *** Add target server's relay address to gateway's peerstore ***
-	// This ensures the gateway knows how to reach the target via the relay
-	// targetRelayAddr, err := ma.NewMultiaddr("/p2p/" + relayHost.ID().String() + "/p2p-circuit/p2p/" + targetServerID.String())
-	// if err != nil {
-	// 	t.Fatalf("Failed to construct target relay multiaddr for gateway peerstore: %v", err)
-	// }
-	// gateway.P2PHost().Peerstore().AddAddr(targetServerID, targetRelayAddr, peerstore.PermanentAddrTTL) // Use peerstore.PermanentAddrTTL
-	// testLog.Printf("Added target server relay address (%s) to gateway peerstore", targetRelayAddr.String())
-
 	// Wait for HTTP address
 	var httpGatewayAddr string
-	if addr := gateway.HTTPAddr(); addr != "" {
+	if addr := gw.HTTPAddr(); addr != "" {
 		// Construct special HTTP address that includes target server info
-		httpGatewayAddr = "http://" + addr + "/gateway/p2p/" + relayHost.ID().String() + "/p2p-circuit/p2p/" + targetServerID.String()
-		// httpGatewayAddr = "http://" + addr + "/gateway/p2p/" + targetServerID.String()
+		// Use /@/ multiaddr /@/servicepath format for gateway where "/@" is the GatewayPrefix
+		fullRelayAddr := "/p2p/" + relayHost.ID().String() + "/p2p-circuit/p2p/" + targetServerID.String()
+		httpGatewayAddr = "http://" + addr + gateway.GatewayPrefix + fullRelayAddr + gateway.GatewayPrefix
 		testLog.Printf("Gateway listening at: %s", httpGatewayAddr)
 	} else {
 		t.Fatalf("Failed to get gateway HTTP address")
@@ -281,12 +261,12 @@ func setupHTTPGatewayRelay(t *testing.T, relayHost host.Host, targetServerID pee
 
 	// Return cleanup function
 	cleanup := func() {
-		if err := gateway.Close(); err != nil {
+		if err := gw.Close(); err != nil {
 			t.Logf("Warning: failed to close gateway server: %v", err)
 		}
 	}
 
-	return gateway, httpGatewayAddr, cleanup
+	return gw, httpGatewayAddr, cleanup
 }
 
 // Test helper to verify the client's ability to handle unary RPCs
@@ -451,7 +431,7 @@ func TestPath2_HTTPGatewayRelay(t *testing.T) {
 	relayHost, relayCleanup := setupRelayNode(t)
 	defer relayCleanup()
 
-	// Setup HTTP gw that routes to the server via built-in relay behavior
+	// Setup HTTP gw that routes to the server via relay peer
 	gw, gatewayAddr, gatewayCleanup := setupHTTPGatewayRelay(t, relayHost, httpServer.P2PHost().ID())
 	defer gatewayCleanup()
 	t.Logf("Gateway listening at: %s with host ID: %s", gatewayAddr, gw.P2PHost().ID())

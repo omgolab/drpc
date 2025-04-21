@@ -10,10 +10,7 @@ import (
 )
 
 // ParseAddresses parses addresses in the following formats:
-// 1. HTTP gateway format (multiple /@/): /@/addr1/@/addr2/.../@/service.v1.ServiceName/MethodName
-// 2. HTTP gateway format (concise): /@addr1,addr2,addr3.../@/service/method (first and last /@ as delimiters)
-// 3. Direct libp2p format: addr1,addr2,addr3
-//
+// HTTP gateway format (concise): /@{addr1,addr2,addr3...}/@{/service/method} (first and last /@ as delimiters)
 // Returns:
 // - a map of peer.ID to []ma.Multiaddr (grouped by peer ID)
 // - service path if in HTTP gateway format (empty for direct format)
@@ -22,175 +19,40 @@ func ParseAddresses(addrStr string) (map[peer.ID][]ma.Multiaddr, string, error) 
 	peerAddrs := make(map[peer.ID][]ma.Multiaddr)
 	var servicePath string
 
-	// Check if we're dealing with HTTP gateway format (contains "/@")
-	if strings.Contains(addrStr, "/@/") {
-		// Handle standard format with multiple /@/ delimiters
-		segments := strings.Split(addrStr, "/@/")
+	parts := strings.Split(addrStr, GatewayPrefix)
+	if len(parts) != 3 {
+		return nil, "", fmt.Errorf("invalid concise format: expected format /@addresses/@/service/method")
+	}
 
-		// First segment is empty because addrStr starts with /@/
-		segments = segments[1:]
+	// Process addresses (parts[1])
+	addrPart := parts[1]
+	if addrPart == "" {
+		return nil, "", fmt.Errorf("no addresses provided in concise format")
+	}
 
-		// Last segment might contain the service path
-		lastIdx := len(segments) - 1
-		lastSegment := segments[lastIdx]
+	// Parse service path (parts[2])
+	if !strings.HasPrefix(parts[2], "/") {
+		return nil, "", fmt.Errorf("service path must start with / in concise format")
+	}
+	servicePath = parts[2]
 
-		// Check if the last segment contains a service path
-		if strings.Count(lastSegment, "/") > 0 && !strings.HasPrefix(lastSegment, "/") {
-			// Try to find where the multiaddr ends and service path begins
-			for i, char := range lastSegment {
-				if char == '/' && i > 0 && !isMultiAddrProtocol(lastSegment[0:i]) {
-					// Found the service path
-					servicePath = lastSegment[i:]
-					segments[lastIdx] = lastSegment[0:i]
-					break
-				}
-			}
+	// Process comma-separated addresses
+	addrSegments := strings.SplitSeq(addrPart, ",")
+	for addr := range addrSegments {
+		addr = strings.TrimSpace(addr)
+		if addr == "" {
+			continue
 		}
 
-		// Process all address segments
-		for _, segment := range segments {
-			if segment == "" {
-				continue
-			}
-
-			// Support comma-separated addresses within each segment too
-			addrSegments := strings.SplitSeq(segment, ",")
-			for addr := range addrSegments {
-				addr = strings.TrimSpace(addr)
-				if addr == "" {
-					continue
-				}
-
-				err := parseAndAddToMap(addr, peerAddrs)
-				if err != nil {
-					return nil, "", err
-				}
-			}
-		}
-	} else if strings.Contains(addrStr, "/@") {
-		// Handle concise format with first and last /@ as delimiters
-		// Format: /@addr1,addr2,addr3.../@/service/method
-
-		parts := strings.Split(addrStr, "/@")
-		if len(parts) != 3 {
-			return nil, "", fmt.Errorf("invalid concise format: expected format /@addresses/@/service/method")
+		// Add '/' prefix if missing
+		if !strings.HasPrefix(addr, "/") {
+			addr = "/" + addr
 		}
 
-		// Process addresses (parts[1])
-		addrPart := parts[1]
-		if addrPart == "" {
-			return nil, "", fmt.Errorf("no addresses provided in concise format")
-		}
-
-		// Parse service path (parts[2])
-		if !strings.HasPrefix(parts[2], "/") {
-			return nil, "", fmt.Errorf("service path must start with / in concise format")
-		}
-		servicePath = parts[2]
-
-		// Process comma-separated addresses
-		addrSegments := strings.SplitSeq(addrPart, ",")
-		for addr := range addrSegments {
-			addr = strings.TrimSpace(addr)
-			if addr == "" {
-				continue
-			}
-
-			// Add '/' prefix if missing
-			if !strings.HasPrefix(addr, "/") {
-				addr = "/" + addr
-			}
-
-			err := parseAndAddToMap(addr, peerAddrs)
-			if err != nil {
-				return nil, "", err
-			}
-		}
-	} else {
-		// Handle direct libp2p format (potentially with service path suffix)
-		// Example: /p2p/Qm.../greeter.v1/SayHello
-		// Iterate through components to find the end of the valid multiaddr
-
-		var validAddr ma.Multiaddr
-		var remainingPath string
-		var err error
-
-		currentAddrStr := ""
-		components := strings.Split(strings.TrimPrefix(addrStr, "/"), "/") // Split into parts
-
-		for i := 0; i < len(components); i += 2 { // Process protocol/value pairs
-			if i+1 >= len(components) {
-				// Odd number of components, likely the start of the service path
-				remainingPath = "/" + strings.Join(components[i:], "/")
-				break
-			}
-			protoName := components[i]
-			protoValue := components[i+1]
-
-			// Check if the protocol name is standard
-			if !isMultiAddrProtocol(protoName) {
-				// Found the start of the service path
-				remainingPath = "/" + strings.Join(components[i:], "/")
-				break // Stop processing components
-			}
-
-			// Append the current valid component pair
-			currentAddrStr += "/" + protoName + "/" + protoValue
-
-			// Special handling for /p2p/ protocol - it marks the end of the address part
-			// if protoName == "p2p" {
-			// 	// Assume anything after /p2p/<peerid> is the service path
-			// 	if i+2 < len(components) {
-			// 		remainingPath = "/" + strings.Join(components[i+2:], "/")
-			// 	}
-			// 	break // Stop processing components after /p2p/
-			// }
-			// Let's remove the special handling for now and rely on isMultiAddrProtocol check
-		}
-
-		// Attempt to parse the built address string
-		if currentAddrStr == "" {
-			return nil, "", fmt.Errorf("no valid multiaddress components found in %s", addrStr)
-		}
-		validAddr, err = ma.NewMultiaddr(currentAddrStr)
+		err := parseAndAddToMap(addr, peerAddrs)
 		if err != nil {
-			// If parsing failed here, it means the loop included non-addr components.
-			// This shouldn't happen if isMultiAddrProtocol is correct.
-			// However, let's try parsing without the last component pair as a fallback.
-			parts := strings.Split(currentAddrStr, "/")
-			if len(parts) > 3 { // Need at least /proto/value/
-				shorterAddrStr := strings.Join(parts[:len(parts)-2], "/")
-				validAddr, err = ma.NewMultiaddr(shorterAddrStr)
-				if err == nil {
-					// Successfully parsed shorter address, assume last pair was service path start
-					remainingPath = "/" + strings.Join(parts[len(parts)-2:], "/") + remainingPath
-				} else {
-					// Still failed, return original error
-					return nil, "", fmt.Errorf("failed to parse extracted multiaddress '%s': %w", currentAddrStr, err)
-				}
-			} else {
-				// Cannot shorten further, return original error
-				return nil, "", fmt.Errorf("failed to parse extracted multiaddress '%s': %w", currentAddrStr, err)
-			}
+			return nil, "", err
 		}
-
-		// Assign the identified service path
-		servicePath = remainingPath
-
-		// Extract Peer ID directly from the valid multiaddress part
-		peerIDValue, err := validAddr.ValueForProtocol(ma.P_P2P)
-		if err != nil {
-			// This should ideally not happen if validAddr parsing succeeded and contained /p2p/
-			return nil, "", fmt.Errorf("could not extract peer ID from address '%s': %w", validAddr.String(), err)
-		}
-		peerID, err := peer.Decode(peerIDValue)
-		if err != nil {
-			return nil, "", fmt.Errorf("could not decode peer ID '%s': %w", peerIDValue, err)
-		}
-
-		// Add the extracted valid multiaddress to the map, associated with the peer ID.
-		// The connection logic needs the full address (including relay info) to connect correctly.
-		peerAddrs[peerID] = append(peerAddrs[peerID], validAddr)
 	}
 
 	if len(peerAddrs) == 0 {
@@ -217,17 +79,6 @@ func parseAndAddToMap(addrStr string, peerMap map[peer.ID][]ma.Multiaddr) error 
 	}
 
 	return nil
-}
-
-// isMultiAddrProtocol checks if the string is a valid multiaddr protocol
-func isMultiAddrProtocol(proto string) bool {
-	switch proto {
-	case "ip4", "ip6", "dns", "dns4", "dns6", "tcp", "udp", "p2p", "ipfs",
-		"http", "https", "ws", "wss", "quic", "quic-v1", "webtransport", "webrtc", "p2p-circuit": // Added p2p-circuit
-		return true
-	default:
-		return false
-	}
 }
 
 // parseGatewayPath parses a gateway path and extracts peer ID and service path

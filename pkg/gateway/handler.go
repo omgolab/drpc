@@ -11,15 +11,12 @@ import (
 	glog "github.com/omgolab/go-commons/pkg/log"
 )
 
-// GatewayPrefix defines the path prefix for gateway requests
-// const GatewayPrefix = "/@/"
-
 // SetupHandler creates a new http.Handler with gateway functionality
 func SetupHandler(baseHandler http.Handler, logger glog.Logger, p2pHost host.Host) http.Handler {
 	mux := http.NewServeMux()
 
 	// Add gateway handler for GatewayPrefix path pattern
-	mux.HandleFunc(GatewayPrefix, func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc(GatewayPrefix+"/", func(w http.ResponseWriter, r *http.Request) {
 		// Use the comprehensive function that handles everything in one place
 		ForwardHTTPRequest(w, r, p2pHost, logger)
 	})
