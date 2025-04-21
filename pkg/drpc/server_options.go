@@ -55,13 +55,20 @@ func WithDHTOptions(opts ...dht.Option) ServerOption {
 
 // WithHTTPPort sets the HTTP gateway port
 // default port is 90090
-// pass -1 to disable HTTP server interface
 func WithHTTPPort(port int) ServerOption {
 	return func(cfg *cfg) error {
-		if port < -1 || port > 65535 {
+		if port < 0 || port > 65535 {
 			return fmt.Errorf("invalid port number: %d", port)
 		}
 		cfg.httpPort = port
+		return nil
+	}
+}
+
+// WithDisableHTTP disables the HTTP server interface
+func WithDisableHTTP() ServerOption {
+	return func(cfg *cfg) error {
+		cfg.httpPort = -1
 		return nil
 	}
 }

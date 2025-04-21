@@ -60,10 +60,8 @@ func NewClient[T any](
 				AllowHTTP: true,
 				// Need a custom dialer that skips TLS for http:// addresses
 				DialTLSContext: func(ctx context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
-					// If you need context dialing:
-					// var d net.Dialer
-					// return d.DialContext(ctx, network, addr)
-					return net.Dial(network, addr)
+					var d net.Dialer
+					return d.DialContext(ctx, network, addr)
 				},
 			},
 		}

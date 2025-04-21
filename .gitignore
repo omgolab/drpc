@@ -13,3 +13,4 @@ server_addr.tmp
 **/.DS_Store
 *.err
 vendor_docs/
+**/__debug_bin*
