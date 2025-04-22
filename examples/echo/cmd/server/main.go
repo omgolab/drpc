@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/libp2p/go-libp2p"
 	gv1connect "github.com/omgolab/drpc/examples/echo/gen/go/greeter/v1/greeterv1connect"
@@ -44,6 +45,8 @@ func main() {
 	defer server.Close()
 
 	// Log the server's listening addresses
-	addrs := server.Addrs()
-	fmt.Println("Server listening on:", addrs)
+	addrs := server.P2PAddrs()
+	fmt.Println("P2P Server listening on:", strings.Join(addrs, "\n "))
+	// Log the HTTP server's address
+	fmt.Println("HTTP Server listening on:", server.HTTPAddr())
 }

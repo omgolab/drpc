@@ -211,7 +211,12 @@ func (s *ServerInstance) HTTPAddr() string {
 	select {
 	case <-s.httpListenerCh:
 		if s.httpListener != nil {
-			return s.httpListener.Addr().String()
+			addr := s.httpListener.Addr().String()
+			// Check if TLS/SSL is configured
+			if s.httpServer.TLSConfig != nil {
+				return "https://" + addr
+			}
+			return "http://" + addr
 		}
 	case <-s.ctx.Done():
 		// Context was canceled
@@ -219,22 +224,14 @@ func (s *ServerInstance) HTTPAddr() string {
 	return ""
 }
 
-// Addrs returns all listening addresses (both p2p and http)
-func (s *ServerInstance) Addrs() []string {
+// P2PAddrs returns all p2p listening addresses
+func (s *ServerInstance) P2PAddrs() []string {
 	var addrs []string
 
 	// Add p2p addresses
 	if s.p2pHost != nil { // Check if p2pHost is initialized
 		for _, addr := range s.p2pHost.Addrs() {
 			addrs = append(addrs, addr.String()+"/p2p/"+s.p2pHost.ID().String())
-		}
-	}
-
-	// Add http address if available
-	if s.httpServer != nil {
-		httpAddr := s.HTTPAddr() // Use the new method to get the actual address
-		if httpAddr != "" {
-			addrs = append(addrs, "http://"+httpAddr)
 		}
 	}
 

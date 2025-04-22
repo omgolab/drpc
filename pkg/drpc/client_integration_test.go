@@ -17,31 +17,16 @@ import (
 	"github.com/omgolab/drpc/examples/echo/greeter"
 
 	// "github.com/omgolab/drpc/pkg/config"
+
 	"github.com/omgolab/drpc/pkg/config"
 	"github.com/omgolab/drpc/pkg/core"
 	"github.com/omgolab/drpc/pkg/drpc"
 	"github.com/omgolab/drpc/pkg/gateway"
 
 	// "github.com/omgolab/drpc/pkg/gateway"
-	"net/http/httputil"
 
 	glog "github.com/omgolab/go-commons/pkg/log"
 )
-
-type loggingRoundTripper struct {
-	inner http.RoundTripper
-	t     *testing.T
-}
-
-func (lrt *loggingRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
-	rawReq, err := httputil.DumpRequestOut(req, true)
-	if err == nil {
-		lrt.t.Logf("CLIENT - FULL OUTGOING REQUEST:\n%s", string(rawReq))
-	} else {
-		lrt.t.Logf("CLIENT - Failed to dump outgoing request: %v", err)
-	}
-	return lrt.inner.RoundTrip(req)
-}
 
 const (
 	shortTimeout    = 500000 * time.Second
@@ -87,7 +72,7 @@ func setupGreeterHTTP(t *testing.T) (*drpc.ServerInstance, string, func()) {
 		}
 	}
 
-	return server, "http://" + httpAddr, cleanup
+	return server, httpAddr, cleanup
 }
 
 // setupGreeterLibP2P sets up a server with the greeter service only over libp2p
@@ -228,7 +213,7 @@ func setupGreeterViaRelay(t *testing.T, relayHost host.Host) (*drpc.ServerInstan
 
 // setupHTTPGatewayRelay sets up a gateway server that can route to a libp2p relay
 // This is used for testing Path 2: Client -> HTTP Gateway -> Relay -> Server
-func setupHTTPGatewayRelay(t *testing.T, relayHost host.Host, targetServerID peer.ID) (*drpc.ServerInstance, string, func()) {
+func setupHTTPGatewayRelay(t *testing.T, relayHost host.Host, targetServerP2pAddr string) (func(bool) string, func()) {
 	t.Helper()
 	testLog, _ := glog.New()
 
@@ -248,15 +233,20 @@ func setupHTTPGatewayRelay(t *testing.T, relayHost host.Host, targetServerID pee
 	}
 
 	// Wait for HTTP address
-	var httpGatewayAddr string
-	if addr := gw.HTTPAddr(); addr != "" {
+	gwAddr := gw.HTTPAddr()
+	if gwAddr == "" {
+		t.Fatalf("Failed to get gateway HTTP address")
+	}
+	httpGatewayAddrFn := func(addRelay bool) string {
 		// Construct special HTTP address that includes target server info
 		// Use /@/ multiaddr /@/servicepath format for gateway where "/@" is the GatewayPrefix
-		fullRelayAddr := "/p2p/" + relayHost.ID().String() + "/p2p-circuit/p2p/" + targetServerID.String()
-		httpGatewayAddr = "http://" + addr + gateway.GatewayPrefix + fullRelayAddr + gateway.GatewayPrefix
+		fullRelayAddr := targetServerP2pAddr
+		if addRelay {
+			fullRelayAddr = "/p2p/" + relayHost.ID().String() + "/p2p-circuit" + targetServerP2pAddr
+		}
+		httpGatewayAddr := gwAddr + gateway.GatewayPrefix + fullRelayAddr + gateway.GatewayPrefix
 		testLog.Printf("Gateway listening at: %s", httpGatewayAddr)
-	} else {
-		t.Fatalf("Failed to get gateway HTTP address")
+		return httpGatewayAddr
 	}
 
 	// Return cleanup function
@@ -266,7 +256,7 @@ func setupHTTPGatewayRelay(t *testing.T, relayHost host.Host, targetServerID pee
 		}
 	}
 
-	return gw, httpGatewayAddr, cleanup
+	return httpGatewayAddrFn, cleanup
 }
 
 // Test helper to verify the client's ability to handle unary RPCs
@@ -432,24 +422,24 @@ func TestPath2_HTTPGatewayRelay(t *testing.T) {
 	defer relayCleanup()
 
 	// Setup HTTP gw that routes to the server via relay peer
-	gw, gatewayAddr, gatewayCleanup := setupHTTPGatewayRelay(t, relayHost, httpServer.P2PHost().ID())
+	gatewayAddrFn, gatewayCleanup := setupHTTPGatewayRelay(t, relayHost, httpServer.P2PAddrs()[0])
 	defer gatewayCleanup()
-	t.Logf("Gateway listening at: %s with host ID: %s", gatewayAddr, gw.P2PHost().ID())
 
 	// Test HTTP/1.1 streaming (default transport)
 	t.Run("HTTP/1.1 Streaming", func(t *testing.T) {
 		t.Skip("HTTP/1.1 streaming is not supported by the gateway/backend; skipping this test.")
-		// Instrument HTTP/1.1 client with loggingRoundTripper
-		httpClient := &http.Client{
-			Transport: &loggingRoundTripper{
-				inner: http.DefaultTransport,
-				t:     t,
-			},
+	})
+
+	// Test HTTP/2 streaming w/o relay address
+	t.Run("HTTP/2 Streaming with force relay address", func(t *testing.T) {
+		client, err := drpc.NewClient(
+			context.Background(),
+			gatewayAddrFn(true),
+			gv1connect.NewGreeterServiceClient,
+		)
+		if err != nil {
+			t.Fatalf("Failed to create client: %v", err)
 		}
-		client := gv1connect.NewGreeterServiceClient(httpClient, gatewayAddr)
-		t.Log("Testing unary request over HTTP/1.1 gateway path")
-		testClientUnaryRequest(t, client)
-		t.Log("Testing streaming request over HTTP/1.1 gateway path")
 		if err := func() (err error) {
 			defer func() {
 				if r := recover(); r != nil {
@@ -459,15 +449,14 @@ func TestPath2_HTTPGatewayRelay(t *testing.T) {
 			testClientStreamingRequest(t, client)
 			return nil
 		}(); err != nil {
-			t.Errorf("HTTP/1.1 streaming error: %v", err)
+			t.Errorf("HTTP/2 streaming error: %v", err)
 		}
 	})
 
-	// Test HTTP/2 streaming
-	t.Run("HTTP/2 Streaming", func(t *testing.T) {
+	t.Run("HTTP/2 Streaming with no/auto relay address", func(t *testing.T) {
 		client, err := drpc.NewClient(
 			context.Background(),
-			gatewayAddr,
+			gatewayAddrFn(false),
 			gv1connect.NewGreeterServiceClient,
 		)
 		if err != nil {

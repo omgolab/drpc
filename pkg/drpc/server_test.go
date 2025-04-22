@@ -153,19 +153,12 @@ func TestAddressRetrieval(t *testing.T) {
 	// This is a common pattern when testing asynchronous server startup.
 	time.Sleep(100 * time.Millisecond)
 
-	addrs := server.Addrs()
+	addrs := server.P2PAddrs()
 	if len(addrs) == 0 {
-		t.Error("No addresses returned")
+		t.Error("No p2p addresses returned")
 	}
 
-	httpFound := false
-	for _, addr := range addrs {
-		if strings.HasPrefix(addr, "http://") {
-			httpFound = true
-			break
-		}
-	}
-	if !httpFound {
+	if !strings.HasPrefix(server.HTTPAddr(), "http") {
 		t.Error("HTTP address not found in server addresses")
 	}
 
