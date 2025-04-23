@@ -13,12 +13,12 @@ managed:
     - file_option: go_package_prefix
       value: github.com/omgolab/drpc/examples/echo/gen/go/
 plugins:
-  # - remote: buf.build/connectrpc/es
-  #   out: ./frontend/gen/ts
-  #   opt: target=ts
-  # - remote: buf.build/bufbuild/es
-  #   out: ./frontend/gen/ts
-  #   opt: target=ts
+  - remote: buf.build/connectrpc/es
+    out: ../../examples/typescript/src
+    opt: target=ts
+  - remote: buf.build/bufbuild/es
+    out: ../../examples/typescript/src
+    opt: target=ts
   - remote: buf.build/connectrpc/go
     out: ./gen/go
     opt: paths=source_relative
