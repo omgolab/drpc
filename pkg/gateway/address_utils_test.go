@@ -1,8 +1,13 @@
 package gateway
 
 import (
+	"errors"
+	"fmt"
+	"strconv"
+	"strings"
 	"testing"
 
+	"github.com/libp2p/go-libp2p/core/peer"
 	ma "github.com/multiformats/go-multiaddr"
 	glog "github.com/omgolab/go-commons/pkg/log"
 )
@@ -244,4 +249,111 @@ func TestExtractPortFromMultiaddr(t *testing.T) {
 			}
 		})
 	}
+}
+
+// -- utility functions --
+
+// parseGatewayPath parses a gateway path and extracts peer ID and service path
+// This is the consolidated version that handles both formats
+func parseGatewayPath(path string, logger ...interface{}) ([][]ma.Multiaddr, string, error) {
+	if !strings.HasPrefix(path, "/@/") {
+		return nil, "", fmt.Errorf("invalid gateway path: must start with /@/")
+	}
+
+	parts := strings.Split(strings.TrimPrefix(path, "/@/"), "/@/")
+	if len(parts) < 2 {
+		return nil, "", fmt.Errorf("invalid gateway path: must contain at least one multiaddr and service path")
+	}
+
+	servicePath := parts[len(parts)-1]
+	addrParts := parts[:len(parts)-1]
+
+	var peerAddrs [][]ma.Multiaddr
+	for _, addrGroup := range addrParts {
+		addrs, err := parseMultiaddrs(addrGroup)
+		if err != nil {
+			return nil, "", fmt.Errorf("invalid multiaddr: %w", err)
+		}
+		peerAddrs = append(peerAddrs, addrs)
+	}
+
+	return peerAddrs, servicePath, nil
+}
+
+// extractPeerID extracts a peer ID from a multiaddress
+// This is the consolidated version that handles both types of inputs
+func extractPeerID(input any) (peer.ID, error) {
+	switch v := input.(type) {
+	case string:
+		// When input is a string (peer ID directly)
+		return peer.Decode(v)
+	case ma.Multiaddr:
+		// When input is a multiaddress
+		value, err := v.ValueForProtocol(ma.P_P2P)
+		if err != nil {
+			return "", fmt.Errorf("peer id not found in multiaddr: %w", err)
+		}
+		peerID, err := peer.Decode(value)
+		if err != nil {
+			return "", fmt.Errorf("invalid peer id: %w", err)
+		}
+		return peerID, nil
+	default:
+		return "", errors.New("unsupported type for extracting peer ID")
+	}
+}
+
+// Helper function to parse multiple multiaddrs from a string
+func parseMultiaddrs(addrStr string) ([]ma.Multiaddr, error) {
+	var addrs []ma.Multiaddr
+	for _, addr := range strings.Split(addrStr, ",") {
+		maddr, err := ma.NewMultiaddr(strings.TrimSpace(addr))
+		if err != nil {
+			return nil, err
+		}
+		addrs = append(addrs, maddr)
+	}
+	return addrs, nil
+}
+
+// containsProtocol checks if a multiaddress contains a specific protocol
+func containsProtocol(maddr ma.Multiaddr, proto string) bool {
+	protocols := maddr.Protocols()
+	for _, p := range protocols {
+		if p.Name == proto {
+			return true
+		}
+	}
+	return false
+}
+
+// extractPort extracts the port for a specific protocol from a multiaddress
+func extractPort(maddr ma.Multiaddr, proto string) (string, error) {
+	// Check if the protocol exists in the multiaddr
+	if !containsProtocol(maddr, proto) {
+		return "", fmt.Errorf("protocol %s not found in multiaddr", proto)
+	}
+
+	// Get the protocol code
+	protoCode := ma.ProtocolWithName(proto)
+	if protoCode.Code == 0 {
+		return "", fmt.Errorf("unknown protocol: %s", proto)
+	}
+
+	// Extract the port value for the protocol
+	portStr, err := maddr.ValueForProtocol(protoCode.Code)
+	if err != nil {
+		return "", err
+	}
+
+	// Validate port
+	port, err := strconv.Atoi(portStr)
+	if err != nil {
+		return "", err
+	}
+	if port <= 0 || port > 65535 {
+		return "", fmt.Errorf("invalid port number: %d", port)
+	}
+
+	return portStr, nil
 }

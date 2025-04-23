@@ -1,7 +1,6 @@
 package gateway
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
@@ -89,65 +88,17 @@ func parseAndAddToMap(addrStr string, peerMap map[peer.ID][]ma.Multiaddr) error 
 	return nil
 }
 
-// parseGatewayPath parses a gateway path and extracts peer ID and service path
-// This is the consolidated version that handles both formats
-func parseGatewayPath(path string, logger ...interface{}) ([][]ma.Multiaddr, string, error) {
-	if !strings.HasPrefix(path, "/@/") {
-		return nil, "", fmt.Errorf("invalid gateway path: must start with /@/")
-	}
+// ConvertToAddrInfoMap converts the map of peer.ID to multiaddresses to a map of peer.ID to peer.AddrInfo
+func ConvertToAddrInfoMap(peerAddrs map[peer.ID][]ma.Multiaddr) map[peer.ID]peer.AddrInfo {
+	result := make(map[peer.ID]peer.AddrInfo)
 
-	parts := strings.Split(strings.TrimPrefix(path, "/@/"), "/@/")
-	if len(parts) < 2 {
-		return nil, "", fmt.Errorf("invalid gateway path: must contain at least one multiaddr and service path")
-	}
-
-	servicePath := parts[len(parts)-1]
-	addrParts := parts[:len(parts)-1]
-
-	var peerAddrs [][]ma.Multiaddr
-	for _, addrGroup := range addrParts {
-		addrs, err := parseMultiaddrs(addrGroup)
-		if err != nil {
-			return nil, "", fmt.Errorf("invalid multiaddr: %w", err)
+	for peerID, addrs := range peerAddrs {
+		addrInfo := peer.AddrInfo{
+			ID:    peerID,
+			Addrs: addrs,
 		}
-		peerAddrs = append(peerAddrs, addrs)
+		result[peerID] = addrInfo
 	}
 
-	return peerAddrs, servicePath, nil
-}
-
-// extractPeerID extracts a peer ID from a multiaddress
-// This is the consolidated version that handles both types of inputs
-func extractPeerID(input interface{}) (peer.ID, error) {
-	switch v := input.(type) {
-	case string:
-		// When input is a string (peer ID directly)
-		return peer.Decode(v)
-	case ma.Multiaddr:
-		// When input is a multiaddress
-		value, err := v.ValueForProtocol(ma.P_P2P)
-		if err != nil {
-			return "", fmt.Errorf("peer id not found in multiaddr: %w", err)
-		}
-		peerID, err := peer.Decode(value)
-		if err != nil {
-			return "", fmt.Errorf("invalid peer id: %w", err)
-		}
-		return peerID, nil
-	default:
-		return "", errors.New("unsupported type for extracting peer ID")
-	}
-}
-
-// Helper function to parse multiple multiaddrs from a string
-func parseMultiaddrs(addrStr string) ([]ma.Multiaddr, error) {
-	var addrs []ma.Multiaddr
-	for _, addr := range strings.Split(addrStr, ",") {
-		maddr, err := ma.NewMultiaddr(strings.TrimSpace(addr))
-		if err != nil {
-			return nil, err
-		}
-		addrs = append(addrs, maddr)
-	}
-	return addrs, nil
+	return result
 }
