@@ -192,6 +192,7 @@ func TestDiscoveryNotifee(t *testing.T) {
 		h: mockHost,
 		cfg: &hostCfg{
 			relayManager: relay.New(context.Background(), logger),
+			logger:       logger,
 		},
 	}
 
@@ -253,6 +254,7 @@ func TestDiscoveryNotifeeConnectionError(t *testing.T) {
 		h: mockHost,
 		cfg: &hostCfg{
 			relayManager: relay.New(context.Background(), logger),
+			logger:       logger,
 		},
 	}
 
@@ -268,6 +270,7 @@ func TestConnectToFoundPeers(t *testing.T) {
 	logger, _ := glog.New()
 	cfg := &hostCfg{
 		relayManager: relay.New(context.Background(), logger),
+		logger:       logger,
 	}
 
 	// Create mock host
@@ -314,6 +317,7 @@ func TestConnectToFoundPeersWithContextCancellation(t *testing.T) {
 	logger, _ := glog.New()
 	cfg := &hostCfg{
 		relayManager: relay.New(context.Background(), logger),
+		logger:       logger,
 	}
 
 	// Create mock host
@@ -350,6 +354,7 @@ func TestSetupMDNS(t *testing.T) {
 	logger, _ := glog.New()
 	cfg := &hostCfg{
 		relayManager: relay.New(context.Background(), logger),
+		logger:       logger,
 	}
 
 	// Create a real host for testing mDNS setup
@@ -369,6 +374,7 @@ func TestSetupDHTWithDefaultMode(t *testing.T) {
 	logger, _ := glog.New()
 	cfg := &hostCfg{
 		relayManager: relay.New(context.Background(), logger),
+		logger:       logger,
 	}
 
 	// Create a real host for testing DHT setup
@@ -396,6 +402,7 @@ func TestFindPeersLoopWithCancelledContext(t *testing.T) {
 	logger, _ := glog.New()
 	cfg := &hostCfg{
 		relayManager: relay.New(context.Background(), logger),
+		logger:       logger, // Add logger initialization
 	}
 
 	// Create mock host

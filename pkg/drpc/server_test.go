@@ -51,7 +51,7 @@ func TestWithOptions(t *testing.T) {
 		ctx,
 		mux,
 		WithLibP2POptions(libp2p.NoListenAddrs),
-		WithHTTPPort(-1), // Disable HTTP server
+		WithDisableHTTP(), // Disable HTTP server
 	)
 	if err != nil {
 		t.Fatalf("Failed to create server with options: %v", err)
@@ -154,8 +154,8 @@ func TestAddressRetrieval(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	addrs := server.P2PAddrs()
-	if len(addrs) == 0 {
-		t.Error("No p2p addresses returned")
+	if len(addrs) != 0 {
+		t.Error("Expected zero p2p addresses when NoListenAddrs is set")
 	}
 
 	if !strings.HasPrefix(server.HTTPAddr(), "http") {

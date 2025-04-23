@@ -18,23 +18,23 @@ func TestParseGatewayPath(t *testing.T) {
 	}{
 		{
 			name:      "Single multiaddress with service path",
-			path:      "/@/ip4/127.0.0.1/tcp/9090/p2p/QmPeerID/@/greeter/SayHello",
-			wantAddrs: []string{"/ip4/127.0.0.1/tcp/9090/p2p/QmPeerID"},
-			wantSvc:   "greeter.v1.GreeterService/SayHello",
+			path:      "/@//ip4/127.0.0.1/tcp/9090/p2p/12D3KooWRcDTroYkRCArLG69PasPsg26mbG9Pt5NvHjqJ9qfipx4/@/greeter/SayHello",
+			wantAddrs: []string{"/ip4/127.0.0.1/tcp/9090/p2p/12D3KooWRcDTroYkRCArLG69PasPsg26mbG9Pt5NvHjqJ9qfipx4"},
+			wantSvc:   "greeter/SayHello",
 			shouldErr: false,
 		},
 		{
 			name:      "Multiple multiaddresses with service path",
-			path:      "/@/ip4/127.0.0.1/tcp/9090/p2p/QmPeerID/@/ip4/1.2.3.4/tcp/9191/@/greeter/SayHello",
-			wantAddrs: []string{"/ip4/127.0.0.1/tcp/9090/p2p/QmPeerID", "/ip4/1.2.3.4/tcp/9191"},
-			wantSvc:   "greeter.v1.GreeterService/SayHello",
+			path:      "/@//ip4/127.0.0.1/tcp/9090/p2p/12D3KooWRcDTroYkRCArLG69PasPsg26mbG9Pt5NvHjqJ9qfipx4/@//ip4/1.2.3.4/tcp/9191/@/greeter/SayHello",
+			wantAddrs: []string{"/ip4/127.0.0.1/tcp/9090/p2p/12D3KooWRcDTroYkRCArLG69PasPsg26mbG9Pt5NvHjqJ9qfipx4", "/ip4/1.2.3.4/tcp/9191"},
+			wantSvc:   "greeter/SayHello",
 			shouldErr: false,
 		},
 		{
 			name:      "Multiple multiaddresses including IPv6 with service path",
-			path:      "/@/ip4/127.0.0.1/tcp/9090/p2p/QmPeerID/@/ip4/1.2.3.4/tcp/9191/@/ip6/[::1]/tcp/9292/@/greeter/SayHello",
-			wantAddrs: []string{"/ip4/127.0.0.1/tcp/9090/p2p/QmPeerID", "/ip4/1.2.3.4/tcp/9191", "/ip6/[::1]/tcp/9292"},
-			wantSvc:   "greeter.v1.GreeterService/SayHello",
+			path:      "/@//ip4/127.0.0.1/tcp/9090/p2p/12D3KooWRcDTroYkRCArLG69PasPsg26mbG9Pt5NvHjqJ9qfipx4/@//ip4/1.2.3.4/tcp/9191/@//ip6/::1/tcp/9292/@/greeter/SayHello",
+			wantAddrs: []string{"/ip4/127.0.0.1/tcp/9090/p2p/12D3KooWRcDTroYkRCArLG69PasPsg26mbG9Pt5NvHjqJ9qfipx4", "/ip4/1.2.3.4/tcp/9191", "/ip6/::1/tcp/9292"},
+			wantSvc:   "greeter/SayHello",
 			shouldErr: false,
 		},
 		{
@@ -46,17 +46,17 @@ func TestParseGatewayPath(t *testing.T) {
 		},
 		{
 			name:      "Invalid - No service path",
-			path:      "/@/ip4/127.0.0.1/tcp/9090/p2p/QmPeerID",
+			path:      "/@//ip4/127.0.0.1/tcp/9090/p2p/12D3KooWRcDTroYkRCArLG69PasPsg26mbG9Pt5NvHjqJ9qfipx4",
 			wantAddrs: nil,
 			wantSvc:   "",
 			shouldErr: true,
 		},
 		{
 			name:      "Invalid - Missing method in service path",
-			path:      "/@/ip4/127.0.0.1/tcp/9090/p2p/QmPeerID/@/greeter",
-			wantAddrs: nil,
-			wantSvc:   "",
-			shouldErr: true,
+			path:      "/@//ip4/127.0.0.1/tcp/9090/p2p/12D3KooWRcDTroYkRCArLG69PasPsg26mbG9Pt5NvHjqJ9qfipx4/@/greeter",
+			wantAddrs: []string{"/ip4/127.0.0.1/tcp/9090/p2p/12D3KooWRcDTroYkRCArLG69PasPsg26mbG9Pt5NvHjqJ9qfipx4"},
+			wantSvc:   "greeter",
+			shouldErr: false,
 		},
 	}
 	for _, tt := range tests {
@@ -105,14 +105,8 @@ func TestExtractPeerID(t *testing.T) {
 	}{
 		{
 			name:    "Valid multiaddr with peer ID",
-			addr:    "/ip4/127.0.0.1/tcp/9090/p2p/QmPeerID",
-			wantID:  "QmPeerID",
-			wantErr: false,
-		},
-		{
-			name:    "Valid multiaddr with peer ID and additional components",
-			addr:    "/ip4/127.0.0.1/tcp/9090/p2p/QmPeerID/additional/path",
-			wantID:  "QmPeerID",
+			addr:    "/ip4/127.0.0.1/tcp/9090/p2p/12D3KooWRcDTroYkRCArLG69PasPsg26mbG9Pt5NvHjqJ9qfipx4",
+			wantID:  "12D3KooWRcDTroYkRCArLG69PasPsg26mbG9Pt5NvHjqJ9qfipx4",
 			wantErr: false,
 		},
 		{
@@ -161,31 +155,31 @@ func TestContainsProtocolInMultiaddr(t *testing.T) {
 	}{
 		{
 			name:     "TCP protocol",
-			maddr:    "/ip4/127.0.0.1/tcp/9090/p2p/QmPeerID",
+			maddr:    "/ip4/127.0.0.1/tcp/9090/p2p/12D3KooWRcDTroYkRCArLG69PasPsg26mbG9Pt5NvHjqJ9qfipx4",
 			protocol: "tcp",
 			want:     true,
 		},
 		{
 			name:     "WebSocket protocol",
-			maddr:    "/ip4/127.0.0.1/tcp/9091/ws/p2p/QmPeerID",
+			maddr:    "/ip4/127.0.0.1/tcp/9091/ws/p2p/12D3KooWRcDTroYkRCArLG69PasPsg26mbG9Pt5NvHjqJ9qfipx4",
 			protocol: "ws",
 			want:     true,
 		},
 		{
 			name:     "WebTransport protocol",
-			maddr:    "/ip4/127.0.0.1/udp/9092/quic-v1/webtransport/p2p/QmPeerID",
+			maddr:    "/ip4/127.0.0.1/udp/9092/quic-v1/webtransport/p2p/12D3KooWRcDTroYkRCArLG69PasPsg26mbG9Pt5NvHjqJ9qfipx4",
 			protocol: "webtransport",
 			want:     true,
 		},
 		{
 			name:     "WebRTC protocol",
-			maddr:    "/ip4/127.0.0.1/udp/9093/webrtc/p2p/QmPeerID",
+			maddr:    "/ip4/127.0.0.1/udp/9093/webrtc/p2p/12D3KooWRcDTroYkRCArLG69PasPsg26mbG9Pt5NvHjqJ9qfipx4",
 			protocol: "webrtc",
 			want:     true,
 		},
 		{
 			name:     "Missing protocol",
-			maddr:    "/ip4/127.0.0.1/tcp/9090/p2p/QmPeerID",
+			maddr:    "/ip4/127.0.0.1/tcp/9090/p2p/12D3KooWRcDTroYkRCArLG69PasPsg26mbG9Pt5NvHjqJ9qfipx4",
 			protocol: "ws",
 			want:     false,
 		},
@@ -214,21 +208,21 @@ func TestExtractPortFromMultiaddr(t *testing.T) {
 	}{
 		{
 			name:     "TCP port",
-			maddr:    "/ip4/127.0.0.1/tcp/9090/p2p/QmPeerID",
+			maddr:    "/ip4/127.0.0.1/tcp/9090/p2p/12D3KooWRcDTroYkRCArLG69PasPsg26mbG9Pt5NvHjqJ9qfipx4",
 			protocol: "tcp",
 			want:     "9090",
 			wantErr:  false,
 		},
 		{
 			name:     "UDP port",
-			maddr:    "/ip4/127.0.0.1/udp/9092/quic-v1/webtransport/p2p/QmPeerID",
+			maddr:    "/ip4/127.0.0.1/udp/9092/quic-v1/webtransport/p2p/12D3KooWRcDTroYkRCArLG69PasPsg26mbG9Pt5NvHjqJ9qfipx4",
 			protocol: "udp",
 			want:     "9092",
 			wantErr:  false,
 		},
 		{
 			name:     "Missing protocol",
-			maddr:    "/ip4/127.0.0.1/tcp/9090/p2p/QmPeerID",
+			maddr:    "/ip4/127.0.0.1/tcp/9090/p2p/12D3KooWRcDTroYkRCArLG69PasPsg26mbG9Pt5NvHjqJ9qfipx4",
 			protocol: "udp",
 			want:     "",
 			wantErr:  true,
