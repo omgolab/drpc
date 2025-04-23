@@ -6,8 +6,8 @@
       "dependencies": {
         "@bufbuild/connect": "^0.13.0",
         "@bufbuild/connect-web": "^0.13.0",
-        "@bufbuild/protobuf": "1.2.1",
-        "@chainsafe/libp2p-noise": "^16.1.2",
+        "@bufbuild/protobuf": "^2.2.5",
+        "@chainsafe/libp2p-noise": "^16.1.3",
         "@connectrpc/connect": "^2.0.2",
         "@connectrpc/connect-web": "^2.0.2",
         "@libp2p/autonat": "^2.0.30",
@@ -22,7 +22,7 @@
       },
       "devDependencies": {
         "@types/node": "^22.14.1",
-        "typescript": "^5.0.0",
+        "typescript": "^5.8.3",
         "vitest": "^3.1.2",
       },
     },
@@ -32,7 +32,7 @@
 
     "@bufbuild/connect-web": ["@bufbuild/connect-web@0.13.0", "", { "dependencies": { "@bufbuild/connect": "0.13.0" }, "peerDependencies": { "@bufbuild/protobuf": "^1.2.1" } }, "sha512-Ys9VFDWYktD9yFQSLOlkpsD42LonDNMCysLCfjXFuxlupYuf4f7qg0zkT5bESyTfqk4xtRDSSGR3xygaj/ONIQ=="],
 
-    "@bufbuild/protobuf": ["@bufbuild/protobuf@1.2.1", "", {}, "sha512-cwwGvLGqvoaOZmoP5+i4v/rbW+rHkguvTehuZyM2p/xpmaNSdT2h3B7kHw33aiffv35t1XrYHIkdJSEkSEMJuA=="],
+    "@bufbuild/protobuf": ["@bufbuild/protobuf@2.2.5", "", {}, "sha512-/g5EzJifw5GF8aren8wZ/G5oMuPoGeS6MQD3ca8ddcvdXR5UELUfdTZITCGNhNXynY/AYl3Z4plmxdj/tRl/hQ=="],
 
     "@chainsafe/as-chacha20poly1305": ["@chainsafe/as-chacha20poly1305@0.1.0", "", {}, "sha512-BpNcL8/lji/GM3+vZ/bgRWqJ1q5kwvTFmGPk7pxm/QQZDbaMI98waOHjEymTjq2JmdD/INdNBFOVSyJofXg7ew=="],
 
@@ -40,7 +40,7 @@
 
     "@chainsafe/is-ip": ["@chainsafe/is-ip@2.1.0", "", {}, "sha512-KIjt+6IfysQ4GCv66xihEitBjvhU/bixbbbFxdJ1sqCp4uJ0wuZiYBPhksZoy4lfaF0k9cwNzY5upEW/VWdw3w=="],
 
-    "@chainsafe/libp2p-noise": ["@chainsafe/libp2p-noise@16.1.2", "", { "dependencies": { "@chainsafe/as-chacha20poly1305": "^0.1.0", "@chainsafe/as-sha256": "^1.0.0", "@libp2p/crypto": "^5.0.0", "@libp2p/interface": "^2.0.0", "@libp2p/peer-id": "^5.0.0", "@noble/ciphers": "^1.1.3", "@noble/curves": "^1.1.0", "@noble/hashes": "^1.3.1", "it-length-prefixed": "^10.0.1", "it-length-prefixed-stream": "^2.0.1", "it-pair": "^2.0.6", "it-pipe": "^3.0.1", "it-stream-types": "^2.0.1", "protons-runtime": "^5.5.0", "uint8arraylist": "^2.4.3", "uint8arrays": "^5.0.0", "wherearewe": "^2.0.1" } }, "sha512-vVmUxcdTXHiSiNY7qCZ4GER33y2TOYeXYLXM559ttDsXgUP19y4zNyC8y7pMNXZu7I5IqnQRrzUrmxDUpfV/hg=="],
+    "@chainsafe/libp2p-noise": ["@chainsafe/libp2p-noise@16.1.3", "", { "dependencies": { "@chainsafe/as-chacha20poly1305": "^0.1.0", "@chainsafe/as-sha256": "^1.0.0", "@libp2p/crypto": "^5.0.0", "@libp2p/interface": "^2.9.0", "@libp2p/peer-id": "^5.0.0", "@noble/ciphers": "^1.1.3", "@noble/curves": "^1.1.0", "@noble/hashes": "^1.3.1", "it-length-prefixed": "^10.0.1", "it-length-prefixed-stream": "^2.0.1", "it-pair": "^2.0.6", "it-pipe": "^3.0.1", "it-stream-types": "^2.0.1", "protons-runtime": "^5.5.0", "uint8arraylist": "^2.4.3", "uint8arrays": "^5.0.0", "wherearewe": "^2.0.1" } }, "sha512-YLonKdIUFk/0keKRfzlmdrsObi8r0EaZC14Vjh3qdLy4+W7NaQAs1sSMt8aDP07oE78pa51NyejmQLKOnt7tOw=="],
 
     "@chainsafe/netmask": ["@chainsafe/netmask@2.0.0", "", { "dependencies": { "@chainsafe/is-ip": "^2.0.1" } }, "sha512-I3Z+6SWUoaljh3TBzCnCxjlUyN8tA+NAk5L6m9IxvCf1BENQTePzPMis97CoN/iMW1St3WN+AWCCRp+TTBRiDg=="],
 

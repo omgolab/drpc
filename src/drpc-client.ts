@@ -5,18 +5,18 @@
 
 import { createPromiseClient, UnaryResponse } from '@bufbuild/connect';
 import { createConnectTransport } from '@bufbuild/connect-web';
-import type { ServiceType, Message } from '@bufbuild/protobuf';
+import type { DescService, Message } from '@bufbuild/protobuf';
 import { createLibp2pHost } from './libp2p-host';
 import { multiaddr } from '@multiformats/multiaddr';
 
 /**
  * NewClient<T> creates a generic dRPC client for HTTP/2 or libp2p.
  * @param addr - server address (http(s)://... or multiaddr)
- * @param service - ServiceType (from generated code)
+ * @param service - DescService (from generated code)
  * @param options - optional config
  * @returns Promise client for the service
  */
-export async function NewClient<T extends ServiceType>(
+export async function NewClient<T extends DescService>(
   addr: string,
   service: T,
   options?: { logger?: any }
@@ -56,8 +56,8 @@ function isMultiaddr(addr: string): boolean {
  */
 function createLibp2pConnectTransport(libp2p: any, ma: any) {
   return {
-    async unary<I extends Message<I>, O extends Message<O>>(
-      service: ServiceType,
+    async unary<I extends Message<any>, O extends Message<any>>(
+      service: DescService,
       methodInfo: any,
       signal: AbortSignal | undefined,
       timeoutMs: number | undefined,
