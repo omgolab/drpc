@@ -9,16 +9,13 @@ import (
 	ma "github.com/multiformats/go-multiaddr"
 )
 
-// ParseAddresses parses addresses in the following formats:
+// ParseGatewayP2PAddresses parses addresses in the following formats:
 // HTTP gateway format (concise): /@{addr1,addr2,addr3...}/@{/service/method} (first and last /@ as delimiters)
 // Returns:
 // - a map of peer.ID to []ma.Multiaddr (grouped by peer ID)
 // - service path if in HTTP gateway format (empty for direct format)
 // - error if parsing failed
-func ParseAddresses(addrStr string) (map[peer.ID][]ma.Multiaddr, string, error) {
-	peerAddrs := make(map[peer.ID][]ma.Multiaddr)
-	var servicePath string
-
+func ParseGatewayP2PAddresses(addrStr string) (map[peer.ID][]ma.Multiaddr, string, error) {
 	parts := strings.Split(addrStr, GatewayPrefix)
 	if len(parts) != 3 {
 		return nil, "", fmt.Errorf("invalid concise format: expected format /@addresses/@/service/method")
@@ -31,13 +28,25 @@ func ParseAddresses(addrStr string) (map[peer.ID][]ma.Multiaddr, string, error) 
 	}
 
 	// Parse service path (parts[2])
+	var servicePath string
 	if !strings.HasPrefix(parts[2], "/") {
 		return nil, "", fmt.Errorf("service path must start with / in concise format")
 	}
 	servicePath = parts[2]
 
+	// Parse addresses
+	peerAddrs, err := ParseCommaSeparatedMultiAddresses(addrPart)
+	if err != nil {
+		return nil, "", err
+	}
+
+	return peerAddrs, servicePath, nil
+}
+
+func ParseCommaSeparatedMultiAddresses(addrStr string) (map[peer.ID][]ma.Multiaddr, error) {
+	peerAddrs := make(map[peer.ID][]ma.Multiaddr)
 	// Process comma-separated addresses
-	addrSegments := strings.SplitSeq(addrPart, ",")
+	addrSegments := strings.SplitSeq(addrStr, ",")
 	for addr := range addrSegments {
 		addr = strings.TrimSpace(addr)
 		if addr == "" {
@@ -51,15 +60,14 @@ func ParseAddresses(addrStr string) (map[peer.ID][]ma.Multiaddr, string, error) 
 
 		err := parseAndAddToMap(addr, peerAddrs)
 		if err != nil {
-			return nil, "", err
+			return nil, err
 		}
 	}
 
 	if len(peerAddrs) == 0 {
-		return nil, "", fmt.Errorf("no valid addresses found")
+		return nil, fmt.Errorf("no valid addresses found")
 	}
-
-	return peerAddrs, servicePath, nil
+	return peerAddrs, nil
 }
 
 // Helper function to parse a single address and add it to the peer map
@@ -142,48 +150,4 @@ func parseMultiaddrs(addrStr string) ([]ma.Multiaddr, error) {
 		addrs = append(addrs, maddr)
 	}
 	return addrs, nil
-}
-
-// ExtractRelayAddrInfo attempts to extract the relay peer's AddrInfo from a circuit address string.
-// It expects an address like /p2p/relay-id/p2p-circuit/...
-func ExtractRelayAddrInfo(addrStr string) (*peer.AddrInfo, error) {
-	maddr, err := ma.NewMultiaddr(addrStr)
-	if err != nil {
-		return nil, fmt.Errorf("invalid multiaddress %s: %w", addrStr, err)
-	}
-
-	// Check if it's a circuit address
-	_, err = maddr.ValueForProtocol(ma.P_CIRCUIT) // P_CIRCUIT is the code for /p2p-circuit
-	if err != nil {
-		// Not a circuit address or malformed
-		return nil, fmt.Errorf("not a circuit address or missing circuit component: %w", err)
-	}
-
-	// Extract the relay part (everything before /p2p-circuit)
-	relayMaStr, _ := ma.SplitFunc(maddr, func(c ma.Component) bool {
-		return c.Protocol().Code == ma.P_CIRCUIT
-	})
-
-	if relayMaStr == nil {
-		return nil, fmt.Errorf("could not extract relay part from circuit address %s", addrStr)
-	}
-
-	// Convert the relay part to AddrInfo
-	relayInfo, err := peer.AddrInfoFromP2pAddr(relayMaStr)
-	if err != nil {
-		return nil, fmt.Errorf("could not get AddrInfo from relay part %s: %w", relayMaStr.String(), err)
-	}
-	if relayInfo == nil || relayInfo.ID == "" {
-		return nil, fmt.Errorf("extracted relay AddrInfo is invalid for %s", relayMaStr.String())
-	}
-
-	return relayInfo, nil
-}
-
-// IsRelayAddr checks if the given address string contains the p2p-circuit indicator.
-func IsRelayAddr(addr string) bool {
-	// Basic check for the presence of "/p2p-circuit"
-	// Note: A more robust check might involve full multiaddr parsing,
-	// but this is often sufficient and faster for quick checks.
-	return strings.Contains(addr, "/p2p-circuit")
 }

@@ -10,7 +10,6 @@ import (
 	"crypto/tls"
 
 	"connectrpc.com/connect"
-	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
@@ -75,43 +74,19 @@ func NewClient[T any](
 	}
 
 	// Handle libp2p paths (Path 3 and 4) and gateway format with the unified parser
-	peerAddrs, _, err := gateway.ParseAddresses(serverAddr) // We don't need servicePath for direct connections
+	peerAddrs, err := gateway.ParseCommaSeparatedMultiAddresses(serverAddr) // We don't need servicePath for direct connections
 	if err != nil {
 		logger.Error("Failed to parse addresses", err)
 		return zeroValue, fmt.Errorf("failed to parse addresses: %w", err)
 	}
 
-	if len(peerAddrs) == 0 {
-		return zeroValue, fmt.Errorf("no valid peer addresses found")
-	}
-
 	// Creating a new libp2p host for the client.
-	// If connecting via relay, configure AutoRelay.
-	libp2pOpts := append(client.libp2pOptions, libp2p.NoListenAddrs) // Start with base options
-
-	// Check if the target address is a relay address
-	isCircuitAddr := gateway.IsRelayAddr(serverAddr) // Use helper from gateway package
-	if isCircuitAddr {
-		relayInfo, err := gateway.ExtractRelayAddrInfo(serverAddr) // Extract relay info
-		if err != nil {
-			return zeroValue, fmt.Errorf("failed to extract relay info from address %s: %w", serverAddr, err)
-		}
-		if relayInfo == nil {
-			return zeroValue, fmt.Errorf("extracted nil relay info from address %s", serverAddr)
-		}
-		// Add relay client options
-		libp2pOpts = append(libp2pOpts,
-			libp2p.EnableRelay(), // Needed for client-side? Yes.
-			libp2p.EnableAutoRelayWithStaticRelays([]peer.AddrInfo{*relayInfo}),
-		)
-		logger.Info("Configuring client host to use relay", glog.LogFields{"relayID": relayInfo.ID.String()})
-	}
-
 	clientHost, err := core.CreateLibp2pHost(
 		ctx,
-		logger,
-		libp2pOpts,
-		client.dhtOptions...,
+		core.WithHostLogger(logger),
+		core.WithHostLibp2pOptions(client.libp2pOptions...),
+		core.WithHostDHTOptions(client.dhtOptions...),
+		core.WithHostAsClientMode(),
 	)
 	if err != nil {
 		logger.Error("Failed to create libp2p host", err)

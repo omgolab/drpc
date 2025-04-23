@@ -82,7 +82,12 @@ func NewServer(
 func (s *ServerInstance) setupRpcLpBridgeServer(ctx context.Context, cfg *cfg) error {
 	// Create libp2p host
 	var err error
-	s.p2pHost, err = core.CreateLibp2pHost(ctx, cfg.logger, cfg.libp2pOptions, cfg.dhtOptions...)
+	s.p2pHost, err = core.CreateLibp2pHost(
+		ctx,
+		core.WithHostLogger(cfg.logger),
+		core.WithHostLibp2pOptions(cfg.libp2pOptions...),
+		core.WithHostDHTOptions(cfg.dhtOptions...),
+	)
 	if err != nil {
 		return fmt.Errorf("failed to create libp2p host: %w", err)
 	}

@@ -21,13 +21,64 @@ import (
 )
 
 var (
-	_            libp2pmdns.Notifee = (*discoveryNotifee)(nil) // Ensure discoveryNotifee implements the Notifee interface
-	relayManager *relay.RelayManager
+	_ libp2pmdns.Notifee = (*discoveryNotifee)(nil) // Ensure discoveryNotifee implements the Notifee interface
 )
+
+// hostCfg holds the host configuration
+type hostCfg struct {
+	logger        glog.Logger
+	libp2pOptions []libp2p.Option
+	dhtOptions    []dht.Option
+	isClientMode  bool
+	relayManager  *relay.RelayManager
+}
+
+// HostOption configures a Host.
+type HostOption func(*hostCfg) error
+
+// WithHostLogger sets the logger for the host.
+func WithHostLogger(logger glog.Logger) HostOption {
+	return func(c *hostCfg) error {
+		c.logger = logger
+		return nil
+	}
+}
+
+// WithHostLibp2pOptions adds libp2p options to the host.
+func WithHostLibp2pOptions(opts ...libp2p.Option) HostOption {
+	return func(c *hostCfg) error {
+		if c.libp2pOptions == nil {
+			c.libp2pOptions = make([]libp2p.Option, 0)
+		}
+		c.libp2pOptions = append(c.libp2pOptions, opts...)
+		return nil
+	}
+}
+
+// WithHostDHTOptions adds DHT options to the host.
+func WithHostDHTOptions(opts ...dht.Option) HostOption {
+	return func(c *hostCfg) error {
+		if c.dhtOptions == nil {
+			c.dhtOptions = make([]dht.Option, 0)
+		}
+		c.dhtOptions = append(c.dhtOptions, opts...)
+		return nil
+	}
+}
+
+// WithHostAsClientMode marks the host to operate in client mode (no server DHT bootstrap).
+func WithHostAsClientMode() HostOption {
+	return func(c *hostCfg) error {
+		// client mode implies disabling server ModeAuto (no bootstrap)
+		c.dhtOptions = append(c.dhtOptions, dht.Mode(dht.ModeClient))
+		c.isClientMode = true
+		return nil
+	}
+}
 
 // setupDHT initializes the DHT and starts peer discovery if applicable.
 // It relies on the provided dhtOpts to configure behavior, including bootstrapping.
-func setupDHT(ctx context.Context, h host.Host, log glog.Logger, userDhtOptions ...dht.Option) (*dht.IpfsDHT, error) { // Use glog.Logger
+func setupDHT(ctx context.Context, h host.Host, cfg *hostCfg, userDhtOptions ...dht.Option) (*dht.IpfsDHT, error) { // Use glog.Logger
 	// default dht options
 	dhtOptions := []dht.Option{dht.Mode(dht.ModeAuto)} // Default to server mode
 
@@ -49,7 +100,7 @@ func setupDHT(ctx context.Context, h host.Host, log glog.Logger, userDhtOptions 
 
 	// Bootstrap the DHT. In the default configuration, this spawns a Background
 	// thread that will refresh the peer table every five minutes.
-	log.Debug("Bootstrapping the DHT")
+	cfg.logger.Debug("Bootstrapping the DHT")
 	if err = kademliaDHT.Bootstrap(ctx); err != nil {
 		return nil, err
 	}
@@ -60,24 +111,34 @@ func setupDHT(ctx context.Context, h host.Host, log glog.Logger, userDhtOptions 
 		time.Sleep(2 * time.Second)
 
 		routingDiscovery := drouting.NewRoutingDiscovery(kademliaDHT)
-		log.Info("Advertising self on DHT")
+		cfg.logger.Info("Advertising self on DHT")
 		dutil.Advertise(ctx, routingDiscovery, config.DISCOVERY_TAG)
 
-		log.Info("Starting DHT peer discovery loop")
-		findPeersLoop(ctx, routingDiscovery, h, log)
-		log.Info("DHT peer discovery loop stopped")
+		cfg.logger.Info("Starting DHT peer discovery loop")
+		findPeersLoop(ctx, routingDiscovery, h, cfg)
+		cfg.logger.Info("DHT peer discovery loop stopped")
 	}()
 	return kademliaDHT, nil
 }
 
 // CreateLibp2pHost creates a new libp2p Host with default settings.
-func CreateLibp2pHost(ctx context.Context, log glog.Logger, libp2pOpts []libp2p.Option, dhtOpts ...dht.Option) (host.Host, error) { // Use glog.Logger
+func CreateLibp2pHost(ctx context.Context, opts ...HostOption) (host.Host, error) {
+	// apply HostOption to build config
+	cfg := &hostCfg{}
+	for _, o := range opts {
+		if err := o(cfg); err != nil {
+			return nil, err
+		}
+	}
+	log := cfg.logger
+	libp2pOpts := cfg.libp2pOptions
+	dhtOpts := cfg.dhtOptions
 	// We'll use a shared variable for the DHT instance
 	// to avoid duplication between setupDHT and the routing constructor
 	var kadDHT *dht.IpfsDHT
 	var dhtErr error
 	var dhtOnce sync.Once
-	relayManager = relay.New(ctx, log, nil) // Initialize relay manager
+	cfg.relayManager = relay.New(ctx, log, nil) // Initialize relay manager
 
 	// fix for nil options
 	if dhtOpts == nil {
@@ -113,19 +174,31 @@ func CreateLibp2pHost(ctx context.Context, log glog.Logger, libp2pOpts []libp2p.
 		libp2p.Routing(func(h host.Host) (routing.PeerRouting, error) {
 			// Initialize DHT only once
 			dhtOnce.Do(func() {
-				kadDHT, dhtErr = setupDHT(ctx, h, log, dhtOpts...) // Pass dhtOpts here
+				kadDHT, dhtErr = setupDHT(ctx, h, cfg, dhtOpts...) // Pass dhtOpts here
 			})
 			return kadDHT, dhtErr
 		}),
 
-		// Enable relays and NAT services
-		libp2p.EnableRelayService(), // Enable Relay Service if publicly reachable
-		libp2p.EnableAutoNATv2(),    // Enable AutoNATv2
-		libp2p.DisableMetrics(),     // Disable metrics collection for performance
+		libp2p.EnableAutoNATv2(), // Enable AutoNATv2
+		libp2p.DisableMetrics(),  // Disable metrics collection for performance
 
 		// Use EnableAutoRelayWithPeerSource with our RelayManager
 		// This provides a persistent store of relay candidates with smart selection
-		libp2p.EnableAutoRelayWithPeerSource(relayManager.GetPeerSource()),
+		libp2p.EnableAutoRelayWithPeerSource(cfg.relayManager.GetPeerSource()),
+	}
+
+	// allow mDNS and relays in client mode by adding an ephemeral listen addr
+	if cfg.isClientMode {
+		options = append(options,
+			libp2p.NoListenAddrs,
+			libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"),
+			libp2p.EnableRelay(), // Enable relay service
+		)
+	} else {
+		// add relay service options
+		options = append(options,
+			libp2p.EnableRelayService(), // Enable Relay Service if publicly reachable
+		)
 	}
 
 	// Add any user-provided options
@@ -139,10 +212,10 @@ func CreateLibp2pHost(ctx context.Context, log glog.Logger, libp2pOpts []libp2p.
 	}
 
 	// Set up the relay manager with the host
-	relayManager.UpdateHost(ctx, h)
+	cfg.relayManager.UpdateHost(ctx, h)
 
 	// Setup mDNS discovery
-	if err := setupMDNS(h, log); err != nil {
+	if err := setupMDNS(h, cfg); err != nil {
 		log.Error("Failed to setup mDNS", err)
 		// Continue anyway, some features may still work
 	}
@@ -169,7 +242,7 @@ func CreateLibp2pHost(ctx context.Context, log glog.Logger, libp2pOpts []libp2p.
 // discoveryNotifee gets notified when we find a new peer via mDNS discovery
 type discoveryNotifee struct {
 	h   host.Host
-	log glog.Logger // Use glog.Logger
+	cfg *hostCfg
 }
 
 // HandlePeerFound connects to peers discovered via mDNS
@@ -178,7 +251,7 @@ func (n *discoveryNotifee) HandlePeerFound(pi peer.AddrInfo) {
 	if pi.ID == n.h.ID() {
 		return
 	}
-	n.log.Debug(fmt.Sprintf("mDNS peer found: %s", pi.ID.String()))
+	n.cfg.logger.Debug(fmt.Sprintf("mDNS peer found: %s", pi.ID.String()))
 
 	ctx, cancel := context.WithTimeout(context.Background(), config.PEER_CONNECTION_TIMEOUT)
 	defer cancel()
@@ -186,56 +259,56 @@ func (n *discoveryNotifee) HandlePeerFound(pi peer.AddrInfo) {
 	err := n.h.Connect(ctx, pi)
 	if err != nil {
 		// Don't log errors for transient connection issues, use Debug
-		n.log.Debug(fmt.Sprintf("Failed connecting to mDNS peer %s: %s", pi.ID.String(), err.Error()))
+		n.cfg.logger.Debug(fmt.Sprintf("Failed connecting to mDNS peer %s: %s", pi.ID.String(), err.Error()))
 		return
 	}
 	// Add to relay manager for potential relay usage
-	relayManager.AddPeer(pi)
-	n.log.Info(fmt.Sprintf("Connected to peer via mDNS: %s", pi.ID.String()))
+	n.cfg.relayManager.AddPeer(pi)
+	n.cfg.logger.Info(fmt.Sprintf("Connected to peer via mDNS: %s", pi.ID.String()))
 }
 
 // setupMDNS initializes the mDNS discovery service
-func setupMDNS(h host.Host, log glog.Logger) error { // Use glog.Logger
+func setupMDNS(h host.Host, cfg *hostCfg) error { // Use glog.Logger
 	// Setup mDNS discovery service
-	log.Info("Setting up mDNS discovery")
-	notifee := &discoveryNotifee{h: h, log: log}
+	cfg.logger.Info("Setting up mDNS discovery")
+	notifee := &discoveryNotifee{h: h, cfg: cfg}
 	// Use DefaultServiceTag if config.DISCOVERY_TAG is empty
 	tag := config.DISCOVERY_TAG
 	if tag == "" {
 		// libp2pmdns handles empty string as default tag internally
 		tag = ""
-		log.Warn("config.DISCOVERY_TAG is empty, using default mDNS tag")
+		cfg.logger.Warn("config.DISCOVERY_TAG is empty, using default mDNS tag")
 	}
 	disc := libp2pmdns.NewMdnsService(h, tag, notifee)
 	return disc.Start()
 }
 
 // findPeersLoop continuously searches for peers using DHT discovery
-func findPeersLoop(ctx context.Context, routingDiscovery *drouting.RoutingDiscovery, h host.Host, log glog.Logger) { // Use glog.Logger
+func findPeersLoop(ctx context.Context, routingDiscovery *drouting.RoutingDiscovery, h host.Host, cfg *hostCfg) { // Use glog.Logger
 	ticker := time.NewTicker(config.DHT_PEER_DISCOVERY_INTERVAL)
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Info("Stopping DHT peer discovery loop due to context cancellation")
+			cfg.logger.Info("Stopping DHT peer discovery loop due to context cancellation")
 			return
 		case <-ticker.C:
-			log.Debug("Finding peers via DHT")
+			cfg.logger.Debug("Finding peers via DHT")
 			peerChan, err := routingDiscovery.FindPeers(ctx, config.DISCOVERY_TAG)
 			if err != nil {
-				log.Error("DHT FindPeers error", err)
+				cfg.logger.Error("DHT FindPeers error", err)
 				continue // Wait for next tick
 			}
 
 			// Process peers found in this round
-			go connectToFoundPeers(ctx, h, log, peerChan)
+			go connectToFoundPeers(ctx, h, cfg, peerChan)
 		}
 	}
 }
 
 // connectToFoundPeers handles connecting to peers from the discovery channel
-func connectToFoundPeers(ctx context.Context, h host.Host, log glog.Logger, peerChan <-chan peer.AddrInfo) { // Use glog.Logger
+func connectToFoundPeers(ctx context.Context, h host.Host, cfg *hostCfg, peerChan <-chan peer.AddrInfo) { // Use glog.Logger
 	for p := range peerChan {
 		// Skip self
 		if p.ID == h.ID() {
@@ -246,18 +319,18 @@ func connectToFoundPeers(ctx context.Context, h host.Host, log glog.Logger, peer
 		for i, addr := range p.Addrs {
 			addrStrings[i] = addr.String()
 		}
-		log.Debug(fmt.Sprintf("DHT peer found: %s, addrs: %v", p.ID.String(), addrStrings))
+		cfg.logger.Debug(fmt.Sprintf("DHT peer found: %s, addrs: %v", p.ID.String(), addrStrings))
 
 		connectCtx, connectCancel := context.WithTimeout(ctx, config.PEER_CONNECTION_TIMEOUT)
 		err := h.Connect(connectCtx, p)
 		connectCancel() // Release context resources promptly
 		if err != nil {
 			// Use Debug level for potentially transient connection errors
-			log.Debug(fmt.Sprintf("Failed connecting to DHT peer %s: %s", p.ID.String(), err.Error()))
+			cfg.logger.Debug(fmt.Sprintf("Failed connecting to DHT peer %s: %s", p.ID.String(), err.Error()))
 		} else {
-			log.Info(fmt.Sprintf("Connected to DHT peer: %s", p.ID.String()))
+			cfg.logger.Info(fmt.Sprintf("Connected to DHT peer: %s", p.ID.String()))
 			// Add to relay manager for potential relay usage
-			relayManager.AddPeer(p)
+			cfg.relayManager.AddPeer(p)
 		}
 	}
 }

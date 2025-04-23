@@ -12,6 +12,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	drouting "github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	"github.com/multiformats/go-multiaddr"
+	"github.com/omgolab/drpc/pkg/core/relay"
 	glog "github.com/omgolab/go-commons/pkg/log"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -23,7 +24,9 @@ func TestCreateLpHostSuccess(t *testing.T) {
 	logger, _ := glog.New()
 
 	// Pass nil for libp2pOpts
-	h, err := CreateLibp2pHost(ctx, logger, nil)
+	h, err := CreateLibp2pHost(ctx,
+		WithHostLogger(logger),
+	)
 	if err != nil {
 		t.Fatalf("CreateLpHost error: %v", err)
 	}
@@ -45,7 +48,9 @@ func TestCreateLpHostMultiple(t *testing.T) {
 	var hosts []host.Host
 	for i := range 3 {
 		// Pass nil for libp2pOpts and dhtOpts
-		h, err := CreateLibp2pHost(ctx, logger, nil)
+		h, err := CreateLibp2pHost(ctx,
+			WithHostLogger(logger),
+		)
 		if err != nil {
 			t.Fatalf("Iteration %d: CreateLpHost error: %v", i, err)
 		}
@@ -67,7 +72,9 @@ func TestHostShutdown(t *testing.T) {
 	logger, _ := glog.New()
 
 	// Pass nil for libp2pOpts and dhtOpts
-	h, err := CreateLibp2pHost(ctx, logger, nil)
+	h, err := CreateLibp2pHost(ctx,
+		WithHostLogger(logger),
+	)
 	if err != nil {
 		t.Fatalf("CreateLpHost error: %v", err)
 	}
@@ -87,7 +94,10 @@ func TestCreateLibp2pHostWithOptions(t *testing.T) {
 		libp2p.ListenAddrStrings(listenAddr),
 	}
 
-	h, err := CreateLibp2pHost(ctx, logger, libp2pOpts)
+	h, err := CreateLibp2pHost(ctx,
+		WithHostLogger(logger),
+		WithHostLibp2pOptions(libp2pOpts...),
+	)
 	if err != nil {
 		t.Fatalf("CreateLibp2pHost error with custom options: %v", err)
 	}
@@ -124,7 +134,10 @@ func TestCreateLibp2pHostWithDHTOptions(t *testing.T) {
 		dht.Mode(dht.ModeClient),
 	}
 
-	h, err := CreateLibp2pHost(ctx, logger, nil, dhtOpts...)
+	h, err := CreateLibp2pHost(ctx,
+		WithHostLogger(logger),
+		WithHostDHTOptions(dhtOpts...),
+	)
 	if err != nil {
 		t.Fatalf("CreateLibp2pHost error with DHT options: %v", err)
 	}
@@ -147,7 +160,9 @@ func TestCreateLibp2pHostWithCancelledContext(t *testing.T) {
 	cancel()
 
 	// Should either fail or return a valid host
-	h, err := CreateLibp2pHost(ctx, logger, nil)
+	h, err := CreateLibp2pHost(ctx,
+		WithHostLogger(logger),
+	)
 	if err == nil && h != nil {
 		// If it succeeds, ensure we can close it
 		if err := h.Close(); err != nil {
@@ -174,8 +189,10 @@ func TestDiscoveryNotifee(t *testing.T) {
 
 	// Create notifee with our mock host
 	notifee := discoveryNotifee{
-		h:   mockHost,
-		log: logger,
+		h: mockHost,
+		cfg: &hostCfg{
+			relayManager: relay.New(context.Background(), logger),
+		},
 	}
 
 	// Handle the peer found event
@@ -201,8 +218,10 @@ func TestDiscoveryNotifeeWithSelf(t *testing.T) {
 
 	// Create notifee with our mock host
 	notifee := discoveryNotifee{
-		h:   mockHost,
-		log: logger,
+		h: mockHost,
+		cfg: &hostCfg{
+			relayManager: relay.New(context.Background(), logger),
+		},
 	}
 
 	// Handle the peer found event - should skip self
@@ -231,8 +250,10 @@ func TestDiscoveryNotifeeConnectionError(t *testing.T) {
 
 	// Create notifee with our mock host
 	notifee := discoveryNotifee{
-		h:   mockHost,
-		log: logger,
+		h: mockHost,
+		cfg: &hostCfg{
+			relayManager: relay.New(context.Background(), logger),
+		},
 	}
 
 	// Handle the peer found event - should attempt connection but handle error
@@ -245,6 +266,9 @@ func TestDiscoveryNotifeeConnectionError(t *testing.T) {
 // TestConnectToFoundPeers tests the connectToFoundPeers function
 func TestConnectToFoundPeers(t *testing.T) {
 	logger, _ := glog.New()
+	cfg := &hostCfg{
+		relayManager: relay.New(context.Background(), logger),
+	}
 
 	// Create mock host
 	mockHost := &mockHost{}
@@ -277,7 +301,7 @@ func TestConnectToFoundPeers(t *testing.T) {
 
 	// Test connectToFoundPeers
 	ctx := context.Background()
-	connectToFoundPeers(ctx, mockHost, logger, peerChan)
+	connectToFoundPeers(ctx, mockHost, cfg, peerChan)
 
 	// Verify expectations
 	mockHost.AssertCalled(t, "Connect", mock.Anything, peer1)
@@ -288,6 +312,9 @@ func TestConnectToFoundPeers(t *testing.T) {
 // TestConnectToFoundPeersWithContextCancellation tests behavior when context is cancelled
 func TestConnectToFoundPeersWithContextCancellation(t *testing.T) {
 	logger, _ := glog.New()
+	cfg := &hostCfg{
+		relayManager: relay.New(context.Background(), logger),
+	}
 
 	// Create mock host
 	mockHost := &mockHost{}
@@ -312,7 +339,7 @@ func TestConnectToFoundPeersWithContextCancellation(t *testing.T) {
 	close(peerChan)
 
 	// Test connectToFoundPeers with cancelled context
-	connectToFoundPeers(ctx, mockHost, logger, peerChan)
+	connectToFoundPeers(ctx, mockHost, cfg, peerChan)
 
 	// Verify expectations
 	mockHost.AssertExpectations(t)
@@ -321,6 +348,9 @@ func TestConnectToFoundPeersWithContextCancellation(t *testing.T) {
 // TestSetupMDNS tests the setupMDNS function
 func TestSetupMDNS(t *testing.T) {
 	logger, _ := glog.New()
+	cfg := &hostCfg{
+		relayManager: relay.New(context.Background(), logger),
+	}
 
 	// Create a real host for testing mDNS setup
 	h, err := libp2p.New()
@@ -330,13 +360,16 @@ func TestSetupMDNS(t *testing.T) {
 	defer h.Close()
 
 	// Test setupMDNS function
-	err = setupMDNS(h, logger)
+	err = setupMDNS(h, cfg)
 	assert.NoError(t, err, "setupMDNS should not return an error")
 }
 
 // TestSetupDHTWithDefaultMode tests setupDHT with default options
 func TestSetupDHTWithDefaultMode(t *testing.T) {
 	logger, _ := glog.New()
+	cfg := &hostCfg{
+		relayManager: relay.New(context.Background(), logger),
+	}
 
 	// Create a real host for testing DHT setup
 	ctx := context.Background()
@@ -347,7 +380,7 @@ func TestSetupDHTWithDefaultMode(t *testing.T) {
 	defer h.Close()
 
 	// Test setupDHT with default options
-	kadDHT, err := setupDHT(ctx, h, logger)
+	kadDHT, err := setupDHT(ctx, h, cfg)
 
 	// Don't require success since DHT bootstrap might fail in test environment
 	if err == nil {
@@ -361,6 +394,9 @@ func TestSetupDHTWithDefaultMode(t *testing.T) {
 // TestFindPeersLoopWithCancelledContext tests that findPeersLoop exits when context is cancelled
 func TestFindPeersLoopWithCancelledContext(t *testing.T) {
 	logger, _ := glog.New()
+	cfg := &hostCfg{
+		relayManager: relay.New(context.Background(), logger),
+	}
 
 	// Create mock host
 	mockHost := &mockHost{}
@@ -379,7 +415,7 @@ func TestFindPeersLoopWithCancelledContext(t *testing.T) {
 
 	// Run testFindPeersLoop (our test version) in a goroutine
 	go func() {
-		testFindPeersLoop(ctx, mockDiscovery, mockHost, logger)
+		testFindPeersLoop(ctx, mockDiscovery, mockHost, cfg)
 		close(done)
 	}()
 
@@ -400,25 +436,25 @@ func TestFindPeersLoopWithCancelledContext(t *testing.T) {
 
 // testFindPeersLoop is a testing-only version that works with our mock
 // It has the same functionality as findPeersLoop but works with our mock interfaces
-func testFindPeersLoop(ctx context.Context, routingDiscovery FindPeersInterface, h host.Host, log glog.Logger) {
+func testFindPeersLoop(ctx context.Context, routingDiscovery FindPeersInterface, h host.Host, cfg *hostCfg) {
 	ticker := time.NewTicker(10 * time.Millisecond) // Use shorter interval for tests
 	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
-			log.Info("Stopping DHT peer discovery loop due to context cancellation")
+			cfg.logger.Info("Stopping DHT peer discovery loop due to context cancellation")
 			return
 		case <-ticker.C:
-			log.Debug("Finding peers via DHT")
+			cfg.logger.Debug("Finding peers via DHT")
 			peerChan, err := routingDiscovery.FindPeers(ctx, "test-tag")
 			if err != nil {
-				log.Error("DHT FindPeers error", err)
+				cfg.logger.Error("DHT FindPeers error", err)
 				continue
 			}
 
 			// Process peers found in this round
-			go connectToFoundPeers(ctx, h, log, peerChan)
+			go connectToFoundPeers(ctx, h, cfg, peerChan)
 		}
 	}
 }

@@ -43,7 +43,7 @@ func ForwardHTTPRequest(w http.ResponseWriter, r *http.Request, p2pHost host.Hos
 	}
 
 	// Parse addresses and service path from the URL (without the gateway prefix)
-	peerAddrs, servicePath, err := ParseAddresses(r.URL.Path)
+	peerAddrs, servicePath, err := ParseGatewayP2PAddresses(r.URL.Path)
 	if err != nil {
 		logger.Printf("Failed to parse addresses from path '%s': %v", r.URL.Path, err)
 		http.Error(w, fmt.Sprintf("Failed to parse addresses: %v", err), http.StatusBadRequest)
