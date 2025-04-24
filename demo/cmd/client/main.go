@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
-	gv1 "github.com/omgolab/drpc/examples/echo/gen/go/greeter/v1"
-	gv1connect "github.com/omgolab/drpc/examples/echo/gen/go/greeter/v1/greeterv1connect"
+	gv1 "github.com/omgolab/drpc/demo/gen/go/greeter/v1"
+	gv1connect "github.com/omgolab/drpc/demo/gen/go/greeter/v1/greeterv1connect"
 	"github.com/omgolab/drpc/pkg/drpc"
 )
 

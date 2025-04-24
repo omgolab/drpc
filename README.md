@@ -46,7 +46,7 @@ syntax = "proto3";
 
 package greeter.v1;
 
-option go_package = "github.com/omgolab/drpc/examples/echo/gen/go/greeter/v1;greeterv1";
+option go_package = "github.com/omgolab/drpc/demo/gen/go/greeter/v1;greeterv1";
 
 service GreeterService {
   rpc SayHello (SayHelloRequest) returns (SayHelloResponse) {}
@@ -82,8 +82,8 @@ import (
 	"syscall"
 
 	"github.com/libp2p/go-libp2p"
-	gv1connect "github.com/omgolab/drpc/examples/echo/gen/go/greeter/v1/greeterv1connect"
-	"github.com/omgolab/drpc/examples/echo/greeter"
+	gv1connect "github.com/omgolab/drpc/demo/gen/go/greeter/v1/greeterv1connect"
+	"github.com/omgolab/drpc/demo/greeter"
 	"github.com/omgolab/drpc/internal/gateway"
 	"github.com/omgolab/drpc/pkg/drpc"
 	glog "github.com/omgolab/go-commons/pkg/log"
@@ -152,10 +152,10 @@ import (
 	"connectrpc.com/connect"
 	"github.com/libp2p/go-libp2p"
 	"github.com/libp2p/go-libp2p/core/peer"
-	gv1 "github.com/omgolab/drpc/examples/echo/gen/go/greeter/v1"
-	gv1connect "github.com/omgolab/drpc/examples/echo/gen/go/greeter/v1/greeterv1connect"
+	gv1 "github.com/omgolab/drpc/demo/gen/go/greeter/v1"
+	gv1connect "github.com/omgolab/drpc/demo/gen/go/greeter/v1/greeterv1connect"
 	"github.com/omgolab/drpc/pkg/drpc"
-	"github.com/omgolab/drpc/examples/echo/cmd/client"
+	"github.com/omgolab/drpc/demo/cmd/client"
 )
 
 func main() {
@@ -371,15 +371,15 @@ func testStreaming(ctx context.Context, serverMultiaddr string) error {
 }
 ```
 
-These examples use the `examples/echo` service. You'll need to adapt them to your specific service definition.
+These examples use the `demo` service. You'll need to adapt them to your specific service definition.
 
 ## Running the Examples
 
-1.  **Generate the code:** From the `examples/echo` directory, run `buf generate`.
+1.  **Generate the code:** From the `demo` directory, run `buf generate`.
 2.  **Build:** From the root of the repository, run:
     ```bash
-    go build ./examples/echo/cmd/server
-    go build ./examples/echo/cmd/client
+    go build ./demo/cmd/server
+    go build ./demo/cmd/client
     ```
 3.  **Run the server:**
     ```bash

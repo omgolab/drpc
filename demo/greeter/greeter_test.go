@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"connectrpc.com/connect"
-	pb "github.com/omgolab/drpc/examples/echo/gen/go/greeter/v1"
+	pb "github.com/omgolab/drpc/demo/gen/go/greeter/v1"
 )
 
 func TestSayHello(t *testing.T) {

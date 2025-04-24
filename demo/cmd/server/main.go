@@ -7,8 +7,8 @@ import (
 	"strings"
 
 	"github.com/libp2p/go-libp2p"
-	gv1connect "github.com/omgolab/drpc/examples/echo/gen/go/greeter/v1/greeterv1connect"
-	"github.com/omgolab/drpc/examples/echo/greeter"
+	gv1connect "github.com/omgolab/drpc/demo/gen/go/greeter/v1/greeterv1connect"
+	"github.com/omgolab/drpc/demo/greeter"
 	"github.com/omgolab/drpc/pkg/drpc"
 	glog "github.com/omgolab/go-commons/pkg/log"
 )

@@ -306,8 +306,8 @@ const file_greeter_v1_greeter_proto_rawDesc = "" +
 	"\x0eGreeterService\x12G\n" +
 	"\bSayHello\x12\x1b.greeter.v1.SayHelloRequest\x1a\x1c.greeter.v1.SayHelloResponse\"\x00\x12X\n" +
 	"\rStreamingEcho\x12 .greeter.v1.StreamingEchoRequest\x1a!.greeter.v1.StreamingEchoResponse\"\x000\x01\x12f\n" +
-	"\x11BidiStreamingEcho\x12$.greeter.v1.BidiStreamingEchoRequest\x1a%.greeter.v1.BidiStreamingEchoResponse\"\x00(\x010\x01B\xaa\x01\n" +
-	"\x0ecom.greeter.v1B\fGreeterProtoP\x01ZAgithub.com/omgolab/drpc/examples/echo/gen/go/greeter/v1;greeterv1\xa2\x02\x03GXX\xaa\x02\n" +
+	"\x11BidiStreamingEcho\x12$.greeter.v1.BidiStreamingEchoRequest\x1a%.greeter.v1.BidiStreamingEchoResponse\"\x00(\x010\x01B\xa1\x01\n" +
+	"\x0ecom.greeter.v1B\fGreeterProtoP\x01Z8github.com/omgolab/drpc/demo/gen/go/greeter/v1;greeterv1\xa2\x02\x03GXX\xaa\x02\n" +
 	"Greeter.V1\xca\x02\n" +
 	"Greeter\\V1\xe2\x02\x16Greeter\\V1\\GPBMetadata\xea\x02\vGreeter::V1b\x06proto3"
 

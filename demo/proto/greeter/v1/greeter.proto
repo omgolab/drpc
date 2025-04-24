@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package greeter.v1;
 
-//option go_package = "github.com/omgolab/drpc/examples/echo/internal/gen/v1/greeter/v1;greeterv1";
+//option go_package = "github.com/omgolab/drpc/demo/internal/gen/v1/greeter/v1;greeterv1";
 
 service GreeterService {
   rpc SayHello(SayHelloRequest) returns (SayHelloResponse) {}
