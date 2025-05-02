@@ -2,7 +2,6 @@ package gateway
 
 import (
 	"encoding/json"
-	"fmt"
 	"net"
 	"net/http"
 	"strings"
@@ -70,7 +69,6 @@ func p2pInfoHandler(w http.ResponseWriter, r *http.Request, h host.Host, logger 
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	fmt.Printf("Peer info: %+v\n", info) // Debug print
 	if err := json.NewEncoder(w).Encode(&info); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

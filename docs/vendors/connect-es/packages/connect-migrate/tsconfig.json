@@ -1,0 +1,12 @@
+{
+  "include": ["src/**/*.ts"],
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // required for jscodeshift
+    "esModuleInterop": true,
+    // This package is CommonJS
+    "verbatimModuleSyntax": false,
+    "module": "CommonJS",
+    "moduleResolution": "Node10"
+  }
+}

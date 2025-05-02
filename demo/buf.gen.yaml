@@ -13,10 +13,7 @@ managed:
     - file_option: go_package_prefix
       value: github.com/omgolab/drpc/demo/gen/go/
 plugins:
-  - remote: buf.build/connectrpc/es
-    out: ./gen/ts
-    opt: target=ts
-  - remote: buf.build/bufbuild/es
+  - remote: buf.build/bufbuild/es:v2.2.5
     out: ./gen/ts
     opt: target=ts
   - remote: buf.build/connectrpc/go

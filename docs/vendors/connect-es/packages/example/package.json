@@ -1,0 +1,29 @@
+{
+  "name": "@connectrpc/example",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "start": "tsx src/server.ts",
+    "client": "tsx src/client.ts",
+    "generate": "buf generate",
+    "format": "prettier --write --ignore-unknown '.' '!src/gen'",
+    "license-header": "license-header",
+    "lint": "eslint --max-warnings 0 ."
+  },
+  "engines": {
+    "node": ">=18.14.1"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "^2.2.0",
+    "@connectrpc/connect-node": "^2.0.2",
+    "@connectrpc/connect-web": "^2.0.2",
+    "tsx": "^4.19.3"
+  },
+  "devDependencies": {
+    "@bufbuild/buf": "^1.52.1",
+    "@bufbuild/protoc-gen-es": "^2.2.5",
+    "esbuild": "^0.19.8",
+    "typescript": "^5.8.3"
+  }
+}

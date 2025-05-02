@@ -126,6 +126,7 @@ func (s *ServerInstance) setupHTTPServer(cfg *cfg, httpAddr string) error {
 	httpServer := &http.Server{
 		Handler: h2c.NewHandler(gateway.SetupHandler(s.handlerMux, cfg.logger, s.p2pHost), h2s),
 		Addr:    httpAddr,
+		// TLSConfig: nil, // TODO: later Take this value from server options
 	}
 
 	// Explicitly configure the server for HTTP/2 support via h2c

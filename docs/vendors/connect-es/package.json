@@ -1,0 +1,50 @@
+{
+  "name": "connect-es",
+  "private": true,
+  "workspaces": [
+    "packages/connect",
+    "packages/connect-web",
+    "packages/connect-node",
+    "packages/connect-fastify",
+    "packages/connect-next",
+    "packages/connect-express",
+    "packages/connect-web-bench",
+    "packages/example",
+    "packages/connect-migrate",
+    "packages/connect-conformance",
+    "packages/connect-cloudflare",
+    "packages/typescript-compat/*"
+  ],
+  "scripts": {
+    "all": "turbo run --ui tui build format test conformance bundle-size lint attw license-header",
+    "clean": "git clean -Xdf",
+    "setversion": "node scripts/set-workspace-version.js",
+    "postsetversion": "npm run all",
+    "release": "node scripts/release.js",
+    "prerelease": "npm run all",
+    "format": "prettier --write --ignore-unknown '.' '!packages' '!.turbo' '!node_modules'",
+    "license-header": "license-header --ignore 'packages/**'",
+    "lint": "eslint --max-warnings 0 . --ignore-pattern 'packages/**'"
+  },
+  "type": "module",
+  "engineStrict": true,
+  "packageManager": "npm@10.9.0",
+  "licenseHeader": {
+    "licenseType": "apache",
+    "yearRange": "2021-2025",
+    "copyrightHolder": "The Connect Authors"
+  },
+  "devDependencies": {
+    "@arethetypeswrong/cli": "^0.17.3",
+    "@bufbuild/license-header": "^0.0.4",
+    "@typescript-eslint/eslint-plugin": "^7.14.0",
+    "@typescript-eslint/parser": "^7.14.0",
+    "eslint": "^8.56.0",
+    "eslint-import-resolver-typescript": "^3.7.0",
+    "eslint-plugin-import": "^2.31.0",
+    "eslint-plugin-n": "^17.15.1",
+    "turbo": "^2.5.0",
+    "prettier": "^3.5.3",
+    "typescript": "5.8.3"
+  }
+}

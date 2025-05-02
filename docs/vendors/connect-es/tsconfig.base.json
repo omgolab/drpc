@@ -1,0 +1,34 @@
+{
+  "compilerOptions": {
+    "target": "es2017",
+    "lib": [
+      "ES2017",
+      // DOM for the fetch and streams API
+      "DOM",
+      // ES2018.AsyncIterable for AsyncIterator
+      "ES2018.AsyncIterable"
+    ],
+    "declaration": true,
+    // We don't have dependencies that require interop
+    "esModuleInterop": false,
+    // As strict as possible
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "useUnknownInCatchVariables": true,
+    "noUnusedLocals": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    // We're building with Node16 module resolution
+    "moduleResolution": "Node16",
+    "module": "Node16",
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": false
+  }
+}

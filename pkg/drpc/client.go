@@ -10,7 +10,6 @@ import (
 	"crypto/tls"
 
 	"connectrpc.com/connect"
-	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/network"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/protocol"
@@ -123,7 +122,7 @@ func NewClient[T any](
 		AllowHTTP: true,
 		DialTLSContext: func(ctx context.Context, network, addr string, tlsCfg *tls.Config) (net.Conn, error) {
 			// Ignore TLS, use libp2p dialer for h2c
-			return dialWithPool(ctx, clientHost, connPool, config.PROTOCOL_ID, connectedPeerID, &currentStream)
+			return dialWithPool(ctx, connPool, config.PROTOCOL_ID, connectedPeerID, &currentStream)
 		},
 	}
 
@@ -141,7 +140,7 @@ func NewClient[T any](
 }
 
 // dialWithPool uses a libp2p host and connection pool as dialer.
-func dialWithPool(ctx context.Context, h host.Host, connPool *pool.ConnectionPool, pid protocol.ID, peerID peer.ID, currentStream *network.Stream) (net.Conn, error) {
+func dialWithPool(ctx context.Context, connPool *pool.ConnectionPool, pid protocol.ID, peerID peer.ID, currentStream *network.Stream) (net.Conn, error) {
 	// If we already have a stream, check if it's still valid and reuse it
 	if *currentStream != nil {
 		// Only check direction and basic connection state
