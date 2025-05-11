@@ -122,7 +122,7 @@ func NewClient[T any](
 		AllowHTTP: true,
 		DialTLSContext: func(ctx context.Context, network, addr string, tlsCfg *tls.Config) (net.Conn, error) {
 			// Ignore TLS, use libp2p dialer for h2c
-			return dialWithPool(ctx, connPool, config.PROTOCOL_ID, connectedPeerID, &currentStream)
+			return dialWithPool(ctx, connPool, config.DRPC_PROTOCOL_ID, connectedPeerID, &currentStream)
 		},
 	}
 

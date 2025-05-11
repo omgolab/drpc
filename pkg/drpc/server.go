@@ -9,11 +9,13 @@ import (
 	"strings"
 
 	"github.com/libp2p/go-libp2p/core/host"
+	"github.com/libp2p/go-libp2p/core/network" // For network.Stream
 	"github.com/omgolab/drpc/pkg/config"
 	"github.com/omgolab/drpc/pkg/core"
 	"github.com/omgolab/drpc/pkg/detach"
 	"github.com/omgolab/drpc/pkg/gateway"
 	"github.com/omgolab/drpc/pkg/proc"
+	glog "github.com/omgolab/go-commons/pkg/log" // Ensure glog is imported
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 )
@@ -26,6 +28,7 @@ type ServerInstance struct {
 	httpListener   net.Listener    // Store the actual HTTP listener
 	ctx            context.Context // Context for server lifecycle management
 	handlerMux     *http.ServeMux  // Handler for both HTTP and p2p
+	logger         glog.Logger     // Add logger field
 	httpListenerCh chan struct{}   // Channel to signal when HTTP listener is ready
 }
 
@@ -58,6 +61,7 @@ func NewServer(
 	server := &ServerInstance{
 		handlerMux: connectRpcMuxHandler,
 		ctx:        ctx,
+		logger:     cfg.logger, // Store the logger
 	}
 
 	// Setup P2P server
@@ -93,7 +97,7 @@ func (s *ServerInstance) setupRpcLpBridgeServer(ctx context.Context, cfg *cfg) e
 	}
 
 	// Create libp2p to HTTP p2pBridgeListener
-	p2pBridgeListener := core.NewLibp2pListener(s.p2pHost, config.PROTOCOL_ID)
+	p2pBridgeListener := core.NewLibp2pListener(s.p2pHost, config.DRPC_PROTOCOL_ID)
 
 	// Create rpc server for the p2p listener, enabling h2c for HTTP/2 over libp2p
 	h2s_p2p := &http2.Server{} // Create separate http2 server instance for p2p
@@ -116,6 +120,18 @@ func (s *ServerInstance) setupRpcLpBridgeServer(ctx context.Context, cfg *cfg) e
 	}()
 
 	s.p2pServer = rpcServer
+
+	// Now, set up the handler for the web stream envelope protocol
+	s.p2pHost.SetStreamHandler(config.DRPC_WEB_STREAM_PROTOCOL_ID, func(stream network.Stream) {
+		// It captures `s` (ServerInstance)
+		// The panic recovery from the original anonymous handler can be kept here,
+		// or it can be assumed that ServeWebStreamBridge handles its own panics (which it does).
+		// For simplicity and to ensure ServeWebStreamBridge is fully self-contained,
+		// we rely on its internal panic handling.
+		ServeWebStreamBridge(s.ctx, s.logger, s.handlerMux, stream)
+	})
+	s.logger.Info("Set libp2p stream handler for web stream envelope protocol", glog.LogFields{"protocolID": config.DRPC_WEB_STREAM_PROTOCOL_ID})
+
 	return nil
 }
 

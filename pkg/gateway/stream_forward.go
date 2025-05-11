@@ -78,7 +78,7 @@ func ForwardHTTPRequest(w http.ResponseWriter, r *http.Request, p2pHost host.Hos
 	transport := &http2.Transport{
 		AllowHTTP: true,
 		DialTLS: func(network, addr string, _ *tls.Config) (net.Conn, error) {
-			protocolID := config.PROTOCOL_ID
+			protocolID := config.DRPC_PROTOCOL_ID
 			stream, err := connPool.GetStream(r.Context(), connectedPeerID, protocolID)
 			if err != nil {
 				logger.Printf("DialTLS: Dialing %s with app protocol %s", connectedPeerID, protocolID)
