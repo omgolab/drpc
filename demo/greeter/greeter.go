@@ -2,6 +2,7 @@ package greeter
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"time"
@@ -21,6 +22,11 @@ func (s *Server) SayHello(
 	ctx context.Context,
 	req *connect.Request[gv1.SayHelloRequest],
 ) (*connect.Response[gv1.SayHelloResponse], error) {
+	// check context cancellation
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("context error: %w", err)
+	}
+
 	msg := fmt.Sprintf("Hello, %s!", req.Msg.Name)
 	res := connect.NewResponse(&gv1.SayHelloResponse{
 		Message: msg,
@@ -34,6 +40,11 @@ func (s *Server) StreamingEcho(
 	req *connect.Request[gv1.StreamingEchoRequest],
 	stream *connect.ServerStream[gv1.StreamingEchoResponse],
 ) error {
+	// check context cancellation
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("context error: %w", err)
+	}
+
 	msg := fmt.Sprintf("Echo: %s", req.Msg.Message)
 	err := stream.Send(&gv1.StreamingEchoResponse{
 		Message: msg,
@@ -52,15 +63,23 @@ func (s *Server) BidiStreamingEcho(
 ) error {
 	// Process each incoming request and send a response
 	for {
+		// Check for context cancellation
+		if err := ctx.Err(); err != nil {
+			// Context has been cancelled, return the error
+			return fmt.Errorf("context error: %w", err)
+		}
+
 		// Receive a message from the client
 		request, err := stream.Receive()
-		if err == io.EOF {
+		if errors.Is(err, io.EOF) {
 			// Client has closed the stream
 			return nil
 		}
 		if err != nil {
 			return fmt.Errorf("receive error: %w", err)
 		}
+		// Log the received request
+		fmt.Printf("Received request with name: '%s'\n", request.Name)
 
 		// Create a greeting response
 		greeting := fmt.Sprintf("Hello, %s!", request.Name)

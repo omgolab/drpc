@@ -20,7 +20,7 @@ func KillPort(port string, morePorts ...string) error {
 		wg.Add(1)
 		go func(p string) {
 			defer wg.Done()
-			for i := 0; i < 5; i++ {
+			for i := range 5 {
 				// Check if the port is still in use by trying to listen on it
 				ln, err := net.Listen("tcp", ":"+p)
 				if err != nil {
@@ -83,15 +83,31 @@ func kill(port string) error {
 		return nil
 	}
 
-	// Unix-like systems (macOS, Linux)
-	command := fmt.Sprintf("lsof -i tcp:%s | grep LISTEN | awk '{print $2}' | xargs kill -9", port)
-	cmd := exec.Command("bash", "-c", command)
-	if output, err := cmd.CombinedOutput(); err != nil {
-		// Check if the error is because no process was found
-		if strings.Contains(string(output), "kill: no such process") {
-			return fmt.Errorf("no process found listening on port %s", port)
-		}
-		return fmt.Errorf("failed to kill process on port %s: %w", port, err)
+	// For Unix-like systems (macOS, Linux)
+	// First check if any process is using the port
+	checkCmd := exec.Command("bash", "-c",
+		fmt.Sprintf("lsof -i tcp:%s | grep LISTEN | awk '{print $2}'", port))
+	output, _ := checkCmd.Output()
+
+	if len(strings.TrimSpace(string(output))) == 0 {
+		// No process found using the port, so nothing to kill
+		return nil
 	}
+
+	// Process found, proceed with kill using lsof + kill
+	killCmd := exec.Command("bash", "-c",
+		fmt.Sprintf("lsof -i tcp:%s | grep LISTEN | awk '{print $2}' | xargs kill -9", port))
+
+	if err := killCmd.Run(); err != nil {
+		// If kill fails, try pkill as a fallback method
+		// pkill -f can match against the entire command line
+		pkillCmd := exec.Command("bash", "-c",
+			fmt.Sprintf("pkill -f 'LISTEN.*:%s'", port))
+
+		if pkillErr := pkillCmd.Run(); pkillErr != nil {
+			return fmt.Errorf("failed to kill process on port %s (both kill and pkill failed): %w", port, err)
+		}
+	}
+
 	return nil
 }

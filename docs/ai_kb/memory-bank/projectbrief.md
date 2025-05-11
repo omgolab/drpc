@@ -1,8 +1,8 @@
-# DRPC Project Brief
+# dRPC Project Brief
 
 ## Overview
 
-DRPC (Distributed RPC) is a library implementing a distributed remote procedure call system. It enables seamless communication between distributed services across different environments and languages.
+dRPC (Distributed RPC) is a library implementing a distributed remote procedure call system. It enables seamless communication between distributed services across different environments and languages.
 
 ## Core Requirements
 

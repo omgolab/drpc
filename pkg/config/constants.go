@@ -11,7 +11,7 @@ import (
 // Protocol constants
 const (
 	version = "1.0.0"
-	// DRPC_PROTOCOL_ID is the protocol identifier used for DRPC communications
+	// DRPC_PROTOCOL_ID is the protocol identifier used for dRPC communications
 	DRPC_PROTOCOL_ID protocol.ID = "/drpc/" + version
 	// DRPC_WEB_STREAM_PROTOCOL_ID is used for web clients requiring a streaming bridge
 	// to enable client-side and bidirectional streaming with ConnectRPC handlers.

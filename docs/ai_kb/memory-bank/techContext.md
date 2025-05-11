@@ -1,4 +1,4 @@
-# DRPC Technical Context
+# dRPC Technical Context
 
 ## Technologies Used
 

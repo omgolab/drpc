@@ -37,9 +37,11 @@
     "@libp2p/interface-peer-id": "^2.0.2",
     "@types/jest": "^29.5.14",
     "@types/node": "^22.14.1",
+    "bun": "^1.2.13",
+    "bun-types": "^1.2.13",
     "node-fetch": "^3.3.2",
     "protobufjs": "^7.5.0",
     "typescript": "^5.8.3",
-    "vitest": "^3.1.2"
+    "vitest": "^3.1.3"
   }
 }

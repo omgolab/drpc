@@ -1,8 +1,8 @@
 # Instructions for Updating bridge3 Example
 
-This document outlines the necessary modifications to `examples/simple-hello/bridge3/bridge-server.go` and `examples/simple-hello/bridge3/bridge-final.test.ts` to ensure correct envelope handling, flag usage, and stream management for both unary and bidirectional streaming RPCs.
+This document outlines the necessary modifications to `bridge-server.go` and `bridge-final.test.ts` to ensure correct envelope handling, flag usage, and stream management for both unary and bidirectional streaming RPCs.
 
-## 1. `examples/simple-hello/bridge3/bridge-server.go` Updates
+## 1. `bridge-server.go` Updates
 
 The primary goal is to ensure all server responses (both success and error for unary; data and end_stream for streaming) are correctly enveloped and that client flags are interpreted as intended.
 
@@ -50,7 +50,7 @@ The primary goal is to ensure all server responses (both success and error for u
   - **Logging (Crucial for Debugging):** Before writing the `serializedMessage` to the `stream`, add a detailed log:
     `log.Printf("StreamHandler: Sending stream response envelope (Flags: %d, DataLen: %d, TotalLen: %d, HexPreview: %x)", env.Flags, len(env.Data), len(serializedMessage), serializedMessage[:min(len(serializedMessage), 32)])`
 
-## 2. `examples/simple-hello/bridge3/bridge-final.test.ts` Updates
+## 2. `bridge-final.test.ts` Updates
 
 The client needs to correctly send flags, parse all responses as envelopes, and manage stream lifecycle.
 (Ensure `Flag` enum, `Envelope` type, `parseEnvelope`, `serializeEnvelope`, `toHex`, `uint8ArrayToString`, `encode`, `decode`, and proto message types like `SayHelloResponse`, `BidiStreamingEchoRequest`, `BidiStreamingEchoResponse` are correctly imported/defined).

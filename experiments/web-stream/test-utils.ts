@@ -1,11 +1,11 @@
 // Use @bufbuild/protobuf and generated message classes for all encoding/decoding
 // removed duplicate import of toBinary, fromBinary, toJson, fromJson
 import {
-  SayHelloRequestSchema,
-  SayHelloResponseSchema,
-  BidiStreamingEchoRequestSchema,
-  BidiStreamingEchoResponseSchema,
-} from "../../../demo/gen/ts/greeter/v1/greeter_pb";
+    SayHelloRequestSchema,
+    SayHelloResponseSchema,
+    BidiStreamingEchoRequestSchema,
+    BidiStreamingEchoResponseSchema,
+} from "../../demo/gen/ts/greeter/v1/greeter_pb";
 import { create, toBinary, fromBinary, toJson, fromJson } from "@bufbuild/protobuf";
 import { createLibp2p } from 'libp2p';
 import { noise } from '@chainsafe/libp2p-noise';

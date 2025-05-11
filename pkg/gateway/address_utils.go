@@ -81,7 +81,8 @@ func parseAndAddToMap(addrStr string, peerMap map[peer.ID][]ma.Multiaddr) error 
 		return fmt.Errorf("cannot extract peer info from %s: %v", addrStr, err)
 	}
 
-	if len(pinfo.Addrs) > 0 {
+	// some private addresses may only have the peer ID and no addresses
+	if len(pinfo.Addrs) >= 0 {
 		peerMap[pinfo.ID] = append(peerMap[pinfo.ID], pinfo.Addrs...)
 	}
 

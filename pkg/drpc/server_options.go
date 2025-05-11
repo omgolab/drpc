@@ -25,7 +25,6 @@ type cfg struct {
 func getDefaultConfig() cfg {
 	l, _ := glog.New(glog.WithFileLogger("server.log"))
 	return cfg{
-		httpPort:               9090,
 		httpHost:               "localhost",
 		logger:                 l,
 		dhtOptions:             nil, // Default to nil (core/host.go might apply defaults)
@@ -54,7 +53,6 @@ func WithDHTOptions(opts ...dht.Option) ServerOption {
 }
 
 // WithHTTPPort sets the HTTP gateway port
-// default port is 90090
 func WithHTTPPort(port int) ServerOption {
 	return func(cfg *cfg) error {
 		if port < 0 || port > 65535 {

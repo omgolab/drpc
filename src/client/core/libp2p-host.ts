@@ -11,13 +11,10 @@ import { autoNAT } from "@libp2p/autonat";
 import { EventEmitter } from "events";
 import { ping } from "@libp2p/ping";
 import { yamux } from "@chainsafe/libp2p-yamux";
+import { ILogger } from "./logger";
 
 export interface CreateLibp2pHostOptions {
-  logger?: {
-    info: (...args: any[]) => void;
-    debug?: (...args: any[]) => void;
-    error?: (...args: any[]) => void;
-  };
+  logger: ILogger;
   libp2pOptions?: Partial<Libp2pOptions>;
   dhtOptions?: Partial<KadDHTInit>;
   isClientMode?: boolean;
@@ -34,10 +31,10 @@ export interface Libp2pHostResult {
  * Compatible with browser and Node.js.
  */
 export async function createLibp2pHost(
-  opts: CreateLibp2pHostOptions = {},
+  opts: CreateLibp2pHostOptions,
 ): Promise<Libp2pHostResult> {
-  const logger = opts.logger || console;
-  const isClientMode = !!opts.isClientMode;
+  const logger = opts.logger;
+  const isClientMode = opts.isClientMode === undefined ? true : opts.isClientMode;
 
   // Peer discovery event emitter
   const peerDiscovery = new EventEmitter();
@@ -57,25 +54,25 @@ export async function createLibp2pHost(
   // Compose libp2p options
   const defaultListenAddrs = ["/ip4/0.0.0.0/tcp/0", "/ip4/127.0.0.1/tcp/0"];
   const libp2pConfig: Libp2pOptions = {
-  	transports,
-  	streamMuxers: [yamux()],
-  	connectionEncrypters: [tls()], // Only TLS, disables Noise
-  	peerDiscovery: [mdns()],
-  	addresses: {
-  		...(opts.libp2pOptions?.addresses || {}),
-  		listen:
-  			opts.libp2pOptions?.addresses?.listen && opts.libp2pOptions.addresses.listen.length > 0
-  				? opts.libp2pOptions.addresses.listen
-  				: defaultListenAddrs,
-  	},
-  	services: {
-  		identify: identify(),
-  		ping: ping(),
-  		dht: kadDHT(dhtConfig),
-  		autonat: autoNAT(),
-  		// Relay is enabled by default in js-libp2p >=0.43, no explicit relay service needed here
-  	} as any,
-  	...opts.libp2pOptions,
+    transports,
+    streamMuxers: [yamux()],
+    connectionEncrypters: [tls()], // Only TLS, disables Noise
+    peerDiscovery: [mdns()],
+    addresses: {
+      ...(opts.libp2pOptions?.addresses || {}),
+      listen:
+        opts.libp2pOptions?.addresses?.listen && opts.libp2pOptions.addresses.listen.length > 0
+          ? opts.libp2pOptions.addresses.listen
+          : defaultListenAddrs,
+    },
+    services: {
+      identify: identify(),
+      ping: ping(),
+      dht: kadDHT(dhtConfig),
+      autonat: autoNAT(),
+      // Relay is enabled by default in js-libp2p >=0.43, no explicit relay service needed here
+    } as any,
+    ...opts.libp2pOptions,
   };
 
   // Create the libp2p node

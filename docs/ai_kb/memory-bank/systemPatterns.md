@@ -1,8 +1,8 @@
-# DRPC System Patterns
+# dRPC System Patterns
 
 ## Architecture Overview
 
-DRPC follows a client-server architecture with the following components:
+dRPC follows a client-server architecture with the following components:
 
 ```
 ┌────────────┐                 ┌────────────┐
@@ -31,6 +31,7 @@ DRPC follows a client-server architecture with the following components:
 - **Decorator pattern** - For adding features like retry, timeout
 - **Bridge pattern** - Connecting different protocol implementations (Connect RPC and libp2p)
 - **Strategy pattern** - Different implementations for handling Connect RPC over libp2p (envelope-aware vs stream transport)
+- **Modular client architecture** - Separation of concerns with clear module boundaries
 
 ## Communication Patterns
 
@@ -45,6 +46,7 @@ DRPC follows a client-server architecture with the following components:
 - Contextual error information
 - Automatic retry mechanisms
 - Circuit breaking for failure isolation
+- Graceful handling of stream reset errors
 
 ## Connect RPC Bridge Architecture
 
@@ -73,3 +75,39 @@ The bridge offers two implementation strategies:
    - Simpler implementation that's easier to understand and extend
    - Compatible with standard Connect RPC HTTP handlers
    - More buffering but easier to debug
+
+## TypeScript Client Architecture
+
+The TypeScript client follows a modular architecture pattern:
+
+```
+┌────────────────────────────────────────────────┐
+│                 drpc-client.ts                 │
+│     (Public API - Thin wrapper around impl)    │
+└───────────────────────┬────────────────────────┘
+                        │
+┌───────────────────────▼────────────────────────┐
+│                 client/index.ts                │
+│         (Core implementation & routing)        │
+└─┬────────────────────┬──────────────────────┬──┘
+  │                    │                      │
+  ▼                    ▼                      ▼
+┌──────────────┐ ┌───────────────┐ ┌────────────────────┐
+│ types.ts     │ │ utils.ts      │ │ Other shared code  │
+│ (Interfaces) │ │ (Utilities)   │ │                    │
+└──────────────┘ └───────────────┘ └────────────────────┘
+  │                    │                      │
+  ▼                    ▼                      ▼
+┌──────────────┐ ┌───────────────┐ ┌────────────────────┐
+│http-transport│ │libp2p-transport│ │ Future transports  │
+│              │ │                │ │                    │
+└──────────────┘ └───────────────┘ └────────────────────┘
+```
+
+Key aspects of this architecture:
+
+1. **Clean separation of concerns** - Each module has a specific responsibility
+2. **Transport abstraction** - Common interfaces for different transport mechanisms
+3. **Shared utilities** - Common code for parsing, serialization, etc.
+4. **Thin Public API** - Main entry point remains simple while implementation details are hidden
+5. **Transport independence** - New transports can be added without changing the public API

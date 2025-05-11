@@ -1,4 +1,4 @@
-# DRPC Product Context
+# dRPC Product Context
 
 ## Problem Statement
 
@@ -6,7 +6,7 @@ Building distributed systems requires reliable communication between services. T
 
 ## Solution
 
-DRPC addresses these challenges by providing:
+dRPC addresses these challenges by providing:
 
 1. A language-agnostic protocol for service-to-service communication
 2. Implementations in both Go and TypeScript

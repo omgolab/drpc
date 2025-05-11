@@ -798,7 +798,7 @@ func (rm *RelayManager) applyPeerInfoUpdateLocked(id peer.ID, supportsProtocol b
 		}
 		// Update metrics for the newly added peer through connection event
 		rm.metrics.peersAdded++
-		rm.log.Debug(fmt.Sprintf("Added peer %s discovered via connection event", id))
+		// rm.log.Debug(fmt.Sprintf("Added peer %s discovered via connection event", id))
 
 		// Update latency metrics if applicable
 		if latency > 0 {

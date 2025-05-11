@@ -1,35 +1,45 @@
----
-date: 2024-08-01
----
-
 # Active Context
 
-## Current Focus: Refactor `bridge-server.go` (v2) for Efficiency and Connect Library Usage
+## Current Focus
 
-The primary goal is to refactor `examples/simple-hello/bridge2/bridge-server.go` to use `connectrpc.com/connect` library's exposed types for envelope handling (specifically `Envelope` and `FlagEnvelopeEndStream`) and error propagation, removing custom implementations. This is part of making the server highly efficient for a http-libp2p communication library.
-
-## Current Blocker: Go Module Resolution Issue
-
-We are currently blocked by an issue with Go's module tooling. The `connectrpc.com/connect@v1.18.1` module, which is correctly specified in `go.mod`, is reported by `go mod tidy` and the compiler as _not containing_ the sub-package `connectrpc.com/connect/protocol`. This is despite evidence from the library's source code on GitHub and documentation on pkg.go.dev that this sub-package and the required types (`Envelope`, `FlagEnvelopeEndStream`) exist at v1.18.1.
-
-The error is: `module connectrpc.com/connect@latest found (v1.18.1), but does not contain package connectrpc.com/connect/protocol`.
-
-This prevents the compilation of `bridge-server.go` when attempting to import `connectrpc.com/connect/protocol`.
+- Implement proper client streaming and bidirectional streaming in the dRPC TypeScript client
+- Fix the 4 failing tests in `src/drpc-client.integration.test.ts` related to Path3_LibP2PDirect and Path4_LibP2PRelay
+- Address three key issues identified in the tests:
+  1. The "synthetic relay address" problem in Path4_LibP2PRelay test that uses a simulated relay path
+  2. The workaround for server streaming tests that returns synthetic responses
+  3. The END_STREAM envelope error message from the Go server
 
 ## Recent Changes
 
-- Attempted to modify `examples/simple-hello/bridge2/bridge-server.go` to import `connectrpc.com/connect/protocol` and use `protocol.Envelope` and `protocol.FlagEnvelopeEndStream`.
-- Ran `go mod tidy`, which failed with the error mentioned above.
-- Verified `go.mod` contains `require connectrpc.com/connect v1.18.1`.
-- Confirmed via GitHub and pkg.go.dev that `connectrpc.com/connect/protocol` should be a valid package path for v1.18.1 of the library.
+- Modularized the dRPC client implementation by moving code to the client/ directory:
+  - `src/client/index.ts` - Main client entry point
+  - `src/client/core/types.ts` - Type definitions for transport interfaces
+  - `src/client/core/utils.ts` - Utility functions for handling multiaddr, responses, etc.
+  - `src/client/core/http-transport.ts` - HTTP transport implementation
+  - `src/client/core/libp2p-transport.ts` - LibP2P transport implementation
+- Made `src/drpc-client.ts` a thin wrapper around the modular implementation
+- Fixed circular dependencies by defining dRPCOptions only in the main file
+- Fixed the TypeScript client to ensure correct content types are used for different streaming protocols
+- Improved error handling for END_STREAM envelopes in both unary and streaming modes
+- Fixed syntax errors in test functions by properly typing the client with `Client<typeof GreeterService>`
+- Identified that the relay-server implementation has compilation errors and needs updating
 
 ## Next Steps
 
-The immediate next step depends on resolving the Go module import issue:
+1. Fix the failing test for Path4_LibP2PRelay unary operation
+2. Implement a proper relay server following the pattern in client_integration_test.go
+   - Fix the resource manager issue in the relay-server implementation
+   - Update the relay server implementation to work with the latest libp2p version
+3. Update the Path4_LibP2PRelay test to use a real relay node instead of a synthetic address
+4. Remove synthetic responses in tests by ensuring the Go server sends proper responses
+5. Fix the END_STREAM envelope handling to follow instructions from bridge3:
+   - Client should close the write side rather than sending explicit END_STREAM
+   - Server should return END_STREAM flag after sending all responses
 
-1.  **Resolve Go Environment/Tooling Issue:** The user needs to investigate why the local Go environment cannot correctly resolve the `connectrpc.com/connect/protocol` sub-package. This could involve clearing the Go module cache, checking Go proxy settings, or other environment-specific troubleshooting.
-2.  **Alternative Implementation Strategy:** If the import issue cannot be resolved, we need to decide on an alternative:
-    - Revert to custom envelope handling in `bridge-server.go`.
-    - Explore other (if any) exposed APIs from `connectrpc.com/connect` that might allow for raw stream adaptation without directly using the `Envelope` type from the `protocol` sub-package.
+## Active Decisions
 
-The refactoring of `bridge-server.go` and subsequent testing with `bridge-final.test.ts` are on hold until this import issue is addressed.
+- Use the bridge3 example as a reference for implementing client and bidirectional streaming
+- Follow the envelope protocol exactly as specified in the bridge3 instructions
+- Adopt the content type handling from bridge3 for better cross-language compatibility
+- Implement a real relay server based on the integration test implementation rather than using synthetic addresses
+- Keep the modular approach with a clean separation between HTTP and LibP2P transports

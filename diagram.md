@@ -37,7 +37,7 @@ Here are the possible communication paths from "dRPC Client" to "dRPC Handler":
 
 ```mermaid
 sequenceDiagram
-    participant dRPCClient as dRPC Client
+    participant DRPCClient as dRPC Client
     participant Listener as Listener (HTTP/gRPC/cRPC)
     participant GatewayHandler as Gateway Handler
     participant HostLibp2pPeer as Host libp2p Peer
@@ -46,7 +46,7 @@ sequenceDiagram
     participant HTTPClient as HTTP Client
 
     alt dRPC Client (HTTP)
-        dRPCClient->>Listener: HTTP Request
+        DRPCClient->>Listener: HTTP Request
         activate Listener
         Listener->>GatewayHandler: Request
         activate GatewayHandler
@@ -60,11 +60,11 @@ sequenceDiagram
         HostLibp2pPeer-->>RelayLibp2pPeer: Response
         RelayLibp2pPeer-->>GatewayHandler: Response
         GatewayHandler-->>Listener: Response
-        Listener-->>dRPCClient: HTTP Response
+        Listener-->>DRPCClient: HTTP Response
     end
 
     alt dRPC Client (libp2p)
-        dRPCClient->>HostLibp2pPeer: Request
+        DRPCClient->>HostLibp2pPeer: Request
         activate HostLibp2pPeer
         HostLibp2pPeer->>RelayLibp2pPeer: Request
         activate RelayLibp2pPeer
@@ -74,7 +74,7 @@ sequenceDiagram
         dRPCHandler-->>HostLibp2pPeer: Response
         HostLibp2pPeer-->>RelayLibp2pPeer: Response
         RelayLibp2pPeer-->>HostLibp2pPeer: Response
-        HostLibp2pPeer-->>dRPCClient: Response
+        HostLibp2pPeer-->>DRPCClient: Response
     end
 
     alt HTTP Client

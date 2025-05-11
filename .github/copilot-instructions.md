@@ -24,13 +24,13 @@ Post task execution i.e. before using "attempt_completion" tool or similar tool 
 
 # Current Development env details
 
-- **Project:** DRPC - a distributed RPC implementation
+- **Project:** dRPC - a distributed RPC implementation
 - **Languages:** Go (go.mod, go.sum), TypeScript (package.json, tsconfig.json)
 - **Structure:**
   - `docs/`: Contains documentation and knowledge base files.
   - `examples/`: Contains example implementations for both Go and TypeScript.
   - `internal/`: Likely contains internal implementation details.
-  - `pkg/`: Likely contains the core DRPC library.
+  - `pkg/`: Likely contains the core dRPC library.
 - **Build System:** Go modules, Bun (for TypeScript).
 
 # Memory Bank Rules
