@@ -59,22 +59,22 @@ export type ContentType = UnaryContentType | StreamingContentType;
  * Lists of content types for runtime validation if needed
  */
 export const unaryContentTypes: UnaryContentType[] = [
-    CONNECT_ONLY_UNARY_JSON_CONTENT_TYPE,
-    CONNECT_ONLY_UNARY_PROTO_CONTENT_TYPE,
-    GRPC_WEB_WITH_UNARY_PROTO_CONTENT_TYPE,
-    GRPC_PROTO_WITH_UNARY_CONTENT_TYPE,
+    CONNECT_ONLY_UNARY_JSON_CONTENT_TYPE,     // application/json
+    CONNECT_ONLY_UNARY_PROTO_CONTENT_TYPE,    // application/proto
+    GRPC_WEB_WITH_UNARY_PROTO_CONTENT_TYPE,   // application/grpc-web+proto
+    GRPC_PROTO_WITH_UNARY_CONTENT_TYPE,       // application/grpc+proto
 ];
 
 /**
  * Lists of content types for runtime validation if needed
  */
 export const streamingContentTypes: StreamingContentType[] = [
-    CONNECT_JSON_CONTENT_TYPE,
-    CONNECT_CONTENT_TYPE,
-    GRPC_WEB_WITH_UNARY_PROTO_CONTENT_TYPE,
-    GRPC_WEB_JSON_CONTENT_TYPE,
-    GRPC_PROTO_WITH_UNARY_CONTENT_TYPE,
-    GRPC_JSON_CONTENT_TYPE,
+    CONNECT_CONTENT_TYPE,                     // application/connect+proto
+    CONNECT_JSON_CONTENT_TYPE,                // application/connect+json
+    GRPC_WEB_WITH_UNARY_PROTO_CONTENT_TYPE,   // application/grpc-web+proto
+    GRPC_WEB_JSON_CONTENT_TYPE,               // application/grpc-web+json
+    GRPC_PROTO_WITH_UNARY_CONTENT_TYPE,       // application/grpc+proto
+    GRPC_JSON_CONTENT_TYPE,                   // application/grpc+json
 ];
 
 /**

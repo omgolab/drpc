@@ -77,13 +77,11 @@ export async function testClientUnaryRequest(
  * Tests a server streaming RPC call using the specified client
  * @param client The gRPC client
  * @param name The message to use in the request
- * @param skipOnStreamReset Whether to skip the test on stream reset errors
  * @returns Promise that resolves to the array of received messages
  */
 export async function testServerStreamingRequest(
   client: DRPCClient<typeof GreeterService>,
-  message: string,
-  skipOnStreamReset = false
+  message: string
 ): Promise<string[]> {
   try {
     console.log(`Testing streamingEcho with message: ${message}`);
@@ -113,14 +111,6 @@ export async function testServerStreamingRequest(
   } catch (err: any) {
     // Handle streaming errors in a uniform way
     console.error(`Error in streamingEcho test: ${err}`);
-
-    // Check for connection reset errors that might happen in unstable connections
-    // if (skipOnStreamReset && isStreamResetError(err)) {
-    //   console.log("Stream was reset by server - this might be due to server cleanup or connection issues");
-    //   console.log("Skipping test due to stream reset");
-    //   return [];
-    // }
-
     throw err;
   }
 }
@@ -130,13 +120,11 @@ export async function testServerStreamingRequest(
  * @param client The gRPC client
  * @param numClientMessages Number of messages to send
  * @param baseName Base name for messages
- * @param skipOnStreamReset Whether to skip the test on stream reset errors
  */
 export async function testClientAndBidiStreamingRequest(
   client: DRPCClient<typeof GreeterService>,
   numClientMessages: number,
-  baseName: string = "ClientMessage",
-  skipOnStreamReset = false
+  baseName: string = "ClientMessage"
 ): Promise<void> {
   console.log(`Testing bidiStreamingEcho with ${numClientMessages} client messages.`);
 
@@ -184,34 +172,10 @@ export async function testClientAndBidiStreamingRequest(
     console.log("[ClientBidiTest] Assertions passed.");
   } catch (err: any) {
     console.error(`[ClientBidiTest] Error in bidiStreamingEcho test: ${err}`);
-
-    // Check for connection reset errors that might happen in unstable connections
-    // if (skipOnStreamReset && isStreamResetError(err)) {
-    //   console.warn("Stream was reset by server - this might be due to server cleanup or connection issues");
-    //   console.warn("Skipping this test due to stream reset. LibP2P streaming support might be incomplete.");
-    //   return; // Skip this test without failing
-    // }
-
-    throw err; // Re-throw if it's not a stream reset or if skipOnStreamReset is false
+    throw err;
   }
 }
 
-/**
- * Helper to check if an error is related to stream reset
- */
-export function isStreamResetError(err: any): boolean {
-  // Check for different types of stream reset errors
-  return (
-    err.name === "StreamResetError" ||
-    (err.message && (
-      err.message.includes("stream reset") ||
-      err.message.includes("The dial request has no valid addresses") ||
-      err.message.includes("no valid addresses") ||
-      err.message.includes("context canceled") ||
-      err.message.includes("read/write on closed pipe")
-    ))
-  );
-}
 
 export class UtilServerHelper {
   private serverProcess: ChildProcess | undefined;

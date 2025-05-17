@@ -82,7 +82,15 @@ export function createLibp2pTransport(libp2p: any, ma: any, options: DRPCOptions
             contextValues?: ContextValues
         ): Promise<UnaryResponse<I, O>> {
             logger.debug(`Unary call: ${method.name}`);
-            const { serialize, parse: deserialize } = createClientMethodSerializers(method, true); // true for binary
+            // Get content type first so we can determine serialization format
+            const contentType: UnaryContentType = options.unaryContentType ?? CONNECT_ONLY_UNARY_PROTO_CONTENT_TYPE;
+            
+            // Determine if we should use binary format based on content type
+            // Use binary format for proto content types, JSON format for JSON content types
+            const useBinaryFormat = !contentType.includes('json');
+            logger.debug(`Unary call using ${useBinaryFormat ? 'binary' : 'JSON'} format for content type: ${contentType}`);
+            
+            const { serialize, parse: deserialize } = createClientMethodSerializers(method, useBinaryFormat);
             let p2pStream: any;
 
             const abortController = new AbortController();
@@ -106,7 +114,6 @@ export function createLibp2pTransport(libp2p: any, ma: any, options: DRPCOptions
                 logger.debug(`Unary: Successfully established stream to ${targetMa.toString()}`);
 
                 // Prepare and serialize the request
-                const contentType: UnaryContentType = options.unaryContentType ?? CONNECT_ONLY_UNARY_PROTO_CONTENT_TYPE;
 
                 // Type system ensures content type is valid, but we keep runtime check as a safety measure
                 if (!unaryContentTypes.includes(contentType)) {
@@ -435,7 +442,15 @@ export function createLibp2pTransport(libp2p: any, ma: any, options: DRPCOptions
             contextValues?: ContextValues
         ): Promise<StreamResponse<I, O>> {
             logger.debug(`Stream call: ${method.name}`);
-            const { serialize, parse: deserialize } = createClientMethodSerializers(method, true); // true for binary format
+            // Get requested content type, defaulting to protobuf if not specified
+            const contentType = options?.streamingContentType ?? CONNECT_CONTENT_TYPE;
+            
+            // Determine if we should use binary format based on content type
+            // Use binary format for proto content types, JSON format for JSON content types
+            const useBinaryFormat = !contentType.includes('json');
+            logger.debug(`Stream call using ${useBinaryFormat ? 'binary' : 'JSON'} format for content type: ${contentType}`);
+            
+            const { serialize, parse: deserialize } = createClientMethodSerializers(method, useBinaryFormat);
             let p2pStream: any; // To store the libp2p stream for access in finally
 
             try {
@@ -463,8 +478,7 @@ export function createLibp2pTransport(libp2p: any, ma: any, options: DRPCOptions
 
                 // Following the pattern from connect-client.ts:
                 // 1. First collect all client messages
-                const contentType = options?.streamingContentType ?? CONNECT_CONTENT_TYPE;
-
+                
                 // Type system ensures content type is valid, but we keep runtime check as a safety measure
                 if (!streamingContentTypes.includes(contentType)) {
                     throw new ConnectError(

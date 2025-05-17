@@ -9,8 +9,7 @@ import {
     createManagedClient,
     testClientUnaryRequest,
     testServerStreamingRequest,
-    testClientAndBidiStreamingRequest,
-    isStreamResetError
+    testClientAndBidiStreamingRequest
 } from "./helpers";
 import { createLogger, LogLevel } from "../client/core/logger";
 import {
@@ -137,10 +136,6 @@ describe("dRPC Client Content Type Tests", () => {
                             `ServerStream_${contentTypeName}`
                         );
                     } catch (err) {
-                        if (isStreamResetError(err)) {
-                            console.log(`Server streaming test for ${contentTypeName} skipped due to stream reset`);
-                            return;
-                        }
                         throw err;
                     }
                 }, TEST_TIMEOUT);
@@ -175,10 +170,6 @@ describe("dRPC Client Content Type Tests", () => {
                             `BidiStream_${contentTypeName}`
                         );
                     } catch (err) {
-                        if (isStreamResetError(err)) {
-                            console.log(`Client/bidi streaming test for ${contentTypeName} skipped due to stream reset`);
-                            return;
-                        }
                         throw err;
                     }
                 }, TEST_TIMEOUT);
@@ -225,10 +216,6 @@ describe("dRPC Client Content Type Tests", () => {
                         await testClientUnaryRequest(client, `Matrix-${unaryName}`);
                         await testServerStreamingRequest(client, `Matrix-${streamingName}`);
                     } catch (err) {
-                        if (isStreamResetError(err)) {
-                            console.log(`Matrix test for ${unaryName}/${streamingName} skipped due to stream reset`);
-                            continue;
-                        }
                         console.error(`Failed with combination: Unary=${unaryName}, Streaming=${streamingName}`, err);
                         throw err;
                     }

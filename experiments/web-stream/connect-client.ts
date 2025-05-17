@@ -33,11 +33,12 @@ export const unaryContentTypes = [
 ];
 
 export const streamingContentTypes = [
-    CONNECT_JSON_CONTENT_TYPE,            // application/connect+json
-    GRPC_WEB_WITH_UNARY_PROTO_CONTENT_TYPE,// application/grpc-web+proto
-    GRPC_WEB_JSON_CONTENT_TYPE,           // application/grpc-web+json
-    GRPC_PROTO_WITH_UNARY_CONTENT_TYPE,   // application/grpc+proto
-    GRPC_JSON_CONTENT_TYPE,               // application/grpc+json
+    CONNECT_CONTENT_TYPE,                     // application/connect+proto
+    CONNECT_JSON_CONTENT_TYPE,                // application/connect+json
+    GRPC_WEB_WITH_UNARY_PROTO_CONTENT_TYPE,   // application/grpc-web+proto
+    GRPC_WEB_JSON_CONTENT_TYPE,               // application/grpc-web+json
+    GRPC_PROTO_WITH_UNARY_CONTENT_TYPE,       // application/grpc+proto
+    GRPC_JSON_CONTENT_TYPE,                   // application/grpc+json
 ];
 
 /**

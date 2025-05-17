@@ -9,8 +9,7 @@ import {
   createManagedClient,
   testClientUnaryRequest,
   testServerStreamingRequest,
-  testClientAndBidiStreamingRequest,
-  isStreamResetError
+  testClientAndBidiStreamingRequest
 } from "./helpers";
 import { createLogger, LogLevel } from "../client/core/logger";
 
@@ -114,7 +113,7 @@ describe("DrpcClient Integration", () => {
           { logger: testLogger }
         );
 
-        await testClientAndBidiStreamingRequest(client, 3, "HTTPBidi", true); // Enable skipOnStreamReset for now until the Go server stream handling is fixed
+        await testClientAndBidiStreamingRequest(client, 3, "HTTPBidi"); // Test Go server stream handling
       },
       TEST_TIMEOUT,
     );
@@ -188,7 +187,7 @@ describe("DrpcClient Integration", () => {
           GreeterService,
           { logger: testLogger }
         );
-        await testClientAndBidiStreamingRequest(client, 2, "GatewayBidi", true); // Enable skipOnStreamReset
+        await testClientAndBidiStreamingRequest(client, 2, "GatewayBidi");
       },
       TEST_TIMEOUT,
     );
@@ -231,7 +230,7 @@ describe("DrpcClient Integration", () => {
           GreeterService,
           { logger: testLogger }
         );
-        await testClientAndBidiStreamingRequest(client, 4, "GatewayAutoBidi", true); // Enable skipOnStreamReset
+        await testClientAndBidiStreamingRequest(client, 4, "GatewayAutoBidi");
       },
       TEST_TIMEOUT,
     );
@@ -281,18 +280,12 @@ describe("DrpcClient Integration", () => {
         try {
           const client = await createManagedClient(
             clientManager,
-            directAddr,
+            directAddr, 
             GreeterService,
             { logger: testLogger }
           );
-          await testClientUnaryRequest(client, "dRPC Test");
+          await testClientUnaryRequest(client, "BobLibP2PDirect");
         } catch (err: any) {
-          // Handle any connection errors in a uniform way
-          if (isStreamResetError(err)) {
-            console.log("Stream was reset by server - this might be due to server cleanup or connection issues");
-            console.log("Skipping test due to stream reset");
-            return; // Skip the test rather than failing
-          }
           throw err;
         }
       },
@@ -315,7 +308,7 @@ describe("DrpcClient Integration", () => {
           GreeterService,
           { logger: testLogger }
         );
-        await testServerStreamingRequest(client, "AliceLibP2PDirect", true); // Enable skipOnStreamReset
+        await testServerStreamingRequest(client, "AliceLibP2PDirect");
       },
       TEST_TIMEOUT,
     );
@@ -336,7 +329,7 @@ describe("DrpcClient Integration", () => {
           GreeterService,
           { logger: testLogger }
         );
-        await testClientAndBidiStreamingRequest(client, 3, "LibP2PDirectBidi", true); // Enable skipOnStreamReset
+        await testClientAndBidiStreamingRequest(client, 3, "LibP2PDirectBidi");
       },
       TEST_TIMEOUT,
     );
@@ -389,13 +382,8 @@ describe("DrpcClient Integration", () => {
             GreeterService,
             { logger: testLogger }
           );
-          await testClientUnaryRequest(client, "dRPC Test Path4");
+          await testClientUnaryRequest(client, "BobLibP2PRelay");
         } catch (err: any) {
-          // Handle known libp2p errors
-          if (isStreamResetError(err)) {
-            console.log("Skipping test due to relay address issue. Relay functionality may not be properly configured.");
-            return; // Skip the test rather than failing
-          }
           throw err;
         }
       },
@@ -419,13 +407,8 @@ describe("DrpcClient Integration", () => {
             GreeterService,
             { logger: testLogger }
           );
-          await testServerStreamingRequest(client, "AliceLibP2PRelay", true); // Enable skipOnStreamReset
+          await testServerStreamingRequest(client, "AliceLibP2PRelay");
         } catch (err: any) {
-          // Handle known libp2p errors
-          if (isStreamResetError(err)) {
-            console.log("Skipping test due to relay address issue. Relay functionality may not be properly configured.");
-            return; // Skip the test rather than failing
-          }
           throw err;
         }
       },
@@ -449,13 +432,8 @@ describe("DrpcClient Integration", () => {
             GreeterService,
             { logger: testLogger }
           );
-          await testClientAndBidiStreamingRequest(client, 2, "LibP2PRelayBidi", true); // Enable skipOnStreamReset
+          await testClientAndBidiStreamingRequest(client, 2, "LibP2PRelayBidi");
         } catch (err: any) {
-          // Handle known libp2p errors
-          if (isStreamResetError(err)) {
-            console.log("Skipping test due to relay address issue. Relay functionality may not be properly configured.");
-            return; // Skip the test rather than failing
-          }
           throw err;
         }
       },
