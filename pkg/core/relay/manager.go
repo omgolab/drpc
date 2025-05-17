@@ -391,7 +391,7 @@ func (rm *RelayManager) AddPeer(pi peer.AddrInfo) {
 			candidate.LastProvided = now
 			candidate.ProvideCount++
 			rm.metrics.peersProvided++
-			rm.log.Debug(fmt.Sprintf("Re-provided existing peer: %s", pi.ID))
+			// rm.log.Debug(fmt.Sprintf("Re-provided existing peer: %s", pi.ID))
 		default:
 			// Channel full, will be handled by refill logic
 		}

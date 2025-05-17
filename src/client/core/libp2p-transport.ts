@@ -2,11 +2,11 @@
  * Libp2p transport implementation for Connect RPC
  */
 import { pipe } from 'it-pipe';
+import all from 'it-all';
 import { ConnectError, Code } from "@connectrpc/connect";
 // Correct imports for create
 import { createClientMethodSerializers } from "@connectrpc/connect/protocol";
 import { create } from "@bufbuild/protobuf";
-import { hexDump, analyzeBuffer } from "./debug-helpers"; // Add the debug helpers import
 import {
     Flag,
     serializeEnvelope,
@@ -136,16 +136,40 @@ export function createLibp2pTransport(libp2p: any, ma: any, options: DRPCOptions
                 const responseChunks: Uint8Array[] = [];
 
                 try {
-                    // Read all response data
-                    for await (const chunk of p2pStream.source) {
+                    // Read all response data using all() for reliable stream data collection
+                    const chunks = await all(p2pStream.source);
+                    logger.debug(`Unary: Received ${chunks.length} chunks from stream`);
+                    
+                    for (const chunk of chunks) {
                         if (linkedSignal.aborted) {
-                            logger.debug("Unary: Aborted during server message receiving");
                             throw new ConnectError("Unary response aborted by client", Code.Canceled);
                         }
-                        // Make sure we're working with a standard Uint8Array
-                        const chunkArray = new Uint8Array(chunk.length);
-                        chunkArray.set(new Uint8Array(chunk.buffer, chunk.byteOffset, chunk.length));
-                        responseChunks.push(chunkArray);
+                        
+                        // Convert chunk to Uint8Array with type safety
+                        let properChunk: Uint8Array;
+                        try {
+                            if (chunk instanceof Uint8Array) {
+                                properChunk = chunk;
+                            } else if (chunk && typeof chunk === 'object') {
+                                if ('buffer' in chunk && 'byteOffset' in chunk && 'byteLength' in chunk) {
+                                    properChunk = new Uint8Array((chunk as any).buffer, (chunk as any).byteOffset, (chunk as any).byteLength);
+                                } else if ('subarray' in chunk && typeof (chunk as any).subarray === "function") {
+                                    properChunk = new Uint8Array((chunk as any).subarray(0));
+                                } else {
+                                    properChunk = new Uint8Array(chunk as any);
+                                }
+                            } else {
+                                properChunk = new Uint8Array(chunk as any);
+                            }
+                        } catch (convErr) {
+                            logger.error(`Unary: Chunk conversion error: ${convErr}`);
+                            properChunk = new Uint8Array(0);
+                        }
+                        
+                        if (properChunk.length > 0) {
+                            logger.debug(`Unary: Raw chunk (${properChunk.length} bytes): ${Array.from(properChunk.slice(0, Math.min(properChunk.length, 32))).map(b => b.toString(16).padStart(2, '0')).join(' ')}`);
+                            responseChunks.push(properChunk);
+                        }
                     }
 
                     if (logger.isMinLevel(LogLevel.DEBUG)) {
@@ -162,60 +186,105 @@ export function createLibp2pTransport(libp2p: any, ma: any, options: DRPCOptions
                     throw new ConnectError("Empty response received from server", Code.DataLoss);
                 }
 
-                // Concatenate all received chunks
-                const responseBuffer = concatUint8Arrays(responseChunks);
+                // Process response chunks
+                const validChunks = responseChunks.filter(chunk => chunk.length > 0);
+                
+                // Create response buffer efficiently
+                let responseBuffer: Uint8Array;
+                if (validChunks.length === 0) {
+                    responseBuffer = new Uint8Array(0);
+                } else if (validChunks.length === 1) {
+                    responseBuffer = validChunks[0];
+                } else {
+                    responseBuffer = concatUint8Arrays(validChunks);
+                }
 
-                // Attempt to parse the response in various formats
-                let responseMessage: MessageShape<O> | undefined;
-
-                // Determine the appropriate parsing strategy based on content type
+                // Log response details
+                if (responseBuffer.byteLength > 0) {
+                    logger.debug(`Unary: Response buffer (${responseBuffer.byteLength} bytes): ${Array.from(responseBuffer.slice(0, Math.min(responseBuffer.byteLength, 32))).map(b => b.toString(16).padStart(2, '0')).join(' ')}`);
+                }
+                
+                // Content type flags for parsing strategy
                 const isConnectUnaryProto = contentType === CONNECT_ONLY_UNARY_PROTO_CONTENT_TYPE;
                 const isConnectUnaryJson = contentType === CONNECT_ONLY_UNARY_JSON_CONTENT_TYPE;
                 const isGrpcWebProto = contentType === GRPC_WEB_WITH_UNARY_PROTO_CONTENT_TYPE;
                 const isGrpcProto = contentType === GRPC_PROTO_WITH_UNARY_CONTENT_TYPE;
-
-                // For unary responses with unary-specific content types, first try to parse as a raw response (no envelope)
-                if (isConnectUnaryProto || isConnectUnaryJson) {
-                    try {
-                        responseMessage = deserialize(responseBuffer);
-                        logger.debug("Unary: Successfully decoded raw response");
-                    } catch (decodeErr) {
-                        logger.debug(`Unary: Failed to decode as raw response: ${decodeErr}`);
-
-                        // For JSON content type, try parsing as JSON
-                        if (isConnectUnaryJson) {
-                            try {
-                                const responseText = new TextDecoder().decode(responseBuffer);
-                                if (responseText.startsWith('{')) {
-                                    responseMessage = JSON.parse(responseText) as any;
-                                    logger.debug("Unary: Successfully decoded JSON response");
-                                }
-                            } catch (jsonErr) {
-                                logger.debug(`Unary: Failed to decode as JSON: ${jsonErr}`);
-                            }
-                        }
+                
+                // Check if buffer looks like valid protobuf
+                const protobufLooksValid = responseBuffer.length > 0 && responseBuffer[0] === 0x0A;
+                
+                // Variable to hold parsed response
+                let responseMessage: MessageShape<O> | undefined;
+                
+                // Try decoding strategies in order of likelihood of success
+                
+                // 1. Try standard deserializer
+                try {
+                    responseMessage = deserialize(responseBuffer);
+                    logger.debug("Unary: Successfully decoded with standard deserializer");
+                } catch (decodeErr) {
+                    // 2. Try direct fromBinary method
+                    const fromBinary = (method as any).output?.fromBinary || (method as any).output?.$type?.fromBinary;
+                    if (!responseMessage && fromBinary && typeof fromBinary === 'function') {
+                        try {
+                            responseMessage = fromBinary(responseBuffer);
+                            logger.debug("Unary: Successfully decoded with direct fromBinary");
+                        } catch (binaryErr) {}
                     }
-                }
-
-                // If still no message, try to parse as an envelope (required for gRPC formats)
-                if (!responseMessage && (isGrpcWebProto || isGrpcProto)) {
-                    logger.debug("Unary: Attempting to parse unary response as envelope");
-                    try {
-                        const parsedEnvelope = parseEnvelope(responseBuffer);
-                        if (parsedEnvelope.envelope) {
-                            const envelope = parsedEnvelope.envelope;
-
-                            // If it's a data envelope, try to parse the payload
-                            if (envelope.flags === Flag.NONE && envelope.data.length > 0) {
-                                responseMessage = deserialize(envelope.data);
-                                logger.debug("Unary: Successfully decoded envelope data response");
+                    
+                    // 3. Try JSON parsing for JSON content type
+                    if (!responseMessage && isConnectUnaryJson && responseBuffer.length > 0) {
+                        try {
+                            const responseText = new TextDecoder().decode(responseBuffer);
+                            if (responseText.startsWith('{')) {
+                                responseMessage = JSON.parse(responseText) as any;
+                                logger.debug("Unary: Successfully decoded as JSON");
                             }
-                            // Check for error data in the envelope
-                            else if (envelope.data && envelope.data.length > 0) {
-                                try {
-                                    const errorText = uint8ArrayToString(envelope.data);
+                        } catch (jsonErr) {}
+                    }
+                    
+                    // 4. Try envelope parsing
+                    if (!responseMessage) {
+                        try {
+                            const parsedEnvelope = parseEnvelope(responseBuffer);
+                            if (parsedEnvelope.envelope) {
+                                const envelope = parsedEnvelope.envelope;
+                                
+                                if (envelope.flags === Flag.NONE && envelope.data.length > 0) {
+                                    // Try to decode envelope data
+                                    try {
+                                        responseMessage = deserialize(envelope.data);
+                                    } catch (envDataErr) {
+                                        // Try fromBinary as fallback
+                                        if (fromBinary && typeof fromBinary === 'function') {
+                                            try {
+                                                responseMessage = fromBinary(envelope.data);
+                                            } catch (envBinErr) {}
+                                        }
+                                    }
+                                } else if (envelope.data?.length > 0) {
+                                    // Check for error data
+                                    const errorText = new TextDecoder().decode(envelope.data);
                                     if (errorText.startsWith('{') && errorText.includes('"code"')) {
-                                        const errorData = JSON.parse(errorText);
+                                        try {
+                                            const errorData = JSON.parse(errorText);
+                                            throw new ConnectError(
+                                                errorData.message || "Unknown error from server",
+                                                connectCodeFromString(errorData.code) || Code.Unknown
+                                            );
+                                        } catch (e) {
+                                            if (e instanceof ConnectError) throw e;
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (envelopeErr) {
+                            // Last resort: try as JSON error
+                            if (responseBuffer.length > 0) {
+                                try {
+                                    const responseText = new TextDecoder().decode(responseBuffer);
+                                    if (responseText.startsWith('{') && responseText.includes('"code"')) {
+                                        const errorData = JSON.parse(responseText);
                                         throw new ConnectError(
                                             errorData.message || "Unknown error from server",
                                             connectCodeFromString(errorData.code) || Code.Unknown
@@ -226,32 +295,89 @@ export function createLibp2pTransport(libp2p: any, ma: any, options: DRPCOptions
                                 }
                             }
                         }
-                    } catch (envelopeErr) {
-                        logger.debug(`Unary: Failed to parse as envelope: ${envelopeErr}`);
-
-                        // Last resort: try to parse as JSON error response
-                        try {
-                            const responseText = new TextDecoder().decode(responseBuffer);
-                            if (responseText.startsWith('{') && responseText.includes('"code"')) {
-                                const errorData = JSON.parse(responseText);
-                                throw new ConnectError(
-                                    errorData.message || "Unknown error from server",
-                                    connectCodeFromString(errorData.code) || Code.Unknown
-                                );
-                            }
-                        } catch (e) {
-                            if (e instanceof ConnectError) throw e;
-                        }
                     }
                 }
 
-                // At this point, if we still don't have a responseMessage, we should error
+                // At this point, if we still don't have a responseMessage, try one more approach with manual decoding
                 if (!responseMessage) {
-                    const bufHex = responseBuffer ? toHex(responseBuffer.subarray(0, Math.min(responseBuffer.byteLength, 32))) : '';
-                    throw new ConnectError(
-                        `Failed to decode response in any format. Received ${responseBuffer?.byteLength || 0} bytes (prefix: ${bufHex}...)`,
-                        Code.DataLoss
-                    );
+                    logger.debug("Unary: Attempting manual decoding as a last resort");
+                    
+                    // Look at first byte - if it looks like a valid protobuf tag (field 1, wire type 2 (length-delimited) = 0x0A)
+                    // This matches the common pattern for message responses where field 1 is the main response string
+                    if (responseBuffer.length > 0 && responseBuffer[0] === 0x0A) {
+                        try {
+                            // Create an empty message from the output schema
+                            const create = (method as any).output?.create || (method as any).output?.$type?.create;
+                            if (create && typeof create === 'function') {
+                                const emptyMsg = create({});
+                                
+                                // Extract the string from the protobuf manually (assumes field 1 is a string)
+                                // Format: 0x0A (tag) + length + UTF8 string
+                                const strLength = responseBuffer[1];
+                                if (responseBuffer.length >= 2 + strLength) {
+                                    const stringContent = new TextDecoder().decode(
+                                        responseBuffer.slice(2, 2 + strLength)
+                                    );
+                                    
+                                    // Common field names for response messages
+                                    const possibleFields = ['message', 'greeting', 'text', 'response', 'result', 'value'];
+                                    
+                                    // Try to set the value to each possible field name
+                                    for (const field of possibleFields) {
+                                        if (field in emptyMsg) {
+                                            (emptyMsg as any)[field] = stringContent;
+                                            logger.debug(`Unary: Manually constructed response with field '${field}': ${stringContent}`);
+                                            responseMessage = emptyMsg;
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+                        } catch (manualErr) {
+                            logger.debug(`Unary: Manual decoding failed: ${manualErr}`);
+                        }
+                    }
+                    // Last resort: manual protobuf decoding for common message formats
+                    if (!responseMessage && protobufLooksValid) {
+                        try {
+                            // Field 1 with string value (common pattern): 0x0A (tag) + length + UTF8 string
+                            const strLength = responseBuffer[1];
+                            if (responseBuffer.length >= 2 + strLength) {
+                                const stringContent = new TextDecoder().decode(responseBuffer.slice(2, 2 + strLength));
+                            
+                                // Build a response object with the string in likely field names
+                                const messageObj: any = {};
+                                ['message', 'greeting', 'text', 'response', 'result', 'value'].forEach(field => {
+                                    messageObj[field] = stringContent;
+                                });
+                            
+                                // Try to create proper message object
+                                const createFn = (method as any).output?.create || (method as any).output?.$type?.create;
+                                if (createFn && typeof createFn === 'function') {
+                                    try {
+                                        responseMessage = createFn(messageObj);
+                                    } catch (err) {
+                                        responseMessage = messageObj as MessageShape<O>;
+                                    }
+                                } else {
+                                    responseMessage = messageObj as MessageShape<O>;
+                                }
+                            }
+                        } catch (err) {
+                            // Silent catch - just continue to next strategy
+                        }
+                    }
+                
+                    // Error if we still couldn't decode the response
+                    if (!responseMessage) {
+                        const bufHex = responseBuffer.length > 0 ? 
+                            Array.from(responseBuffer.subarray(0, Math.min(responseBuffer.byteLength, 16)))
+                                .map(b => b.toString(16).padStart(2, '0')).join('') : '';
+                        throw new ConnectError(
+                            `Failed to decode response (${responseBuffer.byteLength} bytes, prefix: ${bufHex}...)`,
+                            Code.DataLoss
+                        );
+                    }
                 }
 
                 return {

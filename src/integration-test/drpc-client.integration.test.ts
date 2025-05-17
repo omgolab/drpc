@@ -269,7 +269,7 @@ describe("DrpcClient Integration", () => {
     });
 
     it(
-      "unary",
+      "3-unary",
       async () => {
         if (!directAddr) {
           console.warn(
