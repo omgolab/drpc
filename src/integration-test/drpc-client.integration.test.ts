@@ -9,14 +9,14 @@ import {
   createManagedClient,
   testClientUnaryRequest,
   testServerStreamingRequest,
-  testClientAndBidiStreamingRequest
+  testClientAndBidiStreamingRequest,
 } from "./helpers";
 import { createLogger, LogLevel } from "../client/core/logger";
 
 // Create a logger for the test
 const testLogger = createLogger({
   contextName: "Integration-Test",
-  logLevel: LogLevel.DEBUG
+  logLevel: LogLevel.DEBUG,
 });
 
 // Track utility server instance
@@ -56,7 +56,9 @@ describe("DrpcClient Integration", () => {
         const addr = publicNodeInfo.http_address;
 
         if (!addr) {
-          throw new Error("Public node info doesn't contain a valid HTTP address");
+          throw new Error(
+            "Public node info doesn't contain a valid HTTP address",
+          );
         }
         console.log(`Using public node HTTP address for Path 1: ${addr}`);
 
@@ -64,7 +66,7 @@ describe("DrpcClient Integration", () => {
           clientManager,
           addr,
           GreeterService,
-          { logger: testLogger }
+          { logger: testLogger },
         );
 
         await testClientUnaryRequest(client, "dRPC Test");
@@ -79,15 +81,19 @@ describe("DrpcClient Integration", () => {
         const publicNodeInfo = await utilServer.getPublicNodeInfo();
         const addr = publicNodeInfo.http_address || "";
         if (!addr) {
-          throw new Error("Public node info doesn't contain a valid HTTP address");
+          throw new Error(
+            "Public node info doesn't contain a valid HTTP address",
+          );
         }
-        console.log(`Using public node HTTP address for Path 1 streaming: ${addr}`);
+        console.log(
+          `Using public node HTTP address for Path 1 streaming: ${addr}`,
+        );
 
         const client = await createManagedClient(
           clientManager,
           addr,
           GreeterService,
-          { logger: testLogger }
+          { logger: testLogger },
         );
         await testServerStreamingRequest(client, "AliceHTTPDirect"); // Use the server streaming test
       },
@@ -101,16 +107,20 @@ describe("DrpcClient Integration", () => {
         const publicNodeInfo = await utilServer.getPublicNodeInfo();
         const addr = publicNodeInfo.http_address || "";
         if (!addr) {
-          throw new Error("Public node info doesn't contain a valid HTTP address");
+          throw new Error(
+            "Public node info doesn't contain a valid HTTP address",
+          );
         }
-        console.log(`Using public node HTTP address for Path 1 client/bidi streaming: ${addr}`);
+        console.log(
+          `Using public node HTTP address for Path 1 client/bidi streaming: ${addr}`,
+        );
 
         // Create a client with the managed client helper
         const client = await createManagedClient(
           clientManager,
           addr,
           GreeterService,
-          { logger: testLogger }
+          { logger: testLogger },
         );
 
         await testClientAndBidiStreamingRequest(client, 3, "HTTPBidi"); // Test Go server stream handling
@@ -141,9 +151,12 @@ describe("DrpcClient Integration", () => {
           clientManager,
           gatewayBaseUrl,
           GreeterService,
-          { logger: testLogger }
+          { logger: testLogger },
         );
-        await testClientUnaryRequest(client, "dRPC Test Gateway Connectivity Check");
+        await testClientUnaryRequest(
+          client,
+          "dRPC Test Gateway Connectivity Check",
+        );
       } catch (error) {
         console.error("Failed to fetch gateway node info:", error);
         throw new Error(`Failed to initialize gateway for tests: ${error}`);
@@ -157,7 +170,7 @@ describe("DrpcClient Integration", () => {
           clientManager,
           gatewayBaseUrl,
           GreeterService,
-          { logger: testLogger }
+          { logger: testLogger },
         );
         await testClientUnaryRequest(client, "dRPC Test");
       },
@@ -171,7 +184,7 @@ describe("DrpcClient Integration", () => {
           clientManager,
           gatewayBaseUrl,
           GreeterService,
-          { logger: testLogger }
+          { logger: testLogger },
         );
         await testServerStreamingRequest(client, "AliceGatewayRelay");
       },
@@ -185,7 +198,7 @@ describe("DrpcClient Integration", () => {
           clientManager,
           gatewayBaseUrl,
           GreeterService,
-          { logger: testLogger }
+          { logger: testLogger },
         );
         await testClientAndBidiStreamingRequest(client, 2, "GatewayBidi");
       },
@@ -200,7 +213,7 @@ describe("DrpcClient Integration", () => {
           clientManager,
           gatewayBaseUrl,
           GreeterService,
-          { logger: testLogger }
+          { logger: testLogger },
         );
         await testClientUnaryRequest(client, "dRPC Test");
       },
@@ -214,7 +227,7 @@ describe("DrpcClient Integration", () => {
           clientManager,
           gatewayBaseUrl,
           GreeterService,
-          { logger: testLogger }
+          { logger: testLogger },
         );
         await testServerStreamingRequest(client, "AliceGatewayAuto");
       },
@@ -228,7 +241,7 @@ describe("DrpcClient Integration", () => {
           clientManager,
           gatewayBaseUrl,
           GreeterService,
-          { logger: testLogger }
+          { logger: testLogger },
         );
         await testClientAndBidiStreamingRequest(client, 4, "GatewayAutoBidi");
       },
@@ -248,19 +261,28 @@ describe("DrpcClient Integration", () => {
         const libp2pAddr = publicNodeInfo.libp2p_ma || "";
         if (libp2pAddr) {
           directAddr = libp2pAddr;
-          console.log(`Using public node libp2p address for Path 3: ${directAddr}`);
+          console.log(
+            `Using public node libp2p address for Path 3: ${directAddr}`,
+          );
         } else {
-          throw new Error("Public node info doesn't contain a valid libp2p multiaddress");
+          throw new Error(
+            "Public node info doesn't contain a valid libp2p multiaddress",
+          );
         }
       } catch (error) {
-        console.error("Failed to fetch public node libp2p address from utility server:", error);
-        console.warn("No direct multiaddr found for Path3_LibP2PDirect; skipping test.");
+        console.error(
+          "Failed to fetch public node libp2p address from utility server:",
+          error,
+        );
+        console.warn(
+          "No direct multiaddr found for Path3_LibP2PDirect; skipping test.",
+        );
         directAddr = undefined;
       }
 
       if (!directAddr) {
         console.warn(
-          "No direct (non-relay) multiaddr found for Path3_LibP2PDirect; skipping test."
+          "No direct (non-relay) multiaddr found for Path3_LibP2PDirect; skipping test.",
         );
       } else {
         console.log("Using direct multiaddr for Path3:", directAddr);
@@ -272,7 +294,7 @@ describe("DrpcClient Integration", () => {
       async () => {
         if (!directAddr) {
           console.warn(
-            "Skipping Path3_LibP2PDirect unary test: no direct address available."
+            "Skipping Path3_LibP2PDirect unary test: no direct address available.",
           );
           return;
         }
@@ -280,9 +302,9 @@ describe("DrpcClient Integration", () => {
         try {
           const client = await createManagedClient(
             clientManager,
-            directAddr, 
+            directAddr,
             GreeterService,
-            { logger: testLogger }
+            { logger: testLogger },
           );
           await testClientUnaryRequest(client, "BobLibP2PDirect");
         } catch (err: any) {
@@ -297,7 +319,7 @@ describe("DrpcClient Integration", () => {
       async () => {
         if (!directAddr) {
           console.warn(
-            "Skipping Path3_LibP2PDirect streaming test: no direct address available."
+            "Skipping Path3_LibP2PDirect streaming test: no direct address available.",
           );
           return;
         }
@@ -306,7 +328,7 @@ describe("DrpcClient Integration", () => {
           clientManager,
           directAddr,
           GreeterService,
-          { logger: testLogger }
+          { logger: testLogger },
         );
         await testServerStreamingRequest(client, "AliceLibP2PDirect");
       },
@@ -318,7 +340,7 @@ describe("DrpcClient Integration", () => {
       async () => {
         if (!directAddr) {
           console.warn(
-            "Skipping Path3_LibP2PDirect client/bidi streaming test: no direct address available."
+            "Skipping Path3_LibP2PDirect client/bidi streaming test: no direct address available.",
           );
           return;
         }
@@ -327,7 +349,7 @@ describe("DrpcClient Integration", () => {
           clientManager,
           directAddr,
           GreeterService,
-          { logger: testLogger }
+          { logger: testLogger },
         );
         await testClientAndBidiStreamingRequest(client, 3, "LibP2PDirectBidi");
       },
@@ -337,7 +359,8 @@ describe("DrpcClient Integration", () => {
 
   // Path 4: LibP2P Relay
   describe("Path4_LibP2PRelay", () => {
-    let relayAddr: string | undefined;
+    let fixedRelayAddr: string | undefined;
+    let autoRelayAddr: string | undefined;
 
     beforeAll(async () => {
       try {
@@ -345,100 +368,223 @@ describe("DrpcClient Integration", () => {
         console.log("Fetching relay node info for Path 4 (LibP2P Relay)...");
         const relayNodeInfo = await utilServer.getRelayNodeInfo();
         const libp2pAddr = relayNodeInfo.libp2p_ma || "";
+
         if (libp2pAddr && libp2pAddr.includes("/p2p-circuit/")) {
-          relayAddr = libp2pAddr;
-          console.log(`Using relay node libp2p address for Path 4: ${relayAddr}`);
+          fixedRelayAddr = libp2pAddr;
+          console.log(
+            `Using fixed relay node libp2p address for Path 4: ${fixedRelayAddr}`,
+          );
+
+          // Extract target node address for auto relay test
+          const addrParts = libp2pAddr.split("/p2p-circuit/");
+          if (addrParts.length === 2) {
+            autoRelayAddr = addrParts[1].startsWith("/")
+              ? addrParts[1]
+              : "/" + addrParts[1];
+            console.log(
+              `Extracted auto relay target address for Path 4: ${autoRelayAddr}`,
+            );
+          } else {
+            console.warn(
+              "Could not extract auto relay target address from relay address",
+            );
+            autoRelayAddr = undefined;
+          }
         } else {
-          console.warn("Relay node info doesn't contain a valid relay libp2p multiaddress");
-          relayAddr = undefined;
+          console.warn(
+            "Relay node info doesn't contain a valid relay libp2p multiaddress",
+          );
+          fixedRelayAddr = undefined;
+          autoRelayAddr = undefined;
         }
       } catch (error) {
-        console.error("Failed to fetch relay node info from utility server:", error);
-        console.warn("No suitable address found for Path4_LibP2PRelay; skipping test.");
-        relayAddr = undefined;
+        console.error(
+          "Failed to fetch relay node info from utility server:",
+          error,
+        );
+        console.warn(
+          "No suitable address found for Path4_LibP2PRelay; skipping test.",
+        );
+        fixedRelayAddr = undefined;
+        autoRelayAddr = undefined;
       }
 
-      if (!relayAddr) {
-        console.warn("No relay address found for Path4_LibP2PRelay; skipping test.");
+      if (!fixedRelayAddr) {
+        console.warn(
+          "No relay address found for Path4_LibP2PRelay; skipping test.",
+        );
       } else {
-        console.log("Using relay address for Path4:", relayAddr);
+        console.log("Using fixed relay address for Path4:", fixedRelayAddr);
+        if (autoRelayAddr) {
+          console.log(
+            "Using auto relay target address for Path4:",
+            autoRelayAddr,
+          );
+        }
       }
     });
 
-    it(
-      "unary",
-      async () => {
-        if (!relayAddr) {
-          console.warn(
-            "Skipping Path4_LibP2PRelay unary test: no relay address available."
-          );
-          return;
-        }
+    describe("libp2p_fixed_relay", () => {
+      it(
+        "unary",
+        async () => {
+          if (!fixedRelayAddr) {
+            console.warn(
+              "Skipping Path4 fixed relay unary test: no relay address available.",
+            );
+            return;
+          }
 
-        try {
-          const client = await createManagedClient(
-            clientManager,
-            relayAddr,
-            GreeterService,
-            { logger: testLogger }
-          );
-          await testClientUnaryRequest(client, "BobLibP2PRelay");
-        } catch (err: any) {
-          throw err;
-        }
-      },
-      TEST_TIMEOUT,
-    );
+          try {
+            const client = await createManagedClient(
+              clientManager,
+              fixedRelayAddr,
+              GreeterService,
+              { logger: testLogger },
+            );
+            await testClientUnaryRequest(client, "BobLibP2PFixedRelay");
+          } catch (err: any) {
+            throw err;
+          }
+        },
+        TEST_TIMEOUT,
+      );
 
-    it(
-      "streaming",
-      async () => {
-        if (!relayAddr) {
-          console.warn(
-            "Skipping Path4_LibP2PRelay streaming test: no relay address available."
-          );
-          return;
-        }
+      it(
+        "streaming",
+        async () => {
+          if (!fixedRelayAddr) {
+            console.warn(
+              "Skipping Path4 fixed relay streaming test: no relay address available.",
+            );
+            return;
+          }
 
-        try {
-          const client = await createManagedClient(
-            clientManager,
-            relayAddr,
-            GreeterService,
-            { logger: testLogger }
-          );
-          await testServerStreamingRequest(client, "AliceLibP2PRelay");
-        } catch (err: any) {
-          throw err;
-        }
-      },
-      TEST_TIMEOUT,
-    );
+          try {
+            const client = await createManagedClient(
+              clientManager,
+              fixedRelayAddr,
+              GreeterService,
+              { logger: testLogger },
+            );
+            await testServerStreamingRequest(client, "AliceLibP2PFixedRelay");
+          } catch (err: any) {
+            throw err;
+          }
+        },
+        TEST_TIMEOUT,
+      );
 
-    it(
-      "client/bidi streaming",
-      async () => {
-        if (!relayAddr) {
-          console.warn(
-            "Skipping Path4_LibP2PRelay client/bidi streaming test: no relay address available."
-          );
-          return;
-        }
+      it(
+        "client/bidi streaming",
+        async () => {
+          if (!fixedRelayAddr) {
+            console.warn(
+              "Skipping Path4 fixed relay client/bidi streaming test: no relay address available.",
+            );
+            return;
+          }
 
-        try {
-          const client = await createManagedClient(
-            clientManager,
-            relayAddr,
-            GreeterService,
-            { logger: testLogger }
-          );
-          await testClientAndBidiStreamingRequest(client, 2, "LibP2PRelayBidi");
-        } catch (err: any) {
-          throw err;
-        }
-      },
-      TEST_TIMEOUT,
-    );
+          try {
+            const client = await createManagedClient(
+              clientManager,
+              fixedRelayAddr,
+              GreeterService,
+              { logger: testLogger },
+            );
+            await testClientAndBidiStreamingRequest(
+              client,
+              2,
+              "LibP2PFixedRelayBidi",
+            );
+          } catch (err: any) {
+            throw err;
+          }
+        },
+        TEST_TIMEOUT,
+      );
+    });
+
+    describe("libp2p_auto_relay", () => {
+      it(
+        "unary",
+        async () => {
+          if (!autoRelayAddr) {
+            console.warn(
+              "Skipping Path4 auto relay unary test: no target address available.",
+            );
+            return;
+          }
+
+          try {
+            const client = await createManagedClient(
+              clientManager,
+              autoRelayAddr,
+              GreeterService,
+              { logger: testLogger },
+            );
+            await testClientUnaryRequest(client, "BobLibP2PAutoRelay");
+          } catch (err: any) {
+            throw err;
+          }
+        },
+        TEST_TIMEOUT,
+      );
+
+      it(
+        "streaming",
+        async () => {
+          if (!autoRelayAddr) {
+            console.warn(
+              "Skipping Path4 auto relay streaming test: no target address available.",
+            );
+            return;
+          }
+
+          try {
+            const client = await createManagedClient(
+              clientManager,
+              autoRelayAddr,
+              GreeterService,
+              { logger: testLogger },
+            );
+            await testServerStreamingRequest(client, "AliceLibP2PAutoRelay");
+          } catch (err: any) {
+            throw err;
+          }
+        },
+        TEST_TIMEOUT,
+      );
+
+      it(
+        "4xx-client/bidi streaming",
+        async () => {
+          if (!autoRelayAddr) {
+            console.warn(
+              "Skipping Path4 auto relay client/bidi streaming test: no target address available.",
+            );
+            return;
+          }
+
+          try {
+            const client = await createManagedClient(
+              clientManager,
+              autoRelayAddr,
+              GreeterService,
+              { logger: testLogger },
+            );
+            await testClientAndBidiStreamingRequest(
+              client,
+              2,
+              "LibP2PAutoRelayBidi",
+            );
+          } catch (err: any) {
+            throw err;
+          }
+        },
+        TEST_TIMEOUT,
+      );
+    });
   });
 });
 

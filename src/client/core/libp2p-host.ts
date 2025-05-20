@@ -11,6 +11,7 @@ import { autoNAT } from "@libp2p/autonat";
 import { EventEmitter } from "events";
 import { ping } from "@libp2p/ping";
 import { yamux } from "@chainsafe/libp2p-yamux";
+import { circuitRelayTransport } from "@libp2p/circuit-relay-v2";
 import { ILogger } from "./logger";
 
 export interface CreateLibp2pHostOptions {
@@ -23,7 +24,6 @@ export interface CreateLibp2pHostOptions {
 export interface Libp2pHostResult {
   libp2p: Libp2p;
   peerDiscovery: EventEmitter;
-  relayManager: { enabled: boolean };
 }
 
 /**
@@ -45,19 +45,34 @@ export async function createLibp2pHost(
     ...opts.dhtOptions,
   };
 
-  // Transport selection
-  const transports = [webSockets()];
-  if (typeof window === "undefined") {
-    transports.push(tcp());
-  }
+  // Transport selection with enhanced relay configuration
+  const transports = [
+    tcp(),
+    webSockets(),
+    circuitRelayTransport({
+      // These options are set internally by circuitRelayTransport
+      // but we'll be explicit to ensure proper configuration:
+      reservationConcurrency: 3,
+    })
+  ];
 
   // Compose libp2p options
-  const defaultListenAddrs = ["/ip4/0.0.0.0/tcp/0", "/ip4/127.0.0.1/tcp/0"];
+  const defaultListenAddrs = [
+    "/ip4/0.0.0.0/tcp/0",
+    "/ip6/::/tcp/0",
+    "/p2p-circuit",
+  ];
   const libp2pConfig: Libp2pOptions = {
     transports,
     streamMuxers: [yamux()],
     connectionEncrypters: [tls()], // Only TLS, disables Noise
-    peerDiscovery: [mdns()],
+    peerDiscovery: [
+      mdns({
+        interval: 10000, // More frequent discovery
+        broadcast: true,
+        serviceTag: 'drpc',
+      })
+    ],
     addresses: {
       ...(opts.libp2pOptions?.addresses || {}),
       listen:
@@ -67,11 +82,38 @@ export async function createLibp2pHost(
     },
     services: {
       identify: identify(),
-      ping: ping(),
-      dht: kadDHT(dhtConfig),
-      autonat: autoNAT(),
-      // Relay is enabled by default in js-libp2p >=0.43, no explicit relay service needed here
-    } as any,
+      ping: ping({
+        // More frequent ping to keep connections alive
+        timeout: 5000
+      }),
+      dht: kadDHT({
+        ...dhtConfig,
+        // Enable DHT server mode for better peer routing
+        clientMode: false,
+        validators: {},
+        selectors: {}
+      }),
+      autonat: autoNAT({
+        // More aggressive autonat for better connectivity
+        refreshInterval: 10000
+      }),
+    },
+    connectionGater: {
+      // Allow dialing any multiadress - needed for some relay scenarios
+      denyDialMultiaddr: async () => false,
+      // Also allow all connections
+      denyDialPeer: async () => false,
+      denyInboundConnection: async () => false,
+      denyOutboundConnection: async () => false,
+      denyInboundEncryptedConnection: async () => false,
+      denyOutboundEncryptedConnection: async () => false,
+      denyInboundUpgradedConnection: async () => false,
+      denyOutboundUpgradedConnection: async () => false,
+    },
+    connectionManager: {
+      // Increase max connections for relay discovery
+      maxConnections: 100
+    },
     ...opts.libp2pOptions,
   };
 
@@ -98,6 +140,5 @@ export async function createLibp2pHost(
   return {
     libp2p,
     peerDiscovery,
-    relayManager: { enabled: true },
   };
 }

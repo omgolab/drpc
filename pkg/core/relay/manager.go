@@ -812,7 +812,7 @@ func (rm *RelayManager) applyPeerInfoUpdateLocked(id peer.ID, supportsProtocol b
 		}
 
 		if supportsProtocol {
-			rm.log.Debug(fmt.Sprintf("Confirmed peer %s supports relay protocol", id))
+			// rm.log.Debug(fmt.Sprintf("Confirmed peer %s supports relay protocol", id))
 		}
 		if isProtected {
 			rm.log.Info(fmt.Sprintf("Peer %s is being used as a relay", id))
@@ -826,7 +826,7 @@ func (rm *RelayManager) applyPeerInfoUpdateLocked(id peer.ID, supportsProtocol b
 	// Update protocol support
 	if supportsProtocol && !candidate.ConfirmedRelaySupport {
 		candidate.ConfirmedRelaySupport = true
-		rm.log.Debug(fmt.Sprintf("Confirmed peer %s supports relay protocol", id))
+		// rm.log.Debug(fmt.Sprintf("Confirmed peer %s supports relay protocol", id))
 	}
 
 	// Update latency if it's meaningful

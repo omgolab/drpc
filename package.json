@@ -20,6 +20,7 @@
     "@connectrpc/connect": "^2.0.2",
     "@connectrpc/connect-web": "^2.0.2",
     "@libp2p/autonat": "^2.0.30",
+    "@libp2p/circuit-relay-v2": "^3.2.11",
     "@libp2p/identify": "^3.0.29",
     "@libp2p/kad-dht": "^15.0.2",
     "@libp2p/mdns": "^11.0.35",

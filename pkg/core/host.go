@@ -319,14 +319,14 @@ func connectToFoundPeers(ctx context.Context, h host.Host, cfg *hostCfg, peerCha
 		for i, addr := range p.Addrs {
 			addrStrings[i] = addr.String()
 		}
-		cfg.logger.Debug(fmt.Sprintf("DHT peer found: %s, addrs: %v", p.ID.String(), addrStrings))
+		// cfg.logger.Debug(fmt.Sprintf("DHT peer found: %s, addrs: %v", p.ID.String(), addrStrings))
 
 		connectCtx, connectCancel := context.WithTimeout(ctx, config.PEER_CONNECTION_TIMEOUT)
 		err := h.Connect(connectCtx, p)
 		connectCancel() // Release context resources promptly
 		if err != nil {
 			// Use Debug level for potentially transient connection errors
-			cfg.logger.Debug(fmt.Sprintf("Failed connecting to DHT peer %s: %s", p.ID.String(), err.Error()))
+			// cfg.logger.Debug(fmt.Sprintf("Failed connecting to DHT peer %s: %s", p.ID.String(), err.Error()))
 		} else {
 			cfg.logger.Info(fmt.Sprintf("Connected to DHT peer: %s", p.ID.String()))
 			// Add to relay manager for potential relay usage
