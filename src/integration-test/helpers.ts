@@ -8,7 +8,7 @@ import {
   StreamingEchoRequestSchema,
   BidiStreamingEchoRequestSchema,
   BidiStreamingEchoRequest,
-  BidiStreamingEchoResponse
+  BidiStreamingEchoResponse,
 } from "../../demo/gen/ts/greeter/v1/greeter_pb";
 
 import { DRPCOptions } from "../client/core/types";
@@ -81,7 +81,7 @@ export async function testClientUnaryRequest(
  */
 export async function testServerStreamingRequest(
   client: DRPCClient<typeof GreeterService>,
-  message: string
+  message: string,
 ): Promise<string[]> {
   try {
     console.log(`Testing streamingEcho with message: ${message}`);
@@ -95,7 +95,9 @@ export async function testServerStreamingRequest(
       responses.push(resp.message);
     }
 
-    console.log(`Total server stream responses: ${responses.length}, responses: ${JSON.stringify(responses)}`);
+    console.log(
+      `Total server stream responses: ${responses.length}, responses: ${JSON.stringify(responses)}`,
+    );
 
     // Verify we got at least one response
     if (responses.length < 1) {
@@ -104,7 +106,9 @@ export async function testServerStreamingRequest(
 
     // Verify the response contains the expected message
     if (!responses[0].includes(`Echo: ${message}`)) {
-      throw new Error(`Expected response to contain "Echo: ${message}" but got "${responses[0]}"`);
+      throw new Error(
+        `Expected response to contain "Echo: ${message}" but got "${responses[0]}"`,
+      );
     }
 
     return responses;
@@ -124,18 +128,22 @@ export async function testServerStreamingRequest(
 export async function testClientAndBidiStreamingRequest(
   client: DRPCClient<typeof GreeterService>,
   numClientMessages: number,
-  baseName: string = "ClientMessage"
+  baseName: string = "ClientMessage",
 ): Promise<void> {
-  console.log(`Testing bidiStreamingEcho with ${numClientMessages} client messages.`);
+  console.log(
+    `Testing bidiStreamingEcho with ${numClientMessages} client messages.`,
+  );
 
   // This creates an AsyncIterable that yields BidiStreamingEchoRequest objects
   async function* generateClientRequests(): AsyncIterable<BidiStreamingEchoRequest> {
     for (let i = 0; i < numClientMessages; i++) {
-      const request = create(BidiStreamingEchoRequestSchema, { name: `${baseName}-${i}` });
+      const request = create(BidiStreamingEchoRequestSchema, {
+        name: `${baseName}-${i}`,
+      });
       console.log(`[ClientStreamGen] Yielding: ${JSON.stringify(request)}`);
       yield request;
       // Optional delay between messages
-      await new Promise(r => setTimeout(r, 50));
+      await new Promise((r) => setTimeout(r, 50));
     }
     console.log("[ClientStreamGen] Finished yielding client messages.");
   }
@@ -150,7 +158,9 @@ export async function testClientAndBidiStreamingRequest(
     console.log("[ClientBidiTest] Starting to consume server responses...");
 
     for await (const serverMsg of responseStream) {
-      console.log(`[ClientBidiTest] Received server message: ${JSON.stringify(serverMsg)}`);
+      console.log(
+        `[ClientBidiTest] Received server message: ${JSON.stringify(serverMsg)}`,
+      );
       receivedServerResponses.push(serverMsg);
     }
 
@@ -158,14 +168,18 @@ export async function testClientAndBidiStreamingRequest(
 
     // Verify we received the expected number of responses
     if (receivedServerResponses.length !== numClientMessages) {
-      throw new Error(`Expected ${numClientMessages} responses but got ${receivedServerResponses.length}`);
+      throw new Error(
+        `Expected ${numClientMessages} responses but got ${receivedServerResponses.length}`,
+      );
     }
 
     // Verify each response matches what we expect
     for (let i = 0; i < numClientMessages; i++) {
       const expected = `Hello, ${baseName}-${i}!`;
       if (receivedServerResponses[i].greeting !== expected) {
-        throw new Error(`Expected "${expected}" but got "${receivedServerResponses[i].greeting}"`);
+        throw new Error(
+          `Expected "${expected}" but got "${receivedServerResponses[i].greeting}"`,
+        );
       }
     }
 
@@ -175,7 +189,6 @@ export async function testClientAndBidiStreamingRequest(
     throw err;
   }
 }
-
 
 export class UtilServerHelper {
   private serverProcess: ChildProcess | undefined;
@@ -188,14 +201,14 @@ export class UtilServerHelper {
   constructor(
     utilServerPath = "cmd/util-server/main.go", // Default path relative to project root
     goExec = "go",
-    readyTimeoutMs = UTIL_SERVER_READY_TIMEOUT
+    readyTimeoutMs = UTIL_SERVER_READY_TIMEOUT,
   ) {
     this.utilServerCmdPath = utilServerPath;
     this.goExecutablePath = goExec;
     this.readyTimeout = readyTimeoutMs;
     this.httpTimeout = 10000; // 10 seconds timeout, same as Go's httpClient
     console.log(
-      `UtilServerHelper initialized with cmd: ${this.utilServerCmdPath}, goExec: ${this.goExecutablePath}`
+      `UtilServerHelper initialized with cmd: ${this.utilServerCmdPath}, goExec: ${this.goExecutablePath}`,
     );
   }
 
@@ -206,7 +219,7 @@ export class UtilServerHelper {
     }
 
     console.log(
-      `Starting utility server: ${this.goExecutablePath} run ${this.utilServerCmdPath}`
+      `Starting utility server: ${this.goExecutablePath} run ${this.utilServerCmdPath}`,
     );
 
     // Create a promise for server readiness
@@ -224,7 +237,7 @@ export class UtilServerHelper {
         stdio: ["pipe", "pipe", "pipe"],
         cwd: process.cwd(),
         detached: false,
-      }
+      },
     );
 
     // Set up logging for server output
@@ -248,7 +261,9 @@ export class UtilServerHelper {
 
       // If the server exits unexpectedly during startup, reject the ready promise
       if (this.serverReady) {
-        rejectReady(new Error(`Utility server exited unexpectedly with code ${code}`));
+        rejectReady(
+          new Error(`Utility server exited unexpectedly with code ${code}`),
+        );
         this.serverReady = null;
       }
     });
@@ -268,7 +283,7 @@ export class UtilServerHelper {
 
   private async checkServerReady(
     resolve: () => void,
-    reject: (error: Error) => void
+    reject: (error: Error) => void,
   ): Promise<void> {
     const startTime = Date.now();
 
@@ -276,14 +291,20 @@ export class UtilServerHelper {
       // Stop checking if we've exceeded the timeout
       if (Date.now() - startTime > this.readyTimeout) {
         clearInterval(checkInterval);
-        reject(new Error("Utility server did not become ready within the timeout period."));
+        reject(
+          new Error(
+            "Utility server did not become ready within the timeout period.",
+          ),
+        );
         return;
       }
 
       // Stop checking if the server process has disappeared
       if (!this.serverProcess) {
         clearInterval(checkInterval);
-        reject(new Error("Utility server process not found or already stopped."));
+        reject(
+          new Error("Utility server process not found or already stopped."),
+        );
         return;
       }
 
@@ -291,11 +312,17 @@ export class UtilServerHelper {
         // Using public-node as a health check, assuming it's always available
         // This matches the Go implementation which checks public-node endpoint
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), this.httpTimeout);
+        const timeoutId = setTimeout(
+          () => controller.abort(),
+          this.httpTimeout,
+        );
 
-        const response = await fetch(`${UTIL_SERVER_BASE_URL}${PUBLIC_NODE_ENDPOINT}`, {
-          signal: controller.signal as any
-        });
+        const response = await fetch(
+          `${UTIL_SERVER_BASE_URL}${PUBLIC_NODE_ENDPOINT}`,
+          {
+            signal: controller.signal as any,
+          },
+        );
 
         clearTimeout(timeoutId);
 
@@ -312,14 +339,12 @@ export class UtilServerHelper {
 
   public stopServer(): void {
     if (this.serverProcess) {
-      console.log(
-        `Stopping utility server PID: ${this.serverProcess.pid}`
-      );
+      console.log(`Stopping utility server PID: ${this.serverProcess.pid}`);
       // Sending SIGTERM first for graceful shutdown
       const killed = this.serverProcess.kill("SIGTERM");
       if (!killed) {
         console.warn(
-          `Error sending SIGTERM to utility server. Attempting to kill.`
+          `Error sending SIGTERM to utility server. Attempting to kill.`,
         );
         this.serverProcess.kill("SIGKILL");
       } else {
@@ -344,28 +369,34 @@ export class UtilServerHelper {
       const timeoutId = setTimeout(() => controller.abort(), this.httpTimeout);
 
       const response = await fetch(serverURL, {
-        signal: controller.signal as any
+        signal: controller.signal as any,
       });
 
       clearTimeout(timeoutId);
 
       if (!response.ok) {
         const bodyText = await response.text();
-        throw new Error(`Received non-OK status code ${response.status} from ${serverURL}: ${bodyText}`);
+        throw new Error(
+          `Received non-OK status code ${response.status} from ${serverURL}: ${bodyText}`,
+        );
       }
 
-      const rawInfo = await response.json() as any;
-      console.log(`Received node info from ${serverURL}: ${JSON.stringify(rawInfo)}`);
+      const rawInfo = (await response.json()) as any;
+      console.log(
+        `Received node info from ${serverURL}: ${JSON.stringify(rawInfo)}`,
+      );
 
       // Create NodeInfo object using snake_case property names
       const info: NodeInfo = {
-        http_address: rawInfo.http_address || "",  // Primary format from Go
-        libp2p_ma: rawInfo.libp2p_ma || "",       // Primary format from Go
+        http_address: rawInfo.http_address || "", // Primary format from Go
+        libp2p_ma: rawInfo.libp2p_ma || "", // Primary format from Go
       };
 
       return info;
     } catch (err) {
-      throw new Error(`Error making GET request to ${serverURL}: ${(err as Error).message}`);
+      throw new Error(
+        `Error making GET request to ${serverURL}: ${(err as Error).message}`,
+      );
     }
   }
 
@@ -375,14 +406,20 @@ export class UtilServerHelper {
       const info = await this.getNodeInfo(PUBLIC_NODE_ENDPOINT);
 
       if (!info.http_address) {
-        throw new Error(`Public node info from ${PUBLIC_NODE_ENDPOINT} is missing HTTP address`);
+        throw new Error(
+          `Public node info from ${PUBLIC_NODE_ENDPOINT} is missing HTTP address`,
+        );
       }
       if (!info.libp2p_ma) {
-        throw new Error(`Public node info from ${PUBLIC_NODE_ENDPOINT} is missing libp2p multiaddress`);
+        throw new Error(
+          `Public node info from ${PUBLIC_NODE_ENDPOINT} is missing libp2p multiaddress`,
+        );
       }
       return info;
     } catch (err) {
-      throw new Error(`Failed to get public node info from ${PUBLIC_NODE_ENDPOINT}: ${(err as Error).message}`);
+      throw new Error(
+        `Failed to get public node info from ${PUBLIC_NODE_ENDPOINT}: ${(err as Error).message}`,
+      );
     }
   }
 
@@ -392,11 +429,15 @@ export class UtilServerHelper {
       const info = await this.getNodeInfo(RELAY_NODE_ENDPOINT);
 
       if (!info.libp2p_ma) {
-        throw new Error(`Relay node info from ${RELAY_NODE_ENDPOINT} is missing libp2p multiaddress`);
+        throw new Error(
+          `Relay node info from ${RELAY_NODE_ENDPOINT} is missing libp2p multiaddress`,
+        );
       }
       return info;
     } catch (err) {
-      throw new Error(`Failed to get relay node info from ${RELAY_NODE_ENDPOINT}: ${(err as Error).message}`);
+      throw new Error(
+        `Failed to get relay node info from ${RELAY_NODE_ENDPOINT}: ${(err as Error).message}`,
+      );
     }
   }
 
@@ -406,11 +447,15 @@ export class UtilServerHelper {
       const info = await this.getNodeInfo(GATEWAY_NODE_ENDPOINT);
 
       if (!info.http_address) {
-        throw new Error(`Gateway node info from ${GATEWAY_NODE_ENDPOINT} is missing HTTP address`);
+        throw new Error(
+          `Gateway node info from ${GATEWAY_NODE_ENDPOINT} is missing HTTP address`,
+        );
       }
       return info;
     } catch (err) {
-      throw new Error(`Failed to get gateway node info from ${GATEWAY_NODE_ENDPOINT}: ${(err as Error).message}`);
+      throw new Error(
+        `Failed to get gateway node info from ${GATEWAY_NODE_ENDPOINT}: ${(err as Error).message}`,
+      );
     }
   }
 
@@ -420,11 +465,15 @@ export class UtilServerHelper {
       const info = await this.getNodeInfo(GATEWAY_RELAY_NODE_ENDPOINT);
 
       if (!info.http_address) {
-        throw new Error(`Gateway relay node info from ${GATEWAY_RELAY_NODE_ENDPOINT} is missing HTTP address`);
+        throw new Error(
+          `Gateway relay node info from ${GATEWAY_RELAY_NODE_ENDPOINT} is missing HTTP address`,
+        );
       }
       return info;
     } catch (err) {
-      throw new Error(`Failed to get gateway relay node info from ${GATEWAY_RELAY_NODE_ENDPOINT}: ${(err as Error).message}`);
+      throw new Error(
+        `Failed to get gateway relay node info from ${GATEWAY_RELAY_NODE_ENDPOINT}: ${(err as Error).message}`,
+      );
     }
   }
 
@@ -434,11 +483,15 @@ export class UtilServerHelper {
       const info = await this.getNodeInfo(GATEWAY_AUTO_RELAY_NODE_ENDPOINT);
 
       if (!info.http_address) {
-        throw new Error(`Gateway auto relay node info from ${GATEWAY_AUTO_RELAY_NODE_ENDPOINT} is missing HTTP address`);
+        throw new Error(
+          `Gateway auto relay node info from ${GATEWAY_AUTO_RELAY_NODE_ENDPOINT} is missing HTTP address`,
+        );
       }
       return info;
     } catch (err) {
-      throw new Error(`Failed to get gateway auto relay node info from ${GATEWAY_AUTO_RELAY_NODE_ENDPOINT}: ${(err as Error).message}`);
+      throw new Error(
+        `Failed to get gateway auto relay node info from ${GATEWAY_AUTO_RELAY_NODE_ENDPOINT}: ${(err as Error).message}`,
+      );
     }
   }
 }
@@ -483,7 +536,7 @@ export class ClientManager {
         } catch (err) {
           console.warn("Error closing client:", err);
         }
-      })
+      }),
     );
 
     this.clients = []; // Clear references
@@ -493,7 +546,7 @@ export class ClientManager {
 
 /**
  * Creates a client and registers it with the ClientManager for cleanup
- * 
+ *
  * @param clientManager The client manager instance
  * @param addr The server address (HTTP or libp2p multiaddr)
  * @param service The service definition
@@ -504,7 +557,7 @@ export async function createManagedClient<TService extends DescService>(
   clientManager: ClientManager,
   addr: string,
   service: TService,
-  options: DRPCOptions
+  options: DRPCOptions,
 ): Promise<DRPCClient<TService>> {
   // Create the client and track it with the ClientManager
   const client = await NewClient(addr, service, options);

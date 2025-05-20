@@ -34,7 +34,8 @@ export async function createLibp2pHost(
   opts: CreateLibp2pHostOptions,
 ): Promise<Libp2pHostResult> {
   const logger = opts.logger;
-  const isClientMode = opts.isClientMode === undefined ? true : opts.isClientMode;
+  const isClientMode =
+    opts.isClientMode === undefined ? true : opts.isClientMode;
 
   // Peer discovery event emitter
   const peerDiscovery = new EventEmitter();
@@ -53,7 +54,7 @@ export async function createLibp2pHost(
       // These options are set internally by circuitRelayTransport
       // but we'll be explicit to ensure proper configuration:
       reservationConcurrency: 3,
-    })
+    }),
   ];
 
   // Compose libp2p options
@@ -70,13 +71,14 @@ export async function createLibp2pHost(
       mdns({
         interval: 10000, // More frequent discovery
         broadcast: true,
-        serviceTag: 'drpc',
-      })
+        serviceTag: "drpc",
+      }),
     ],
     addresses: {
       ...(opts.libp2pOptions?.addresses || {}),
       listen:
-        opts.libp2pOptions?.addresses?.listen && opts.libp2pOptions.addresses.listen.length > 0
+        opts.libp2pOptions?.addresses?.listen &&
+        opts.libp2pOptions.addresses.listen.length > 0
           ? opts.libp2pOptions.addresses.listen
           : defaultListenAddrs,
     },
@@ -84,18 +86,18 @@ export async function createLibp2pHost(
       identify: identify(),
       ping: ping({
         // More frequent ping to keep connections alive
-        timeout: 5000
+        timeout: 5000,
       }),
       dht: kadDHT({
         ...dhtConfig,
         // Enable DHT server mode for better peer routing
         clientMode: false,
         validators: {},
-        selectors: {}
+        selectors: {},
       }),
       autonat: autoNAT({
         // More aggressive autonat for better connectivity
-        refreshInterval: 10000
+        refreshInterval: 10000,
       }),
     },
     connectionGater: {
@@ -112,7 +114,7 @@ export async function createLibp2pHost(
     },
     connectionManager: {
       // Increase max connections for relay discovery
-      maxConnections: 100
+      maxConnections: 100,
     },
     ...opts.libp2pOptions,
   };

@@ -13,7 +13,7 @@ const HEADER_LENGTH = 5; // 1 byte for flags, 4 bytes for data length
 
 /**
  * Serializes an envelope to a Uint8Array
- * 
+ *
  * @param envelope The envelope to serialize
  * @returns A Uint8Array containing the serialized envelope
  */
@@ -51,7 +51,11 @@ export function parseEnvelope(
     return { envelope: null, bytesRead: 0 };
   }
 
-  const view = new DataView(buffer.buffer, buffer.byteOffset + offset, HEADER_LENGTH);
+  const view = new DataView(
+    buffer.buffer,
+    buffer.byteOffset + offset,
+    HEADER_LENGTH,
+  );
   const flags = view.getUint8(0) as Flag;
   const dataLength = view.getUint32(1, false); // false for big-endian
 
@@ -72,19 +76,19 @@ export function parseEnvelope(
 
 /**
  * Converts a Uint8Array to a hex string
- * 
+ *
  * @param buffer The buffer to convert
  * @returns A hex string representation of the buffer
  */
 export function toHex(buffer: Uint8Array): string {
   return Array.from(buffer)
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }
 
 /**
  * Converts a Uint8Array to a string
- * 
+ *
  * @param buffer The buffer to convert
  * @returns A string representation of the buffer
  */

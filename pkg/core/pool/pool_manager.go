@@ -3,7 +3,7 @@ package pool
 import (
 	"sync"
 	"time"
-	
+
 	"github.com/libp2p/go-libp2p/core/host"
 	glog "github.com/omgolab/go-commons/pkg/log" // Added import
 )

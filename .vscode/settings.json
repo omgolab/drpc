@@ -30,8 +30,6 @@
   "github.copilot.chat.languageContext.typescript.enabled": true,
   "github.copilot.chat.search.semanticTextResults": true,
   "gopls": {
-    "build.directoryFilters": [
-      "-docs/vendors"
-    ]
+    "build.directoryFilters": ["-docs/vendors"]
   }
 }
