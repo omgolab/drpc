@@ -1,23 +1,27 @@
 package core
 
+//go:generate sh -c "cd ./proto/; buf generate"
+
 import (
 	"context"
 	"fmt"
 	"sync"
 	"time"
 
-	"github.com/omgolab/drpc/pkg/config"
-	"github.com/omgolab/drpc/pkg/core/relay"
-	glog "github.com/omgolab/go-commons/pkg/log" // Renamed log to glog
-
 	"github.com/libp2p/go-libp2p"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
+	pubsub "github.com/libp2p/go-libp2p-pubsub"
 	"github.com/libp2p/go-libp2p/core/host"
 	"github.com/libp2p/go-libp2p/core/peer"
 	"github.com/libp2p/go-libp2p/core/routing"
 	libp2pmdns "github.com/libp2p/go-libp2p/p2p/discovery/mdns"
 	drouting "github.com/libp2p/go-libp2p/p2p/discovery/routing"
 	dutil "github.com/libp2p/go-libp2p/p2p/discovery/util"
+	"github.com/omgolab/drpc/pkg/config"
+	pb "github.com/omgolab/drpc/pkg/core/proto"
+	"github.com/omgolab/drpc/pkg/core/relay"
+	glog "github.com/omgolab/go-commons/pkg/log"
+	"google.golang.org/protobuf/proto"
 )
 
 var (
@@ -26,11 +30,12 @@ var (
 
 // hostCfg holds the host configuration
 type hostCfg struct {
-	logger        glog.Logger
-	libp2pOptions []libp2p.Option
-	dhtOptions    []dht.Option
-	isClientMode  bool
-	relayManager  *relay.RelayManager
+	logger                 glog.Logger
+	libp2pOptions          []libp2p.Option
+	dhtOptions             []dht.Option
+	isClientMode           bool
+	relayManager           *relay.RelayManager
+	disablePubsubDiscovery bool
 }
 
 // HostOption configures a Host.
@@ -72,6 +77,14 @@ func WithHostAsClientMode() HostOption {
 		// client mode implies disabling server ModeAuto (no bootstrap)
 		c.dhtOptions = append(c.dhtOptions, dht.Mode(dht.ModeClient))
 		c.isClientMode = true
+		return nil
+	}
+}
+
+// WithPubsubDiscovery enables pubsub discovery for the host.
+func WithPubsubDiscovery(enable bool) HostOption {
+	return func(c *hostCfg) error {
+		c.disablePubsubDiscovery = enable
 		return nil
 	}
 }
@@ -184,15 +197,14 @@ func CreateLibp2pHost(ctx context.Context, opts ...HostOption) (host.Host, error
 
 		// Use EnableAutoRelayWithPeerSource with our RelayManager
 		// This provides a persistent store of relay candidates with smart selection
-		libp2p.EnableAutoRelayWithPeerSource(cfg.relayManager.GetPeerSource()),
+		// libp2p.EnableAutoRelayWithPeerSource(cfg.relayManager.GetPeerSource()),
 	}
 
 	// allow mDNS and relays in client mode by adding an ephemeral listen addr
 	if cfg.isClientMode {
 		options = append(options,
 			libp2p.NoListenAddrs,
-			libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0"),
-			libp2p.EnableRelay(), // Enable relay service
+			libp2p.EnableRelay(), // Enable only relay transport support in client mode
 		)
 	} else {
 		// add relay service options
@@ -200,6 +212,9 @@ func CreateLibp2pHost(ctx context.Context, opts ...HostOption) (host.Host, error
 			libp2p.EnableRelayService(), // Enable Relay Service if publicly reachable
 		)
 	}
+
+	// add minimum WS listen addr if configured
+	options = append(options, libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0/ws"))
 
 	// Add any user-provided options
 	options = append(options, libp2pOpts...)
@@ -218,6 +233,14 @@ func CreateLibp2pHost(ctx context.Context, opts ...HostOption) (host.Host, error
 	if err := setupMDNS(h, cfg); err != nil {
 		log.Error("Failed to setup mDNS", err)
 		// Continue anyway, some features may still work
+	}
+
+	// Setup built-in pubsub discovery for browser-Go node connectivity
+	if !cfg.disablePubsubDiscovery {
+		if err := setupBuiltinPubsubDiscovery(ctx, h, cfg); err != nil {
+			log.Error("Failed to setup built-in pubsub discovery", err)
+			// Continue anyway, other discovery mechanisms will work
+		}
 	}
 
 	// Log any DHT setup errors
@@ -279,6 +302,7 @@ func setupMDNS(h host.Host, cfg *hostCfg) error { // Use glog.Logger
 		tag = ""
 		cfg.logger.Warn("config.DISCOVERY_TAG is empty, using default mDNS tag")
 	}
+	cfg.logger.Debug(fmt.Sprintf("Using mDNS tag: %s", tag))
 	disc := libp2pmdns.NewMdnsService(h, tag, notifee)
 	return disc.Start()
 }
@@ -333,4 +357,131 @@ func connectToFoundPeers(ctx context.Context, h host.Host, cfg *hostCfg, peerCha
 			cfg.relayManager.AddPeer(p)
 		}
 	}
+}
+
+// setupBuiltinPubsubDiscovery sets up the built-in libp2p pubsub discovery
+func setupBuiltinPubsubDiscovery(ctx context.Context, h host.Host, cfg *hostCfg) error {
+	cfg.logger.Info("Setting up built-in pubsub discovery for browser-Go node connectivity")
+
+	// Create a basic pubsub instance with built-in discovery
+	ps, err := pubsub.NewGossipSub(ctx, h)
+	if err != nil {
+		return fmt.Errorf("failed to create pubsub for discovery: %w", err)
+	}
+
+	// Join the discovery topic that browsers will use
+	topic, err := ps.Join(config.DISCOVERY_PUBSUB_TOPIC)
+	if err != nil {
+		return fmt.Errorf("failed to join pubsub discovery topic: %w", err)
+	}
+
+	// Subscribe to allow participation in the discovery protocol
+	subscription, err := topic.Subscribe()
+	if err != nil {
+		return fmt.Errorf("failed to subscribe to pubsub discovery topic: %w", err)
+	}
+
+	cfg.logger.Info(fmt.Sprintf("Joined pubsub discovery topic: %s", config.DISCOVERY_PUBSUB_TOPIC))
+
+	// Start broadcasting our presence periodically
+	go func() {
+		defer subscription.Cancel()
+
+		// TODO: Take this broadcasting time as input in the discovery input; default to 30 seconds
+		ticker := time.NewTicker(5 * time.Second) // Broadcast every 30 seconds
+		defer ticker.Stop()
+
+		// Helper function to create protobuf-compatible peer data
+		createPeerData := func() (*pb.Peer, error) {
+			// Get our public key
+			pubKey, err := h.ID().ExtractPublicKey()
+			if err != nil {
+				return nil, fmt.Errorf("failed to extract public key from peer ID: %w", err)
+			}
+
+			// Marshal public key to bytes (libp2p protobuf format)
+			pubKeyBytes, err := pubKey.Raw()
+			if err != nil {
+				return nil, fmt.Errorf("failed to get raw public key: %w", err)
+			}
+
+			// Get our addresses as bytes
+			var addrBytes [][]byte
+			for _, addr := range h.Addrs() {
+				addrBytes = append(addrBytes, addr.Bytes())
+			}
+
+			return &pb.Peer{
+				PublicKey: pubKeyBytes,
+				Addrs:     addrBytes,
+			}, nil
+		}
+
+		// Create initial peer data
+		peerData, err := createPeerData()
+		if err != nil {
+			cfg.logger.Error("Failed to create peer data", err)
+			return
+		}
+
+		// Marshal to protobuf bytes
+		msgBytes, err := proto.Marshal(peerData)
+		if err != nil {
+			cfg.logger.Error("Failed to marshal peer data", err)
+			return
+		}
+
+		// Check if there are subscribers before broadcasting
+		if len(topic.ListPeers()) == 0 {
+			cfg.logger.Debug("Skipping initial broadcast: no peers subscribed to discovery topic")
+		} else {
+			// Send initial discovery message
+			if err := topic.Publish(ctx, msgBytes); err != nil {
+				cfg.logger.Error("Failed to publish initial discovery message", err)
+			} else {
+				cfg.logger.Info(fmt.Sprintf("Published initial discovery message (peer ID: %s, addrs: %d)",
+					h.ID().String(), len(peerData.Addrs)))
+			}
+		}
+
+		// Start periodic broadcasting
+		for {
+			select {
+			case <-ctx.Done():
+				cfg.logger.Info("Stopping pubsub discovery broadcasting due to context cancellation")
+				return
+			case <-ticker.C:
+				// Check if there are subscribers
+				peers := topic.ListPeers()
+				if len(peers) == 0 {
+					cfg.logger.Debug("Skipping broadcast: no peers subscribed to discovery topic")
+					continue
+				}
+
+				// Create updated peer data (addresses might have changed)
+				peerData, err := createPeerData()
+				if err != nil {
+					cfg.logger.Error("Failed to create peer data", err)
+					continue
+				}
+
+				// Marshal updated peer data
+				msgBytes, err := proto.Marshal(peerData)
+				if err != nil {
+					cfg.logger.Error("Failed to marshal peer data", err)
+					continue
+				}
+
+				// Publish discovery message
+				if err := topic.Publish(ctx, msgBytes); err != nil {
+					cfg.logger.Error("Failed to publish discovery message", err)
+				} else {
+					cfg.logger.Debug(fmt.Sprintf("Published discovery message to %d peers (peer ID: %s, addrs: %d)",
+						len(peers), h.ID().String(), len(peerData.Addrs)))
+				}
+			}
+		}
+	}()
+
+	return nil
 }

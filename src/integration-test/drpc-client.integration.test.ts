@@ -44,7 +44,7 @@ beforeAll(async () => {
 });
 
 // Constants for timeout
-const TEST_TIMEOUT = 300000; // 5 minutes
+const TEST_TIMEOUT = 30000; // 30 seconds
 
 describe("DrpcClient Integration", () => {
   // Path 1: HTTP Direct

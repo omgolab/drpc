@@ -3,8 +3,8 @@
  */
 import { Code } from "@connectrpc/connect";
 import { multiaddr } from "@multiformats/multiaddr";
-import { toHex, uint8ArrayToString, parseEnvelope, Flag } from "./envelope";
-import { DRPCOptions } from "./types";
+import { toHex, uint8ArrayToString, parseEnvelope, Flag } from "./envelope.js";
+import { DRPCOptions } from "./types.js";
 
 /**
  * Concatenate multiple Uint8Arrays

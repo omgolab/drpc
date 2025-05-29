@@ -1,0 +1,9 @@
+syntax = "proto3";
+
+option go_package = "./;proto";
+
+// source: https://github.com/libp2p/js-libp2p-pubsub-peer-discovery/blob/main/src/peer.proto
+message Peer {
+  bytes publicKey = 1;
+  repeated bytes addrs = 2;
+}

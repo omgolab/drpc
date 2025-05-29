@@ -168,19 +168,3 @@ func dialWithPool(ctx context.Context, connPool *pool.ConnectionPool, pid protoc
 
 	return &core.Conn{Stream: stream}, nil
 }
-
-// IsRelayAddr checks if the given address string contains the p2p-circuit indicator.
-// Renamed from isRelayAddr to export it.
-func IsRelayAddr(addr string) bool {
-	isRelay := (addr != "" && (len(addr) > 11 && contains(addr, "/p2p-circuit")))
-	return isRelay
-}
-
-func contains(s string, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
-}

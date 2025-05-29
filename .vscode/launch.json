@@ -1,6 +1,14 @@
 {
   "configurations": [
     {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug tsx run",
+      "runtimeExecutable": "tsx",
+      "cwd": "${workspaceFolder}",
+      "args": ["experiments/ts-auto-relay/ambient_relay_simple_2.ts"]
+    },
+    {
       "type": "go",
       "name": "debug main.go",
       "request": "launch",

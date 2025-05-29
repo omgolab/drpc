@@ -90,7 +90,7 @@ func TestLibp2pAddressRecognition(t *testing.T) {
 		t.Fatalf("Failed to create relay multiaddress: %v", err)
 	}
 
-	if !drpc.IsRelayAddr(maddr.String()) {
+	if !IsRelayAddr(maddr.String()) {
 		t.Errorf("Address %s should be recognized as a relay address", relayAddr)
 	}
 
@@ -101,7 +101,7 @@ func TestLibp2pAddressRecognition(t *testing.T) {
 		t.Fatalf("Failed to create direct multiaddress: %v", err)
 	}
 
-	if drpc.IsRelayAddr(maddr2.String()) {
+	if IsRelayAddr(maddr2.String()) {
 		t.Errorf("Address %s should not be recognized as a relay address", directAddr)
 	}
 }
@@ -139,4 +139,20 @@ func TestClientOptions(t *testing.T) {
 	if !reflect.DeepEqual(callOpts, expectedOpts) {
 		t.Errorf("Expected client options to be %v, got %v", expectedOpts, callOpts)
 	}
+}
+
+// IsRelayAddr checks if the given address string contains the p2p-circuit indicator.
+// Renamed from isRelayAddr to export it.
+func IsRelayAddr(addr string) bool {
+	isRelay := (addr != "" && (len(addr) > 11 && contains(addr, "/p2p-circuit")))
+	return isRelay
+}
+
+func contains(s string, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
 }

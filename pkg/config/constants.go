@@ -29,6 +29,9 @@ const (
 	// DISCOVERY_TAG is the tag used for general peer discovery
 	DISCOVERY_TAG = "drpc"
 
+	// pubsub discovery topic
+	DISCOVERY_PUBSUB_TOPIC = DISCOVERY_TAG + "._peer-discovery._p2p._pubsub"
+
 	// DHT_PEER_DISCOVERY_INTERVAL is the interval between DHT peer discovery attempts
 	DHT_PEER_DISCOVERY_INTERVAL = 60 * time.Second
 

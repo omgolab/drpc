@@ -5,7 +5,8 @@ go 1.24
 require (
 	connectrpc.com/connect v1.18.1
 	github.com/libp2p/go-libp2p v0.41.1
-	github.com/libp2p/go-libp2p-kad-dht v0.33.0
+	github.com/libp2p/go-libp2p-kad-dht v0.33.1
+	github.com/libp2p/go-libp2p-pubsub v0.13.1
 	github.com/multiformats/go-multiaddr v0.15.0
 	github.com/omgolab/go-commons v0.0.0-20240727100037-04777cf24b8b
 	github.com/stretchr/testify v1.10.0
@@ -36,6 +37,7 @@ require (
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/websocket v1.5.3 // indirect
 	github.com/hashicorp/golang-lru v1.0.2 // indirect
+	github.com/hashicorp/golang-lru/v2 v2.0.7 // indirect
 	github.com/huin/goupnp v1.3.0 // indirect
 	github.com/ipfs/boxo v0.30.0 // indirect
 	github.com/ipfs/go-cid v0.5.0 // indirect
