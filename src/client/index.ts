@@ -15,6 +15,9 @@ import { createLibp2pTransport } from "./core/libp2p-transport";
 import { createSmartHttpLibp2pTransport } from "./core/http-transport";
 import { createLibp2pHost } from "./core/libp2p-host";
 import { DRPCOptions } from "./core/types";
+import { Libp2p } from "libp2p";
+import { ServiceMap } from "@libp2p/interface";
+import { discoverOptimalConnection } from "./core/peer-discovery";
 
 // Global/shared libp2p host reference counting
 interface LibP2PHostReference {
@@ -28,16 +31,13 @@ let globalHostRef: LibP2PHostReference | null = null;
 /**
  * Get or create the global libp2p host instance with reference counting
  */
-async function getLibp2pHostInstance(options: DRPCOptions): Promise<any> {
+async function getLibp2pHostInstance(options: DRPCOptions): Promise<Libp2p<ServiceMap>> {
   if (!globalHostRef) {
     let logger = options.logger.createChildLogger({
       contextName: "dRPC-Client",
     });
     logger.debug("[getLibp2pHostInstance] Creating new libp2p host instance.");
-    const { libp2p } = await createLibp2pHost({
-      isClientMode: true,
-      logger,
-    });
+    const libp2p = await createLibp2pHost();
     globalHostRef = {
       libp2p,
       refCount: 1,
@@ -142,21 +142,27 @@ export async function NewClient<TService extends DescService>(
     // Get or create the global libp2p host
     const libp2p = await getLibp2pHostInstance(options);
 
-    // Parse and validate the multiaddr
-    const ma = multiaddr(addr);
-    const peerIdStr = ma.getPeerId();
-    if (!peerIdStr) {
-      throw new Error("Multiaddr missing peer ID");
-    }
+    // // Parse and validate the multiaddr
+    // const ma = multiaddr(addr);
+    // const peerIdStr = ma.getPeerId();
+    // if (!peerIdStr) {
+    //   throw new Error("Multiaddr missing peer ID");
+    // }
 
-    // Check if this is a relay address (contains p2p-circuit)
-    const isRelay = addr.includes("/p2p-circuit/");
-    if (isRelay) {
-      logger.debug(`[NewClient] Using relay path for ${addr}`);
+    // // Check if this is a relay address (contains p2p-circuit)
+    // const isRelay = addr.includes("/p2p-circuit/");
+    // if (isRelay) {
+    //   logger.debug(`[NewClient] Using relay path for ${addr}`);
+    // }
+
+    // query the peer info
+    const res = await discoverOptimalConnection(libp2p, addr);
+    if (res.error) {
+      throw new Error(`Failed to find connection path to ${addr} err: ${res.error}`);
     }
 
     // Create transport and client
-    const transport = createLibp2pTransport(libp2p, ma, options);
+    const transport = createLibp2pTransport(libp2p, res.multiaddr, options);
     const baseClient = createClient(service, transport) as any;
 
     // Add Close method to the client

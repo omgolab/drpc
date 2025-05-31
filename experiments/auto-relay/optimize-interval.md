@@ -130,10 +130,10 @@ const DEFAULT_CONFIG: OptimizationConfig = {
 
 ### Function Signature Change
 
-The `findConnectPath` function now accepts an `intervalMs` parameter:
+The `discoverOptimalConnection` function now accepts an `intervalMs` parameter:
 
 ```typescript
-export async function findConnectPath(
+export async function discoverOptimalConnection(
   h: Libp2p,
   targetPeerIdStr: string,
   timeoutMs: number = 30000,
@@ -146,10 +146,10 @@ export async function findConnectPath(
 
 ```typescript
 // With custom interval and dial timeout
-const result = await findConnectPath(h, targetPeerId, 25000, 1500, 300);
+const result = await discoverOptimalConnection(h, targetPeerId, 25000, 1500, 300);
 
 // With default parameters
-const result = await findConnectPath(h, targetPeerId, 25000);
+const result = await discoverOptimalConnection(h, targetPeerId, 25000);
 ```
 
 ## Expected Results

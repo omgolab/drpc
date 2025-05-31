@@ -10,7 +10,7 @@ export interface ConnectionResult {
     /** Whether the connection was successfully established */
     success: boolean;
     /** The multiaddress used for successful connection, if applicable */
-    multiaddr?: string;
+    multiaddr?: Multiaddr;
     /** The method that successfully established the connection */
     method?: 'already-connected' | 'direct-peer-id' | 'direct-multiaddr' | 'discovered-address';
     /** Error message if connection failed */
@@ -51,17 +51,17 @@ export interface SearchOptions {
  * @example
  * ```typescript
  * // Connect using peer ID with default options
- * const result = await findConnectPath(libp2pNode, "12D3KooW...");
+ * const result = await discoverOptimalConnection(libp2pNode, "12D3KooW...");
  * 
  * // Connect with custom timeout and dial settings
- * const result = await findConnectPath(libp2pNode, "12D3KooW...", {
+ * const result = await discoverOptimalConnection(libp2pNode, "12D3KooW...", {
  *   timeoutMs: 15000,
  *   dialTimeoutMs: 2000,
  *   connectIntervalMs: 200
  * });
  * 
  * // Connect using multiaddress
- * const result = await findConnectPath(
+ * const result = await discoverOptimalConnection(
  *   libp2pNode, 
  *   "/ip4/127.0.0.1/tcp/4001/p2p/12D3KooW..."
  * );
@@ -76,7 +76,7 @@ export interface SearchOptions {
  * }
  * ```
  */
-export async function findConnectPath(
+export async function discoverOptimalConnection(
     h: Libp2p,
     targetPeerIdStr: string,
     options: SearchOptions = {}
@@ -249,7 +249,7 @@ async function tryMultiaddressConnect(
             return {
                 success: true,
                 method: 'direct-multiaddr' as const,
-                multiaddr: multiAddr.toString(),
+                multiaddr: multiAddr,
                 totalTimeSeconds: getTimeSeconds()
             };
         }
@@ -319,7 +319,6 @@ async function tryDiscoveredAddresses(
         // Create parallel connection attempts for all new addresses
         // This significantly improves connection speed in multi-address scenarios
         const connectionPromises = newAddresses.map(async (addr) => {
-            const addrStr = addr.toString();
             try {
                 // Verify address is dialable before attempting connection
                 if (await h.isDialable(addr)) {
@@ -328,7 +327,7 @@ async function tryDiscoveredAddresses(
                 return {
                     success: true,
                     method: 'discovered-address' as const,
-                    multiaddr: addrStr,
+                    multiaddr: addr,
                     totalTimeSeconds: getTimeSeconds()
                 };
             } catch (err) {

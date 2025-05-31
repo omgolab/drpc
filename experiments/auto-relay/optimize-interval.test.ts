@@ -25,7 +25,7 @@
  * **Output:**
  * The tool outputs optimal parameters that can be used with the SearchOptions interface:
  * ```typescript
- * const result = await findConnectPath(node, peerId, {
+ * const result = await discoverOptimalConnection(node, peerId, {
  *   connectIntervalMs: 150,  // From optimization results
  *   dialTimeoutMs: 1200,     // From optimization results
  *   timeoutMs: 25000
@@ -59,7 +59,7 @@ import { pubsubPeerDiscovery } from '@libp2p/pubsub-peer-discovery';
 import { gossipsub } from '@chainsafe/libp2p-gossipsub';
 import { mdns } from '@libp2p/mdns';
 import { config } from '../../src/client/core/constants.js';
-import { findConnectPath, type SearchOptions } from '../../src/client/core/peer-discovery.js';
+import { discoverOptimalConnection } from '../../src/client/core/peer-discovery.js';
 import { bootstrapConfig } from '@heliau/bootstrappers';
 
 /**
@@ -275,7 +275,7 @@ class AdaptiveOptimizer {
                     const h = await this.createLibp2pNode();
 
                     try {
-                        const result = await findConnectPath(
+                        const result = await discoverOptimalConnection(
                             h,
                             this.targetPeerId,
                             {
@@ -461,7 +461,7 @@ class AdaptiveOptimizer {
         console.log(`   Optimization Score: ${optimal.score.toFixed(2)}`);
 
         console.log('\n📝 To use this combination:');
-        console.log(`   // Update findConnectPath calls to use these options:`);
+        console.log(`   // Update discoverOptimalConnection calls to use these options:`);
         console.log(`   // { connectIntervalMs: ${optimal.connectIntervalMs}, dialTimeoutMs: ${optimal.dialTimeoutMs} }`);
 
         console.log(`\n🧮 Algorithm explored ${this.allResults.length} total combinations using adaptive refinement`);
