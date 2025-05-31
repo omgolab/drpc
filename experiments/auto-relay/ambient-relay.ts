@@ -9,11 +9,12 @@ async function getTargetPeerIdFromRelay(): Promise<string> {
         // Extract the last peer ID from the libp2p_ma multiaddr
         // Format: /ip4/127.0.0.1/tcp/63258/p2p/12D3KooWA67R3DCqmRWLzMPvxhaUkRtzur56AaFbTbf1uCovhYRz/p2p-circuit/p2p/12D3KooWPssUeEn7dpVVYXZJzkQRZ8X5FkZi9N33zUBaHgWKGbtJ
         const libp2pMa = data.libp2p_ma;
-        const parts = libp2pMa.split('/');
-        const targetPeerId = parts[parts.length - 1];
+        return libp2pMa
+        // const parts = libp2pMa.split('/');
+        // const targetPeerId = parts[parts.length - 1];
 
-        log(`🎯 Extracted target peer ID: ${targetPeerId}`);
-        return targetPeerId;
+        // log(`🎯 Extracted target peer ID: ${targetPeerId}`);
+        // return targetPeerId;
     } catch (error) {
         throw new Error(`Failed to fetch relay node: ${error instanceof Error ? error.message : String(error)}`);
     }

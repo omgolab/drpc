@@ -38,10 +38,11 @@ export interface SearchOptions {
  * 
  * **Connection Strategy (in order of preference):**
  * 1. **Already Connected Check**: Verifies if the target peer is already in the connection pool
- * 2. **Direct Multiaddr**: If input is a multiaddress, attempts direct connection first
+ * 2. **Direct Multiaddr**: If input is a non-circuit multiaddress, attempts direct connection first
  * 3. **Discovered Addresses**: Uses libp2p peer store to find known addresses for the target
- * 4. **Direct Peer ID**: Falls back to libp2p's built-in peer discovery via peer ID
- * 5. **Ambient Discovery**: Continuously discovers new peers through libp2p events to find relay paths
+ * 4. **Circuit Address (After Discovery)**: For circuit addresses, attempts connection only after target peer is discovered
+ * 5. **Direct Peer ID**: Falls back to libp2p's built-in peer discovery via peer ID
+ * 6. **Ambient Discovery**: Continuously discovers new peers through libp2p events to find relay paths
  * 
  * @param h - The libp2p node instance used for connections and peer discovery
  * @param targetPeerIdStr - Target peer identifier (peer ID string or multiaddress with /p2p/ component)
@@ -64,6 +65,12 @@ export interface SearchOptions {
  * const result = await discoverOptimalConnection(
  *   libp2pNode, 
  *   "/ip4/127.0.0.1/tcp/4001/p2p/12D3KooW..."
+ * );
+ * 
+ * // Connect using circuit relay address
+ * const result = await discoverOptimalConnection(
+ *   libp2pNode, 
+ *   "/ip4/127.0.0.1/tcp/4001/p2p/12D3KooW.../p2p-circuit/p2p/12D3KooW..."
  * );
  * 
  * if (result.success) {
@@ -91,13 +98,17 @@ export async function discoverOptimalConnection(
     const startTime = Date.now();
     const attempted = new Set<string>(); // Track attempted addresses to prevent duplicates
     let result: ConnectionResult | null = null;
+    let targetPeerDiscovered = false; // Track if target peer has been discovered
 
     // Helper function to calculate elapsed time in seconds
     const getTimeSeconds = () => (Date.now() - startTime) / 1000;
 
+    // Cache circuit address check result to avoid repeated string operations
+    const isCircuitAddr = originalMultiaddr ? originalMultiaddr.toString().includes('/p2p-circuit') : false;
+
     // Strategy 1: If input was a multiaddress, try direct connection first
-    // This is often the fastest path if the address is directly reachable
-    if (originalMultiaddr && originalMultiaddr.tuples().length > 1) {
+    // Delay direct connection for circuit addresses as they require active relay infrastructure
+    if (!isCircuitAddr && originalMultiaddr && originalMultiaddr.tuples().length > 1) {
         const directResult = await tryMultiaddressConnect(h, originalMultiaddr, getTimeSeconds, dialTimeoutMs);
         if (directResult) {
             return directResult;
@@ -123,7 +134,20 @@ export async function discoverOptimalConnection(
             return result;
         }
 
-        // Strategy 4: Fallback to direct peer ID dialing
+        // Strategy 4: Try circuit address if available and target peer has been discovered
+        // Only attempt after the target peer is discovered to ensure relay infrastructure is available
+        // Note: originalMultiaddr check is technically redundant (isCircuitAddr implies originalMultiaddr exists)
+        // but kept for TypeScript type safety
+        if (isCircuitAddr && targetPeerDiscovered && originalMultiaddr) {
+            // Target peer found via discovery - now attempt circuit connection
+            const circuitResult = await tryMultiaddressConnect(h, originalMultiaddr, getTimeSeconds, dialTimeoutMs);
+            if (circuitResult) {
+                result = circuitResult;
+                return result;
+            }
+        }
+
+        // Strategy 5: Fallback to direct peer ID dialing
         // Let libp2p handle discovery through its built-in mechanisms
         try {
             await h.dial(targetPeerID, { signal: AbortSignal.timeout(dialTimeoutMs) });
@@ -150,7 +174,7 @@ export async function discoverOptimalConnection(
             }
         };
 
-        // Strategy 5: Handle peer discovery events for ambient relay discovery
+        // Strategy 6: Handle peer discovery events for ambient relay discovery
         // This is where the magic happens for NAT traversal and relay connections
         const onPeer = (evt: any) => {
             if (resolved) return; // Early return to avoid unnecessary work
@@ -160,6 +184,7 @@ export async function discoverOptimalConnection(
                 // Found our target peer! Update peer store with its addresses
                 process.stdout.write('|'); // Visual indicator for target discovery
                 h.peerStore.merge(peer.id, { multiaddrs: peer.multiaddrs });
+                targetPeerDiscovered = true; // Mark target as discovered
             } else {
                 // Found a potential relay peer - attempt connection
                 process.stdout.write('.'); // Visual indicator for relay discovery
@@ -255,6 +280,7 @@ async function tryMultiaddressConnect(
         }
     } catch (err) {
         // Expected to fail in many cases - return null to try other strategies
+        // console.error(`Failed to dial multiaddress ${multiAddr.toString()}:`, err);
     }
 
     return null;

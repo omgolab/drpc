@@ -274,7 +274,7 @@ func (n *discoveryNotifee) HandlePeerFound(pi peer.AddrInfo) {
 	if pi.ID == n.h.ID() {
 		return
 	}
-	n.cfg.logger.Debug(fmt.Sprintf("mDNS peer found: %s", pi.ID.String()))
+	// n.cfg.logger.Debug(fmt.Sprintf("mDNS peer found: %s", pi.ID.String()))
 
 	ctx, cancel := context.WithTimeout(context.Background(), config.PEER_CONNECTION_TIMEOUT)
 	defer cancel()
@@ -282,12 +282,12 @@ func (n *discoveryNotifee) HandlePeerFound(pi peer.AddrInfo) {
 	err := n.h.Connect(ctx, pi)
 	if err != nil {
 		// Don't log errors for transient connection issues, use Debug
-		n.cfg.logger.Debug(fmt.Sprintf("Failed connecting to mDNS peer %s: %s", pi.ID.String(), err.Error()))
+		// n.cfg.logger.Debug(fmt.Sprintf("Failed connecting to mDNS peer %s: %s", pi.ID.String(), err.Error()))
 		return
 	}
 	// Add to relay manager for potential relay usage
 	n.cfg.relayManager.AddPeer(pi)
-	n.cfg.logger.Info(fmt.Sprintf("Connected to peer via mDNS: %s", pi.ID.String()))
+	// n.cfg.logger.Info(fmt.Sprintf("Connected to peer via mDNS: %s", pi.ID.String()))
 }
 
 // setupMDNS initializes the mDNS discovery service
@@ -318,7 +318,7 @@ func findPeersLoop(ctx context.Context, routingDiscovery *drouting.RoutingDiscov
 			cfg.logger.Info("Stopping DHT peer discovery loop due to context cancellation")
 			return
 		case <-ticker.C:
-			cfg.logger.Debug("Finding peers via DHT")
+			// cfg.logger.Debug("Finding peers via DHT")
 			peerChan, err := routingDiscovery.FindPeers(ctx, config.DISCOVERY_TAG)
 			if err != nil {
 				cfg.logger.Error("DHT FindPeers error", err)
@@ -352,7 +352,7 @@ func connectToFoundPeers(ctx context.Context, h host.Host, cfg *hostCfg, peerCha
 			// Use Debug level for potentially transient connection errors
 			// cfg.logger.Debug(fmt.Sprintf("Failed connecting to DHT peer %s: %s", p.ID.String(), err.Error()))
 		} else {
-			cfg.logger.Info(fmt.Sprintf("Connected to DHT peer: %s", p.ID.String()))
+			// cfg.logger.Info(fmt.Sprintf("Connected to DHT peer: %s", p.ID.String()))
 			// Add to relay manager for potential relay usage
 			cfg.relayManager.AddPeer(p)
 		}
@@ -433,7 +433,7 @@ func setupBuiltinPubsubDiscovery(ctx context.Context, h host.Host, cfg *hostCfg)
 
 		// Check if there are subscribers before broadcasting
 		if len(topic.ListPeers()) == 0 {
-			cfg.logger.Debug("Skipping initial broadcast: no peers subscribed to discovery topic")
+			// cfg.logger.Debug("Skipping initial broadcast: no peers subscribed to discovery topic")
 		} else {
 			// Send initial discovery message
 			if err := topic.Publish(ctx, msgBytes); err != nil {
@@ -454,7 +454,7 @@ func setupBuiltinPubsubDiscovery(ctx context.Context, h host.Host, cfg *hostCfg)
 				// Check if there are subscribers
 				peers := topic.ListPeers()
 				if len(peers) == 0 {
-					cfg.logger.Debug("Skipping broadcast: no peers subscribed to discovery topic")
+					// cfg.logger.Debug("Skipping broadcast: no peers subscribed to discovery topic")
 					continue
 				}
 
@@ -476,8 +476,8 @@ func setupBuiltinPubsubDiscovery(ctx context.Context, h host.Host, cfg *hostCfg)
 				if err := topic.Publish(ctx, msgBytes); err != nil {
 					cfg.logger.Error("Failed to publish discovery message", err)
 				} else {
-					cfg.logger.Debug(fmt.Sprintf("Published discovery message to %d peers (peer ID: %s, addrs: %d)",
-						len(peers), h.ID().String(), len(peerData.Addrs)))
+					// cfg.logger.Debug(fmt.Sprintf("Published discovery message to %d peers (peer ID: %s, addrs: %d)",
+						// len(peers), h.ID().String(), len(peerData.Addrs)))
 				}
 			}
 		}
