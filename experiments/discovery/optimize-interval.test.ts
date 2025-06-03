@@ -21,16 +21,7 @@
  * # Fast optimization (smaller search space)
  * tsx experiments/auto-relay/optimize-interval.test.ts fast
  * ```
- * 
- * **Output:**
- * The tool outputs optimal parameters that can be used with the SearchOptions interface:
- * ```typescript
- * const result = await discoverOptimalConnection(node, peerId, {
- *   connectIntervalMs: 150,  // From optimization results
- *   dialTimeoutMs: 1200,     // From optimization results
- *   timeoutMs: 25000
- * });
- * ```
+ *
  * 
  * **Algorithm:**
  * 1. Start with coarse grid over parameter space
@@ -59,7 +50,7 @@ import { pubsubPeerDiscovery } from '@libp2p/pubsub-peer-discovery';
 import { gossipsub } from '@chainsafe/libp2p-gossipsub';
 import { mdns } from '@libp2p/mdns';
 import { config } from '../../src/client/core/constants.js';
-import { discoverOptimalConnection } from '../../src/client/core/peer-discovery.js';
+import { discoverOptimalConnectPath } from '../../src/client/core/discover.js';
 import { bootstrapConfig } from '@heliau/bootstrappers';
 
 /**
@@ -275,22 +266,21 @@ class AdaptiveOptimizer {
                     const h = await this.createLibp2pNode();
 
                     try {
-                        const result = await discoverOptimalConnection(
+                        const result = await discoverOptimalConnectPath(
                             h,
                             this.targetPeerId,
                             {
-                                timeoutMs: this.config.timeoutMs,
-                                dialTimeoutMs: candidate.dialTimeoutMs,
-                                connectIntervalMs: candidate.connectIntervalMs
+                                // dialTimeoutMs: candidate.dialTimeoutMs,
+                                // connectIntervalMs: candidate.connectIntervalMs
                             }
                         );
 
-                        if (result.success) {
-                            successfulTimes.push(result.totalTimeSeconds);
-                            console.log(`    ✅ Success in ${result.totalTimeSeconds.toFixed(2)}s (${result.method})`);
+                        if (result.addr) {
+                            successfulTimes.push(result.totalTime);
+                            console.log(`    ✅ Success in ${result.totalTime.toFixed(2)}s (${result.method})`);
                         } else {
                             failedAttempts++;
-                            console.log(`    ❌ Failed: ${result.error}`);
+                            console.log(`    ❌ Failed: ${result}`);
                         }
                     } finally {
                         await h.stop();
@@ -461,7 +451,7 @@ class AdaptiveOptimizer {
         console.log(`   Optimization Score: ${optimal.score.toFixed(2)}`);
 
         console.log('\n📝 To use this combination:');
-        console.log(`   // Update discoverOptimalConnection calls to use these options:`);
+        console.log(`   // Update discoverOptimalConnectPath calls to use these options:`);
         console.log(`   // { connectIntervalMs: ${optimal.connectIntervalMs}, dialTimeoutMs: ${optimal.dialTimeoutMs} }`);
 
         console.log(`\n🧮 Algorithm explored ${this.allResults.length} total combinations using adaptive refinement`);

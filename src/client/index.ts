@@ -17,7 +17,7 @@ import { createLibp2pHost } from "./core/libp2p-host";
 import { DRPCOptions } from "./core/types";
 import { Libp2p } from "libp2p";
 import { ServiceMap } from "@libp2p/interface";
-import { discoverOptimalConnection } from "./core/peer-discovery";
+import { discoverOptimalConnectPath } from './core/discover';
 
 // Global/shared libp2p host reference counting
 interface LibP2PHostReference {
@@ -156,13 +156,13 @@ export async function NewClient<TService extends DescService>(
     // }
 
     // query the peer info
-    const res = await discoverOptimalConnection(libp2p, addr);
-    if (res.error) {
-      throw new Error(`Failed to find connection path to ${addr} err: ${res.error}`);
+    const res = await discoverOptimalConnectPath(libp2p, addr);
+    if (!res.addr) {
+      throw new Error(`Failed to find connection path to ${addr} : ${res}`);
     }
 
     // Create transport and client
-    const transport = createLibp2pTransport(libp2p, res.multiaddr, options);
+    const transport = createLibp2pTransport(libp2p, res.addr, options);
     const baseClient = createClient(service, transport) as any;
 
     // Add Close method to the client

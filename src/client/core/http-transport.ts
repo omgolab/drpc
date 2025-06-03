@@ -14,7 +14,7 @@ import type {
   MessageInitShape,
 } from "@bufbuild/protobuf";
 import { Transport } from "@connectrpc/connect";
-import { discoverOptimalConnection } from "./peer-discovery";
+import { discoverOptimalConnectPath } from "./discover";
 
 // Global cache for HTTP URL to p2p multiaddress mappings
 const p2pAddrCache = new Map<string, string>();
@@ -146,15 +146,15 @@ export async function createSmartHttpLibp2pTransport(
     }
 
     // query the peer info
-    const res = await discoverOptimalConnection(libp2pHost, p2pAddr);
-    if (res.error) {
-      throw new Error(`Failed to find connection path to ${p2pAddr} err: ${res.error}`);
+    const res = await discoverOptimalConnectPath(libp2pHost, p2pAddr);
+    if (!res.addr) {
+      throw new Error(`Failed to find connection path to ${p2pAddr} : ${res}`);
     }
 
     // Create a new libp2p transport instance using the resolved multiaddress
     resolvedLibp2pTransportInstance = createLibp2pTransport(
       libp2pHost,
-      res.multiaddr,
+      res.addr,
       clientOptions,
     );
     return resolvedLibp2pTransportInstance;
