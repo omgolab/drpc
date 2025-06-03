@@ -1,7 +1,6 @@
 import { createLibp2p, Libp2pOptions, type Libp2p } from 'libp2p';
 import { webSockets } from '@libp2p/websockets';
 import { webRTC, webRTCDirect } from '@libp2p/webrtc';
-import { tcp } from '@libp2p/tcp';
 import { webTransport } from '@libp2p/webtransport';
 import { noise } from '@chainsafe/libp2p-noise';
 import { yamux } from '@chainsafe/libp2p-yamux';
@@ -14,7 +13,6 @@ import { bootstrap } from '@libp2p/bootstrap';
 import { circuitRelayTransport } from '@libp2p/circuit-relay-v2';
 import { pubsubPeerDiscovery } from '@libp2p/pubsub-peer-discovery'
 import { gossipsub } from '@chainsafe/libp2p-gossipsub'
-import { mdns } from '@libp2p/mdns'
 // import { bootstrapConfig } from '@heliau/bootstrappers';
 import { config } from './constants';
 
@@ -30,15 +28,39 @@ export interface Libp2pHostOptions {
 export async function createLibp2pHost(
   opts: Libp2pHostOptions = {},
 ): Promise<Libp2p> {
+  // Detect if we're in a browser environment
+  const isBrowser = typeof window !== 'undefined';
+
+  // Dynamically import Node.js-only modules
+  let mdnsService: any = null;
+  let tcpTransport: any = null;
+
+  if (!isBrowser) {
+    try {
+      // Use eval to completely hide imports from bundler
+      const mdnsModule = await eval('import("@libp2p/mdns")');
+      const tcpModule = await eval('import("@libp2p/tcp")');
+
+      mdnsService = mdnsModule.mdns({
+        serviceTag: config.discovery.tag
+      });
+      tcpTransport = tcpModule.tcp();
+    } catch (error) {
+      console.warn('Failed to load Node.js-specific services:', error);
+    }
+  }
+
   // create the options object
   const libp2pConfig: Libp2pOptions = {
     addresses: {
-      listen: [
-        "/ip4/0.0.0.0/tcp/0",
-        "/ip6/::/tcp/0",
-        "/p2p-circuit",
-        "/webrtc"
-      ]
+      listen: isBrowser
+        ? ["/p2p-circuit", "/webrtc"]
+        : [
+          "/ip4/0.0.0.0/tcp/0",
+          "/ip6/::/tcp/0",
+          "/p2p-circuit",
+          "/webrtc"
+        ]
     },
     transports: [
       circuitRelayTransport(),
@@ -46,7 +68,7 @@ export async function createLibp2pHost(
       webRTC(),
       webRTCDirect(),
       webTransport(),
-      tcp()
+      ...(tcpTransport ? [tcpTransport] : [])
     ],
     connectionEncrypters: [noise()],
     streamMuxers: [yamux()],
@@ -65,9 +87,8 @@ export async function createLibp2pHost(
       pubsubPeerDiscovery({
         topics: [config.discovery.pubsubTopic],
       }),
-      mdns({
-        serviceTag: config.discovery.tag
-      })
+      // mDNS only works in Node.js, not in browsers
+      ...(mdnsService ? [mdnsService] : [])
     ],
     services: {
       autoNAT: autoNAT() as any,

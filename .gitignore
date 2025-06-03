@@ -14,3 +14,4 @@ server_addr.tmp
 *.err
 vendor_docs/
 **/__debug_bin*
+dist/

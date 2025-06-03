@@ -23,8 +23,7 @@
 
 ## TS/Typescript Rules
 
-- **Package Management:** Use `bun` as package manager. For external commands, install packages locally with `bun i -D {pkg_cmd}` then run with `bun {pkg_cmd}` instead of using `bunx/pnpx/npx`.
-- However, to run TS script use: tsx {script.ts} 
+- u must use tsx instead of bun to run any ts file/script
 
 ## Testing Best Practices
 
