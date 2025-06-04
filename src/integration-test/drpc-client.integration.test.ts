@@ -426,7 +426,7 @@ describe("DrpcClient Integration", () => {
 
     describe("libp2p_fixed_relay", () => {
       it(
-        "unary",
+        "4.1-unary",
         async () => {
           if (!fixedRelayAddr) {
             console.warn(
@@ -451,7 +451,7 @@ describe("DrpcClient Integration", () => {
       );
 
       it(
-        "streaming",
+        "4.2-streaming",
         async () => {
           if (!fixedRelayAddr) {
             console.warn(
@@ -476,7 +476,7 @@ describe("DrpcClient Integration", () => {
       );
 
       it(
-        "client/bidi streaming",
+        "4.3-client/bidi streaming",
         async () => {
           if (!fixedRelayAddr) {
             console.warn(

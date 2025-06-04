@@ -37,7 +37,8 @@ export async function createLibp2pHost(
 
   if (!isBrowser) {
     try {
-      // Use eval to completely hide imports from bundler
+      // Use eval to hide imports from bundler static analysis
+      // This works in both test environments and runtime Node.js
       const mdnsModule = await eval('import("@libp2p/mdns")');
       const tcpModule = await eval('import("@libp2p/tcp")');
 
