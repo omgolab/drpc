@@ -1,4 +1,4 @@
-import { getTestCases, runSingleTest, TestCase, TestResult, main } from './auto-path';
+import { getTestCases, runSingleTest, TestCase, TestResult, main } from './discover-path';
 import { createLibp2pHost } from "../../src/client/core/libp2p-host";
 
 // Real-time metrics tracking
