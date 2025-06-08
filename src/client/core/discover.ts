@@ -2,11 +2,11 @@ import { peerIdFromString } from "@libp2p/peer-id";
 import { Multiaddr, multiaddr } from "@multiformats/multiaddr";
 import { Libp2p } from "libp2p";
 
+
 // Constants for default configuration
 const DEFAULT_OPTIONS = {
-    dialInterval: 10,
-    relayRetryInterval: 2000,
-    retryDelay: 1000,
+    standardInterval: 400, // Used for fast-path, peer-store, relay-retry, and retry delay
+    dialTimeout: 30000,
     totalTimeout: 60000
 } as const;
 
@@ -17,10 +17,13 @@ interface ParsedAddress {
     isCircuitRelay: boolean;
 }
 
+// Discovery method types
+export type DiscoveryMethod = 'fast-path' | 'peer-discovery' | 'circuit-relay';
+
 export interface DiscoveryOptions {
-    dialInterval?: number;
-    relayRetryInterval?: number;
-    retryDelay?: number;
+    standardInterval?: number; // Unified interval for fast-path, peer-store, relay-retry, and retry delay
+    discoveryInterval?: number;
+    dialTimeout?: number;
     totalTimeout?: number;
 }
 
@@ -29,7 +32,8 @@ export interface DiscoveryResult {
     connectTime: number;
     status: string;
     addr: Multiaddr | null;
-    method: 'direct' | 'relay';
+    method: DiscoveryMethod;
+    trackDescription: string;
 }
 
 // Helper function for input parsing with simplified logic
@@ -52,16 +56,25 @@ function parseInputAddress(input: string): ParsedAddress {
 }
 
 // Unified helper for all connection operations
-async function tryConnect(h: Libp2p, addr: Multiaddr, isCircuitRelay: boolean, startTime: number): Promise<DiscoveryResult | null> {
+async function tryConnect(
+    h: Libp2p,
+    addr: Multiaddr,
+    isCircuitRelay: boolean,
+    startTime: number,
+    method: DiscoveryMethod,
+    trackDescription: string,
+    dialTimeout: number
+): Promise<DiscoveryResult | null> {
     const attemptStart = Date.now();
     try {
-        const connection = await h.dial(addr);
-        return connection?.remoteAddr ? {
+        const connection = await h.dial(addr, { signal: AbortSignal.timeout(dialTimeout) });
+        return connection?.status === 'open' ? {
             totalTime: (Date.now() - startTime) / 1000,
             connectTime: Date.now() - attemptStart,
             status: connection.status,
             addr: connection.remoteAddr,
-            method: isCircuitRelay ? 'relay' : 'direct'
+            method,
+            trackDescription
         } : null;
     } catch (error: any) {
         if (isCircuitRelay && error?.code === 'ERR_NO_RESERVATION') return null;
@@ -81,29 +94,30 @@ async function manageServices(h: Libp2p, pid: any, shouldRestart: boolean): Prom
             if (dht?.refreshRoutingTable) await dht.refreshRoutingTable();
         }
 
-        dht?.findPeer?.(pid).catch(() => { });
-        mdns?.queryForPeers?.().catch(() => { });
+        dht?.findPeer(pid).catch(() => { });
+        mdns?.queryForPeers().catch(() => { });
     } catch { }
 }
 
 /**
- * Discovers the optimal connection path for a libp2p peer using dual discovery methods.
+ * Discovers the optimal connection path for a libp2p peer using parallel discovery tracks.
  * 
- * Supports 4 input types:
- * 1. Circuit relay path: `/ip4/.../p2p/.../p2p-circuit/p2p/TARGET_PEER`
- * 2. P2P multiaddr only: `/p2p/TARGET_PEER` 
- * 3. Direct multiaddr: `/ip4/.../tcp/.../p2p/TARGET_PEER`
- * 4. Raw peer ID: `TARGET_PEER`
+ * Supports 4 input formats:
+ * 1. Circuit relay: `/ip4/.../p2p/.../p2p-circuit/p2p/TARGET_PEER`
+ * 2. P2P only: `/p2p/TARGET_PEER` or `TARGET_PEER`
+ * 3. Direct: `/ip4/.../tcp/.../p2p/TARGET_PEER`
  * 
- * Uses dual discovery strategy:
- * - Circuit relay attempts (when available)
- * - Direct peer discovery via libp2p services (DHT, mDNS)
- * - Always falls back to discovered addresses for any peer ID input
+ * Uses 5 parallel discovery tracks:
+ * - Fast Path: Direct connection for known addresses
+ * - PeerStore: Cached address polling  
+ * - Active Search: DHT/mDNS activation with direct dial attempts
+ * - Circuit Relay: Relay-specific connections
+ * - Event-Driven: Reactive peer discovery events
  * 
  * @param h - Libp2p instance
- * @param input - Input address/peer ID in any of the 4 supported formats
+ * @param input - Address/peer ID in any supported format
  * @param options - Discovery configuration options
- * @returns Promise resolving to discovery result with connection details
+ * @returns Discovery result with connection details and timing
  */
 export async function discoverOptimalConnectPath(
     h: Libp2p,
@@ -111,9 +125,8 @@ export async function discoverOptimalConnectPath(
     options: DiscoveryOptions = {}
 ): Promise<DiscoveryResult> {
     const {
-        dialInterval = DEFAULT_OPTIONS.dialInterval,
-        relayRetryInterval = DEFAULT_OPTIONS.relayRetryInterval,
-        retryDelay = DEFAULT_OPTIONS.retryDelay,
+        standardInterval = DEFAULT_OPTIONS.standardInterval,
+        dialTimeout = DEFAULT_OPTIONS.dialTimeout,
         totalTimeout = DEFAULT_OPTIONS.totalTimeout
     } = options;
 
@@ -122,32 +135,18 @@ export async function discoverOptimalConnectPath(
 
     // Parse input to determine type and extract components
     const { peerId: targetPeerId, addr: parsedAddr, isCircuitRelay } = parseInputAddress(input);
-
-    // Type 3: Try direct connection first if we have a direct address
-    if (parsedAddr && !isCircuitRelay) {
-        try {
-            const directConnection = await h.dial(parsedAddr).catch(() => null);
-            if (directConnection?.remoteAddr) {
-                return {
-                    totalTime: 0,
-                    connectTime: 0,
-                    status: directConnection.status,
-                    addr: directConnection.remoteAddr,
-                    method: 'direct'
-                };
-            }
-        } catch {
-            // If direct connection fails, fall back to discovery
-        }
-    }
-
     const pid = peerIdFromString(targetPeerId);
 
     return new Promise((resolve) => {
         let relayRetryTimer: number | null = null;
+        let fastPathTimer: number;
+        let peerStoreTimer: number;
+        let discoveryTriggerTimer: number;
 
         const cleanup = () => {
-            clearInterval(discoveryTrigger);
+            clearInterval(fastPathTimer);
+            clearInterval(peerStoreTimer);
+            clearInterval(discoveryTriggerTimer);
             if (relayRetryTimer) clearInterval(relayRetryTimer);
             clearTimeout(totalTimeoutTimer);
             h.removeEventListener('peer:discovery', discoveryHandler);
@@ -161,94 +160,141 @@ export async function discoverOptimalConnectPath(
             }
         };
 
-        // Always trigger initial discovery to populate peer store
-        const triggerDiscovery = async () => {
-            if (resolved) return;
-
-            // First check if we already have addresses for this peer
-            try {
-                const peer = await h.peerStore.get(pid);
-                if (peer?.addresses?.length > 0) {
-                    for (const addr of peer.addresses) {
-                        const result = await tryConnect(h, addr.multiaddr, false, startTime).catch(() => null);
-                        if (result) {
-                            resolveOnce(result);
-                            return;
-                        }
-                    }
-                }
-            } catch {
-            // Peer not in store, continue with discovery
-            }
-
-            // Try direct dial to trigger discovery
-            h.dial(pid).catch(() => { });
-
-            // Force discovery services to actively search
-            manageServices(h, pid, false);
-        };
-
-        // Start discovery immediately for background operation
-        triggerDiscovery();
-
-        const attemptConnection = async (addr: Multiaddr, isCircuitRelay: boolean) => {
+        const attemptConnections = async (addrs: Multiaddr | Multiaddr[], method: DiscoveryMethod, trackDescription: string) => {
             if (resolved) return null;
-            try {
-                const result = await tryConnect(h, addr, isCircuitRelay, startTime);
-                if (result) {
-                    resolveOnce(result);
-                    return result;
-                }
-            } catch (error) {
-                // Silently continue - circuit relay errors are handled by tryConnect
-            }
-            return null;
-        };
 
-        const tryCircuitRelay = async () => {
-            if (!parsedAddr || !isCircuitRelay) return;
-            await attemptConnection(parsedAddr, true);
-        };
-
-        const restartDiscoveryServices = () => manageServices(h, pid, true);
-
-        // Start circuit relay attempts (only if available)
-        if (isCircuitRelay && parsedAddr) {
-            tryCircuitRelay();
-            relayRetryTimer = setInterval(tryCircuitRelay, relayRetryInterval) as any;
-        }
-
-        // Continue discovery at regular intervals
-        const discoveryTrigger = setInterval(triggerDiscovery, dialInterval);
-
-        const discoveryHandler = async (event: any) => {
-            if (resolved || !event.detail.id.equals(pid)) return;
-
-            const multiaddrs = event.detail.multiaddrs || [];
-            if (multiaddrs.length === 0) {
-                await restartDiscoveryServices();
-                await new Promise(resolve => setTimeout(resolve, retryDelay));
-                return;
-            }
+            const addresses = Array.isArray(addrs) ? addrs : [addrs];
+            if (addresses.length === 0) return null;
 
             const results = await Promise.allSettled(
-                multiaddrs.map((ma: Multiaddr) => attemptConnection(ma, false).catch(() => null))
+                addresses.map(addr => tryConnect(h, addr, addr.toString().includes('/p2p-circuit/'), startTime, method, trackDescription, dialTimeout).catch(() => null))
             );
 
             const successfulResult = results
-                .filter((r): r is PromiseFulfilledResult<DiscoveryResult> => r.status === 'fulfilled' && r.value?.addr)
+                .filter((r): r is PromiseFulfilledResult<DiscoveryResult> =>
+                    r.status === 'fulfilled' && r.value !== null && r.value?.addr !== null
+                )
                 .map(r => r.value)
                 .sort((a, b) => a.connectTime - b.connectTime)[0];
 
             if (successfulResult) {
                 resolveOnce(successfulResult);
-            } else {
-                await restartDiscoveryServices();
-                await new Promise(resolve => setTimeout(resolve, retryDelay));
+                return successfulResult;
+            }
+            return null;
+        };
+
+        // Discovery track implementations
+        const tracks = {
+            // Track 1: Fast Path - Direct Address Connection
+            fastPath: async () => {
+                if (resolved || !parsedAddr || isCircuitRelay) return;
+                await attemptConnections(parsedAddr, 'fast-path', 'Fast Path - Direct connection');
+            },
+
+            // Track 2: PeerStore Polling
+            peerStore: async () => {
+                if (resolved) return;
+                try {
+                    const peer = await h.peerStore.get(pid);
+                    if (peer?.addresses?.length > 0) {
+                        await attemptConnections(
+                            peer.addresses.map(addr => addr.multiaddr),
+                            'peer-discovery',
+                            'Peer Discovery - Cached addresses'
+                        );
+                    }
+                } catch {
+                    // Peer not in store, continue
+                }
+            },
+
+            // Track 3: Active Search
+            activeSearch: async () => {
+                if (resolved) return;
+
+                // Try direct dial - might succeed immediately
+                try {
+                    const connection = await h.dial(pid, { signal: AbortSignal.timeout(dialTimeout) });
+                    if (connection?.status === 'open' && connection?.remoteAddr) {
+                        resolveOnce({
+                            totalTime: (Date.now() - startTime) / 1000,
+                            connectTime: 0,
+                            status: connection.status,
+                            addr: connection.remoteAddr,
+                            method: 'peer-discovery',
+                            trackDescription: 'Active Search - Direct dial success'
+                        });
+                        return;
+                    }
+                } catch {
+                    // Failed, continue with service activation
+                }
+
+                // Activate discovery services
+                manageServices(h, pid, false);
+            },
+
+            // Track 4: Circuit Relay
+            circuitRelay: async () => {
+                if (!parsedAddr || !isCircuitRelay) return;
+                await attemptConnections(parsedAddr, 'circuit-relay', 'Circuit Relay - Relay connection');
             }
         };
 
-        h.addEventListener('peer:discovery', discoveryHandler);
+        // Track 5: Event-Driven Discovery - peer:discovery handler
+        const discoveryHandler = async (event: any) => {
+            if (resolved || !event.detail.id.equals(pid)) return;
+
+            console.log(`Found addrs: |${event.detail.multiaddrs.length}|${event.detail.multiaddrs.map((addr: any) => addr.toString()).join(", ")}`);
+
+            const multiaddrs = event.detail.multiaddrs || [];
+            if (multiaddrs.length > 0) {
+                // Try to connect to newly discovered addresses
+                const result = await attemptConnections(
+                    multiaddrs,
+                    'peer-discovery',
+                    'Event-Driven - Discovery events'
+                );
+
+                if (!result) {
+                    // Connection failed, restart services after delay
+                    await new Promise(resolve => setTimeout(resolve, standardInterval));
+                    manageServices(h, pid, true);
+                }
+            }
+        };
+
+        // Helper to start track with immediate execution + interval
+        const startTrackWithInterval = (trackFn: () => Promise<void>, interval: number): number => {
+            trackFn(); // Immediate execution
+            return setInterval(trackFn, interval) as unknown as number;
+        };
+
+        // Initialize and start all discovery tracks
+        const initializeAndStartTracks = () => {
+            // Track 1: Fast Path - Only if we have a direct address
+            if (parsedAddr && !isCircuitRelay) {
+                fastPathTimer = startTrackWithInterval(tracks.fastPath, standardInterval);
+            }
+
+            // Track 2: PeerStore - Always active
+            peerStoreTimer = startTrackWithInterval(tracks.peerStore, standardInterval);
+
+            // Track 3: Active Search - Always active  
+            discoveryTriggerTimer = startTrackWithInterval(tracks.activeSearch, standardInterval);
+
+            // Track 4: Circuit Relay - Only if circuit relay address
+            if (isCircuitRelay && parsedAddr) {
+                relayRetryTimer = startTrackWithInterval(tracks.circuitRelay, standardInterval);
+            }
+
+            // Track 5: Event-driven discovery
+            h.addEventListener('peer:discovery', discoveryHandler);
+        };
+
+        // Start all tracks
+        initializeAndStartTracks();
 
         const totalTimeoutTimer = setTimeout(() => {
             if (!resolved) {
@@ -257,7 +303,8 @@ export async function discoverOptimalConnectPath(
                     connectTime: 0,
                     status: 'timeout',
                     addr: null,
-                    method: 'direct'
+                    method: 'peer-discovery',
+                    trackDescription: 'Discovery Timeout - No successful connection'
                 });
             }
         }, totalTimeout);

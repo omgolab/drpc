@@ -2,6 +2,8 @@ import { createLibp2pHost } from "../../src/client/core/libp2p-host";
 import { discoverOptimalConnectPath } from "../../src/client/core/discover";
 
 async function getTargetFromRelay(): Promise<string> {
+    // ensure go node is running and listening on port 8080
+    // run: `go run cmd/util-server/main.go &`
     const response = await fetch('http://localhost:8080/relay-node');
     const data = await response.json();
     return data.libp2p_ma;
@@ -63,6 +65,7 @@ export async function runSingleTest(h: any, testCase: TestCase, testIndex: numbe
 
         if (result.addr) {
             console.log(`✅ SUCCESS via ${result.method}!`);
+            console.log(`   └─ Method: ${result.method} (${result.trackDescription})`);
             console.log(`   └─ Address: ${result.addr}`);
             console.log(`   └─ Status: ${result.status}`);
             console.log(`   └─ Connect time: ${result.connectTime}ms`);

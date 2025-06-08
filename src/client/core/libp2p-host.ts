@@ -37,10 +37,26 @@ export async function createLibp2pHost(
 
   if (!isBrowser) {
     try {
-      // Use eval to hide imports from bundler static analysis
-      // This works in both test environments and runtime Node.js
-      const mdnsModule = await eval('import("@libp2p/mdns")');
-      const tcpModule = await eval('import("@libp2p/tcp")');
+      // Use string concatenation to hide import paths from static analysis
+      const mdnsPath = '@libp2p' + '/' + 'mdns';
+      const tcpPath = '@libp2p' + '/' + 'tcp';
+
+      // Try regular dynamic imports first (works in test environments)
+      // If that fails, fall back to eval-based imports (for production builds)
+      let mdnsModule: any;
+      let tcpModule: any;
+
+      try {
+        // First attempt: regular dynamic imports with dynamic paths
+        [mdnsModule, tcpModule] = await Promise.all([
+          import(/* @vite-ignore */ mdnsPath),
+          import(/* @vite-ignore */ tcpPath)
+        ]);
+      } catch (dynamicImportError) {
+        // Fallback: eval-based imports for bundled environments
+        mdnsModule = await eval(`import("${mdnsPath}")`);
+        tcpModule = await eval(`import("${tcpPath}")`);
+      }
 
       mdnsService = mdnsModule.mdns({
         serviceTag: config.discovery.tag

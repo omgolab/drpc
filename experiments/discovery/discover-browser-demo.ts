@@ -114,7 +114,7 @@ async function runDemo() {
                 log(`✅ Test ${i + 1} PASSED (${actualTestTime}ms)`);
                 if (testResult.result?.addr) {
                     log(`   └─ Address: ${testResult.result.addr}`);
-                    log(`   └─ Method: ${testResult.result.method}`);
+                    log(`   └─ Method: ${testResult.result.method} (${testResult.result.trackDescription})`);
                     log(`   └─ Status: ${testResult.result.status}`);
                     log(`   └─ Connect time: ${testResult.result.connectTime}ms`);
                 }

@@ -15,3 +15,4 @@ server_addr.tmp
 vendor_docs/
 **/__debug_bin*
 dist/
+**/__screenshots__/
