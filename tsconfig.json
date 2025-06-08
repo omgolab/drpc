@@ -13,7 +13,7 @@
     "types": ["bun-types", "node"],
     "baseUrl": ".",
     "paths": {
-      "@heliau/bootstrappers": ["./node_modules/helia/packages/helia/src/utils/bootstrappers.ts"],
+      "@heliau/bootstrappers": ["./node_modules/helia/src/utils/bootstrappers.ts"],
     },
   },
   "include": ["src", "experiments/**/*.ts"],

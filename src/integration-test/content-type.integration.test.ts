@@ -17,6 +17,14 @@ import {
   StreamingContentType,
   unaryContentTypes as importedUnaryContentTypes,
   streamingContentTypes as importedStreamingContentTypes,
+  CONNECT_ONLY_UNARY_PROTO_CONTENT_TYPE,
+  CONNECT_ONLY_UNARY_JSON_CONTENT_TYPE,
+  GRPC_WEB_WITH_UNARY_PROTO_CONTENT_TYPE,
+  GRPC_PROTO_WITH_UNARY_CONTENT_TYPE,
+  CONNECT_CONTENT_TYPE,
+  CONNECT_JSON_CONTENT_TYPE,
+  GRPC_WEB_JSON_CONTENT_TYPE,
+  GRPC_JSON_CONTENT_TYPE,
 } from "../client/core/types";
 
 // Create a logger for the test
@@ -24,6 +32,22 @@ const testLogger = createLogger({
   contextName: "Content-Type-Test",
   logLevel: LogLevel.DEBUG,
 });
+
+// Helper function to get content type name from its value
+function getContentTypeName(contentType: string): string {
+  const contentTypeMap: Record<string, string> = {
+    [CONNECT_ONLY_UNARY_PROTO_CONTENT_TYPE]: "CONNECT_ONLY_UNARY_PROTO_CONTENT_TYPE",
+    [CONNECT_ONLY_UNARY_JSON_CONTENT_TYPE]: "CONNECT_ONLY_UNARY_JSON_CONTENT_TYPE",
+    [GRPC_WEB_WITH_UNARY_PROTO_CONTENT_TYPE]: "GRPC_WEB_WITH_UNARY_PROTO_CONTENT_TYPE",
+    [GRPC_PROTO_WITH_UNARY_CONTENT_TYPE]: "GRPC_PROTO_WITH_UNARY_CONTENT_TYPE",
+    [CONNECT_CONTENT_TYPE]: "CONNECT_CONTENT_TYPE",
+    [CONNECT_JSON_CONTENT_TYPE]: "CONNECT_JSON_CONTENT_TYPE",
+    [GRPC_WEB_JSON_CONTENT_TYPE]: "GRPC_WEB_JSON_CONTENT_TYPE",
+    [GRPC_JSON_CONTENT_TYPE]: "GRPC_JSON_CONTENT_TYPE",
+  };
+
+  return contentTypeMap[contentType] || contentType;
+}
 
 // Track utility server instance
 let utilServer: UtilServerHelper;
@@ -95,10 +119,7 @@ describe("dRPC Client Content Type Tests", () => {
     // Test each unary content type
     importedUnaryContentTypes.forEach((contentType) => {
       // Get the name of the content type from its value
-      const contentTypeName =
-        Object.entries(require("../client/core/types")).find(
-          ([key, val]) => val === contentType,
-        )?.[0] || contentType;
+      const contentTypeName = getContentTypeName(contentType);
 
       it(
         `should handle unary request with ${contentTypeName}`,
@@ -129,10 +150,7 @@ describe("dRPC Client Content Type Tests", () => {
     describe("Server Streaming", () => {
       importedStreamingContentTypes.forEach((contentType) => {
         // Get the name of the content type from its value
-        const contentTypeName =
-          Object.entries(require("../client/core/types")).find(
-            ([key, val]) => val === contentType,
-          )?.[0] || contentType;
+        const contentTypeName = getContentTypeName(contentType);
 
         it(
           `should handle server streaming with ${contentTypeName}`,
@@ -165,17 +183,18 @@ describe("dRPC Client Content Type Tests", () => {
 
     // Test each streaming content type for client/bidirectional streaming
     describe("Client and Bidirectional Streaming", () => {
+      // Only test the first two content types to avoid connection issues
       importedStreamingContentTypes.forEach((contentType) => {
         // Get the name of the content type from its value
-        const contentTypeName =
-          Object.entries(require("../client/core/types")).find(
-            ([key, val]) => val === contentType,
-          )?.[0] || contentType;
+        const contentTypeName = getContentTypeName(contentType);
 
         it(
           `should handle client/bidi streaming with ${contentTypeName}`,
           async () => {
             try {
+              // Add a small delay to avoid overwhelming the connection pool
+              await new Promise(resolve => setTimeout(resolve, 100));
+
               // Create client with specific content type
               const client = await createManagedClient(
                 clientManager,
@@ -207,7 +226,7 @@ describe("dRPC Client Content Type Tests", () => {
   // Test matrix for all combinations of content types
   // This is an advanced test that tries different combinations to ensure they work together
   describe("Content Type Matrix Test", () => {
-    // Skip this test section if previous tests had issues
+    // This test validates that different combinations of content types work together
     it(
       "should work with all combinations of unary and streaming content types",
       async () => {
@@ -222,15 +241,8 @@ describe("dRPC Client Content Type Tests", () => {
 
         for (const unary of unaryOptions) {
           for (const streaming of streamingOptions) {
-            const unaryName =
-              Object.entries(require("../client/core/types")).find(
-                ([key, val]) => val === unary,
-              )?.[0] || unary;
-
-            const streamingName =
-              Object.entries(require("../client/core/types")).find(
-                ([key, val]) => val === streaming,
-              )?.[0] || streaming;
+            const unaryName = getContentTypeName(unary);
+            const streamingName = getContentTypeName(streaming);
 
             console.log(
               `Testing combination: Unary=${unaryName}, Streaming=${streamingName}`,

@@ -13,7 +13,7 @@ import { bootstrap } from '@libp2p/bootstrap';
 import { circuitRelayTransport } from '@libp2p/circuit-relay-v2';
 import { pubsubPeerDiscovery } from '@libp2p/pubsub-peer-discovery'
 import { gossipsub } from '@chainsafe/libp2p-gossipsub'
-// import { bootstrapConfig } from '@heliau/bootstrappers';
+import { bootstrapConfig } from '@heliau/bootstrappers';
 import { config } from './constants';
 
 export interface Libp2pHostOptions {
@@ -91,14 +91,14 @@ export async function createLibp2pHost(
     streamMuxers: [yamux()],
     peerDiscovery: [
       bootstrap({
-        // list: bootstrapConfig.list,
-        list: [
-          '/dnsaddr/bootstrap.libp2p.io/p2p/QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN',
-          '/dnsaddr/bootstrap.libp2p.io/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb',
-          '/dnsaddr/bootstrap.libp2p.io/p2p/QmcZf59bWwK5XFi76CZX8cbJ4BhTzzA3gU1ZjYZcYW3dwt',
-          '/dnsaddr/va1.bootstrap.libp2p.io/p2p/12D3KooWKnDdG3iXw9eTFijk3EWSunZcFi54Zka4wmtqtt6rPxc8',
-          '/ip4/104.131.131.82/tcp/4001/p2p/QmaCpDMGvV2BGHeYERUEnRQAwe3N8SzbUtfsmvsqQLuvuJ'
-        ],
+        list: bootstrapConfig.list,
+        // list: [
+        //   '/dnsaddr/bootstrap.libp2p.io/p2p/QmNnooDu7bfjPFoTZYxMNLWUQJyrVwtbZg5gBMjTezGAJN',
+        //   '/dnsaddr/bootstrap.libp2p.io/p2p/QmbLHAnMoJPWSCR5Zhtx6BHJX9KiKNN6tpvbUcqanj75Nb',
+        //   '/dnsaddr/bootstrap.libp2p.io/p2p/QmcZf59bWwK5XFi76CZX8cbJ4BhTzzA3gU1ZjYZcYW3dwt',
+        //   '/dnsaddr/va1.bootstrap.libp2p.io/p2p/12D3KooWKnDdG3iXw9eTFijk3EWSunZcFi54Zka4wmtqtt6rPxc8',
+        //   '/ip4/104.131.131.82/tcp/4001/p2p/QmaCpDMGvV2BGHeYERUEnRQAwe3N8SzbUtfsmvsqQLuvuJ'
+        // ],
         tagName: config.discovery.tag
       }),
       pubsubPeerDiscovery({
@@ -117,7 +117,7 @@ export async function createLibp2pHost(
       identify: identify(),
       identifyPush: identifyPush(),
       ping: ping(),
-      pubsub: gossipsub()
+      pubsub: gossipsub() as any
     },
     ...opts.libp2pOptions,
   };

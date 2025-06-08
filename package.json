@@ -39,7 +39,7 @@
     "@multiformats/multiaddr": "^12.4.1",
     "@multiformats/multiaddr-matcher": "^1.7.2",
     "delay": "^6.0.0",
-    "helia": "github:ipfs/helia#main",
+    "helia": "^5.4.2",
     "it-all": "^3.0.9",
     "it-pipe": "^3.0.1",
     "libp2p": "^2.8.9",
@@ -58,6 +58,7 @@
     "playwright": "^1.52.0",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3",
+    "vite-tsconfig-paths": "^5.1.4",
     "vitest": "^3.2.2"
   },
   "trustedDependencies": [

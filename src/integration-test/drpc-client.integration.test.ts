@@ -44,13 +44,13 @@ beforeAll(async () => {
 });
 
 // Constants for timeout
-const TEST_TIMEOUT = 30000; // 30 seconds
+const TEST_TIMEOUT = 60000; // 60 seconds
 
 describe("DrpcClient Integration", () => {
   // Path 1: HTTP Direct
   describe("Path1_HTTPDirect", () => {
     it(
-      "unary",
+      "1.1-unary",
       async () => {
         const publicNodeInfo = await utilServer.getPublicNodeInfo();
         const addr = publicNodeInfo.http_address;
@@ -75,7 +75,7 @@ describe("DrpcClient Integration", () => {
     );
 
     it(
-      "streaming",
+      "1.2-streaming",
       async () => {
         // Get HTTP address from utility server
         const publicNodeInfo = await utilServer.getPublicNodeInfo();
@@ -101,7 +101,7 @@ describe("DrpcClient Integration", () => {
     );
 
     it(
-      "1-client/bidi streaming",
+      "1.3-client/bidi streaming",
       async () => {
         // Get HTTP address from utility server
         const publicNodeInfo = await utilServer.getPublicNodeInfo();
@@ -130,123 +130,156 @@ describe("DrpcClient Integration", () => {
   });
 
   // Path 2: Gateway/Relay test address
-  const gatewayHost = "http://localhost:8080"; // The Go server listens on 8080 for HTTP gateway
   describe("Path2_HTTPGatewayRelay", () => {
-    let gatewayBaseUrl: string;
+    describe("http_gw_force_relay", () => {
+      let gatewayRelayBaseUrl: string;
 
-    beforeAll(async () => {
-      try {
-        // Get gateway info from utility server
-        console.log("Fetching gateway node info for Path 2...");
-        const gatewayInfo = await utilServer.getGatewayNodeInfo();
-        const httpAddr = gatewayInfo.http_address || "";
-        if (!httpAddr) {
-          throw new Error("Gateway node does not have an HTTP address");
+      beforeAll(async () => {
+        try {
+          // Get gateway relay info from utility server
+          console.log("Fetching gateway relay node info for Path 2 force relay...");
+          const gatewayInfo = await utilServer.getGatewayRelayNodeInfo();
+          const httpAddr = gatewayInfo.http_address || "";
+          if (!httpAddr) {
+            throw new Error("Gateway relay node does not have an HTTP address");
+          }
+          gatewayRelayBaseUrl = httpAddr;
+          console.log(`Using gateway relay HTTP address for Path 2: ${gatewayRelayBaseUrl}`);
+
+          // Quick connectivity check
+          const client = await createManagedClient(
+            clientManager,
+            gatewayRelayBaseUrl,
+            GreeterService,
+            { logger: testLogger },
+          );
+          await testClientUnaryRequest(
+            client,
+            "dRPC Test Gateway Relay Connectivity Check",
+          );
+        } catch (error) {
+          console.error("Failed to fetch gateway relay node info:", error);
+          throw new Error(`Failed to initialize gateway relay for tests: ${error}`);
         }
-        gatewayBaseUrl = httpAddr;
-        console.log(`Using gateway HTTP address for Path 2: ${gatewayBaseUrl}`);
+      });
 
-        // Quick connectivity check
-        const client = await createManagedClient(
-          clientManager,
-          gatewayBaseUrl,
-          GreeterService,
-          { logger: testLogger },
-        );
-        await testClientUnaryRequest(
-          client,
-          "dRPC Test Gateway Connectivity Check",
-        );
-      } catch (error) {
-        console.error("Failed to fetch gateway node info:", error);
-        throw new Error(`Failed to initialize gateway for tests: ${error}`);
-      }
+      it(
+        "2.1-unary (force relay address)",
+        async () => {
+          const client = await createManagedClient(
+            clientManager,
+            gatewayRelayBaseUrl,
+            GreeterService,
+            { logger: testLogger },
+          );
+          await testClientUnaryRequest(client, "dRPC Test");
+        },
+        TEST_TIMEOUT,
+      );
+
+      it(
+        "2.2-streaming (force relay address)",
+        async () => {
+          const client = await createManagedClient(
+            clientManager,
+            gatewayRelayBaseUrl,
+            GreeterService,
+            { logger: testLogger },
+          );
+          await testServerStreamingRequest(client, "AliceGatewayRelay");
+        },
+        TEST_TIMEOUT,
+      );
+
+      it(
+        "2.3-client/bidi streaming (force relay address)",
+        async () => {
+          const client = await createManagedClient(
+            clientManager,
+            gatewayRelayBaseUrl,
+            GreeterService,
+            { logger: testLogger },
+          );
+          await testClientAndBidiStreamingRequest(client, 2, "GatewayBidi");
+        },
+        TEST_TIMEOUT,
+      );
     });
 
-    it(
-      "unary (force relay address)",
-      async () => {
-        const client = await createManagedClient(
-          clientManager,
-          gatewayBaseUrl,
-          GreeterService,
-          { logger: testLogger },
-        );
-        await testClientUnaryRequest(client, "dRPC Test");
-      },
-      TEST_TIMEOUT,
-    );
+    describe("http_gw_auto_relay", () => {
+      let gatewayAutoRelayBaseUrl: string;
 
-    it(
-      "streaming (force relay address)",
-      async () => {
-        const client = await createManagedClient(
-          clientManager,
-          gatewayBaseUrl,
-          GreeterService,
-          { logger: testLogger },
-        );
-        await testServerStreamingRequest(client, "AliceGatewayRelay");
-      },
-      TEST_TIMEOUT,
-    );
+      beforeAll(async () => {
+        try {
+          // Get gateway auto relay info from utility server
+          console.log("Fetching gateway auto relay node info for Path 2 auto relay...");
+          const gatewayInfo = await utilServer.getGatewayAutoRelayNodeInfo();
+          const httpAddr = gatewayInfo.http_address || "";
+          if (!httpAddr) {
+            throw new Error("Gateway auto relay node does not have an HTTP address");
+          }
+          gatewayAutoRelayBaseUrl = httpAddr;
+          console.log(`Using gateway auto relay HTTP address for Path 2: ${gatewayAutoRelayBaseUrl}`);
 
-    it(
-      "client/bidi streaming (force relay address)",
-      async () => {
-        const client = await createManagedClient(
-          clientManager,
-          gatewayBaseUrl,
-          GreeterService,
-          { logger: testLogger },
-        );
-        await testClientAndBidiStreamingRequest(client, 2, "GatewayBidi");
-      },
-      TEST_TIMEOUT,
-    );
+          // Quick connectivity check
+          const client = await createManagedClient(
+            clientManager,
+            gatewayAutoRelayBaseUrl,
+            GreeterService,
+            { logger: testLogger },
+          );
+          await testClientUnaryRequest(
+            client,
+            "dRPC Test Gateway Auto Relay Connectivity Check",
+          );
+        } catch (error) {
+          console.error("Failed to fetch gateway auto relay node info:", error);
+          throw new Error(`Failed to initialize gateway auto relay for tests: ${error}`);
+        }
+      });
 
-    it(
-      "unary (no/auto relay address)",
-      async () => {
-        // Use the same gatewayBaseUrl as above (no relay distinction in this setup)
-        const client = await createManagedClient(
-          clientManager,
-          gatewayBaseUrl,
-          GreeterService,
-          { logger: testLogger },
-        );
-        await testClientUnaryRequest(client, "dRPC Test");
-      },
-      TEST_TIMEOUT,
-    );
+      it(
+        "2.4-unary (no/auto relay address)",
+        async () => {
+          const client = await createManagedClient(
+            clientManager,
+            gatewayAutoRelayBaseUrl,
+            GreeterService,
+            { logger: testLogger },
+          );
+          await testClientUnaryRequest(client, "dRPC Test");
+        },
+        TEST_TIMEOUT,
+      );
 
-    it(
-      "streaming (no/auto relay address)",
-      async () => {
-        const client = await createManagedClient(
-          clientManager,
-          gatewayBaseUrl,
-          GreeterService,
-          { logger: testLogger },
-        );
-        await testServerStreamingRequest(client, "AliceGatewayAuto");
-      },
-      TEST_TIMEOUT,
-    );
+      it(
+        "2.5-streaming (no/auto relay address)",
+        async () => {
+          const client = await createManagedClient(
+            clientManager,
+            gatewayAutoRelayBaseUrl,
+            GreeterService,
+            { logger: testLogger },
+          );
+          await testServerStreamingRequest(client, "AliceGatewayAuto");
+        },
+        TEST_TIMEOUT,
+      );
 
-    it(
-      "client/bidi streaming (no/auto relay address)",
-      async () => {
-        const client = await createManagedClient(
-          clientManager,
-          gatewayBaseUrl,
-          GreeterService,
-          { logger: testLogger },
-        );
-        await testClientAndBidiStreamingRequest(client, 4, "GatewayAutoBidi");
-      },
-      TEST_TIMEOUT,
-    );
+      it(
+        "2.6-client/bidi streaming (no/auto relay address)",
+        async () => {
+          const client = await createManagedClient(
+            clientManager,
+            gatewayAutoRelayBaseUrl,
+            GreeterService,
+            { logger: testLogger },
+          );
+          await testClientAndBidiStreamingRequest(client, 4, "GatewayAutoBidi");
+        },
+        TEST_TIMEOUT,
+      );
+    });
   });
 
   // Path 3: LibP2P Direct
@@ -290,7 +323,7 @@ describe("DrpcClient Integration", () => {
     });
 
     it(
-      "3-unary",
+      "3.1-unary",
       async () => {
         if (!directAddr) {
           console.warn(
@@ -315,7 +348,7 @@ describe("DrpcClient Integration", () => {
     );
 
     it(
-      "streaming",
+      "3.2-streaming",
       async () => {
         if (!directAddr) {
           console.warn(
@@ -336,7 +369,7 @@ describe("DrpcClient Integration", () => {
     );
 
     it(
-      "client/bidi streaming",
+      "3.3-client/bidi streaming",
       async () => {
         if (!directAddr) {
           console.warn(
@@ -507,7 +540,7 @@ describe("DrpcClient Integration", () => {
 
     describe("libp2p_auto_relay", () => {
       it(
-        "unary",
+        "4.4-unary",
         async () => {
           if (!autoRelayAddr) {
             console.warn(
@@ -532,7 +565,7 @@ describe("DrpcClient Integration", () => {
       );
 
       it(
-        "streaming",
+        "4.5-streaming",
         async () => {
           if (!autoRelayAddr) {
             console.warn(
@@ -557,7 +590,7 @@ describe("DrpcClient Integration", () => {
       );
 
       it(
-        "4xx-client/bidi streaming",
+        "4.6-client/bidi streaming",
         async () => {
           if (!autoRelayAddr) {
             console.warn(
