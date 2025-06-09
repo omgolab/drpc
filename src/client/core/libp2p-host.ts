@@ -3,6 +3,7 @@ import { webSockets } from '@libp2p/websockets';
 import { webRTC, webRTCDirect } from '@libp2p/webrtc';
 import { webTransport } from '@libp2p/webtransport';
 import { noise } from '@chainsafe/libp2p-noise';
+import { tls } from '@libp2p/tls';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { identify, identifyPush } from '@libp2p/identify';
 import { kadDHT, KadDHTInit } from '@libp2p/kad-dht';
@@ -87,7 +88,7 @@ export async function createLibp2pHost(
       webTransport(),
       ...(tcpTransport ? [tcpTransport] : [])
     ],
-    connectionEncrypters: [noise()],
+    connectionEncrypters: [tls(), noise()],
     streamMuxers: [yamux()],
     peerDiscovery: [
       bootstrap({

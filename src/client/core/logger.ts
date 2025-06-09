@@ -82,7 +82,7 @@ class Logger implements ILogger {
 
   constructor(
     contextName: string = "[dRPC]",
-    logLevel: LogLevel = LogLevel.DEBUG,
+    logLevel: LogLevel = LogLevel.ERROR,
   ) {
     this.contextName = contextName;
     this.logLevel = logLevel;

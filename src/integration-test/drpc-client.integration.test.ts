@@ -16,7 +16,7 @@ import { createLogger, LogLevel } from "../client/core/logger";
 // Create a logger for the test
 const testLogger = createLogger({
   contextName: "Integration-Test",
-  logLevel: LogLevel.DEBUG,
+  logLevel: LogLevel.ERROR,
 });
 
 // Track utility server instance

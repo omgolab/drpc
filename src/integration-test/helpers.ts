@@ -281,7 +281,7 @@ export class UtilServerHelper {
 
     // Set up logging for server output
     this.serverProcess.stdout?.on("data", (data) => {
-      console.log(`[UtilServer STDOUT]: ${data.toString().trim()}`);
+      // console.log(`[UtilServer STDOUT]: ${data.toString().trim()}`);
     });
 
     this.serverProcess.stderr?.on("data", (data) => {
