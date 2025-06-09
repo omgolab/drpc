@@ -192,24 +192,21 @@ export async function testClientAndBidiStreamingRequest(
 
 export class UtilServerHelper {
   private serverProcess: ChildProcess | undefined;
-  private readonly goExecutablePath: string;
-  private readonly utilServerCmdPath: string;
+  private readonly binaryPath: string;
   private readonly readyTimeout: number;
   private readonly httpTimeout: number;
   private serverReady: Promise<void> | null = null;
 
   constructor(
-    utilServerPath = "cmd/util-server/main.go", // Default path relative to project root
-    goExec = "go",
+    private port: number = 8080,
     readyTimeoutMs = UTIL_SERVER_READY_TIMEOUT,
   ) {
-    this.utilServerCmdPath = utilServerPath;
-    this.goExecutablePath = goExec;
     this.readyTimeout = readyTimeoutMs;
     this.httpTimeout = 10000; // 10 seconds timeout, same as Go's httpClient
-    console.log(
-      `UtilServerHelper initialized with cmd: ${this.utilServerCmdPath}, goExec: ${this.goExecutablePath}`,
-    );
+
+    // Use a simple, predictable binary path
+    const os = require("os");
+    this.binaryPath = `${os.tmpdir()}/tmp/util-server-${port}`;
   }
 
   public async startServer(): Promise<void> {
@@ -218,9 +215,54 @@ export class UtilServerHelper {
       return;
     }
 
-    console.log(
-      `Starting utility server: ${this.goExecutablePath} run ${this.utilServerCmdPath}`,
-    );
+    await this.buildBinary();
+    await this.runBinary();
+  }
+
+  private async buildBinary(): Promise<void> {
+    console.log(`Building utility server: go build -o ${this.binaryPath} cmd/util-server/main.go`);
+
+    await new Promise<void>((resolve, reject) => {
+      const buildProcess = spawn(
+        "go",
+        ["build", "-o", this.binaryPath, "cmd/util-server/main.go"],
+        {
+          stdio: ["pipe", "pipe", "pipe"],
+          cwd: process.cwd(),
+        },
+      );
+
+      let buildOutput = "";
+      let buildError = "";
+
+      buildProcess.stdout?.on("data", (data) => {
+        buildOutput += data.toString();
+      });
+
+      buildProcess.stderr?.on("data", (data) => {
+        buildError += data.toString();
+      });
+
+      buildProcess.on("close", (code) => {
+        if (code === 0) {
+          console.log(`Successfully built utility server binary: ${this.binaryPath}`);
+          resolve();
+        } else {
+          console.error(`Build failed with code ${code}`);
+          if (buildError) console.error(`Build error: ${buildError}`);
+          if (buildOutput) console.log(`Build output: ${buildOutput}`);
+          reject(new Error(`Failed to build utility server: exit code ${code}`));
+        }
+      });
+
+      buildProcess.on("error", (err) => {
+        reject(new Error(`Build process error: ${err.message}`));
+      });
+    });
+  }
+
+  private async runBinary(): Promise<void> {
+    console.log(`Starting utility server binary: ${this.binaryPath}`);
 
     // Create a promise for server readiness
     let resolveReady!: () => void;
@@ -230,15 +272,12 @@ export class UtilServerHelper {
       rejectReady = reject;
     });
 
-    this.serverProcess = spawn(
-      this.goExecutablePath,
-      ["run", this.utilServerCmdPath],
-      {
-        stdio: ["pipe", "pipe", "pipe"],
-        cwd: process.cwd(),
-        detached: false,
-      },
-    );
+    // Now run the built binary directly
+    this.serverProcess = spawn(this.binaryPath, [], {
+      stdio: ["pipe", "pipe", "pipe"],
+      cwd: process.cwd(),
+      detached: false,
+    });
 
     // Set up logging for server output
     this.serverProcess.stdout?.on("data", (data) => {
@@ -337,22 +376,101 @@ export class UtilServerHelper {
     }, 500); // Check every 500ms, same as Go implementation
   }
 
-  public stopServer(): void {
+  public async stopServer(): Promise<void> {
+    console.log("Stopping utility server...");
+
     if (this.serverProcess) {
-      console.log(`Stopping utility server PID: ${this.serverProcess.pid}`);
-      // Sending SIGTERM first for graceful shutdown
-      const killed = this.serverProcess.kill("SIGTERM");
-      if (!killed) {
-        console.warn(
-          `Error sending SIGTERM to utility server. Attempting to kill.`,
-        );
-        this.serverProcess.kill("SIGKILL");
-      } else {
-        console.log("Utility server signaled to stop (SIGTERM).");
-      }
-      this.serverProcess = undefined;
+      const pid = this.serverProcess.pid;
+      console.log(`Stopping server process PID: ${pid}`);
+
+      return new Promise<void>((resolve) => {
+        if (!this.serverProcess) {
+          this.cleanupBinaryFile();
+          resolve();
+          return;
+        }
+
+        // Set up a timeout for forceful termination
+        let timeoutId: NodeJS.Timeout;
+        let resolved = false;
+
+        const cleanup = () => {
+          if (!resolved) {
+            resolved = true;
+            if (timeoutId) clearTimeout(timeoutId);
+            this.serverProcess = undefined;
+            this.cleanupBinaryFile();
+            // As a backup, use targeted pkill for this specific binary path
+            this.killBinaryByPath();
+            resolve();
+          }
+        };
+
+        // Listen for the process to exit
+        this.serverProcess.once('close', (code) => {
+          console.log(`Server process ${pid} exited with code ${code}`);
+          cleanup();
+        });
+
+        this.serverProcess.once('error', (err) => {
+          console.warn(`Server process ${pid} error during shutdown:`, err);
+          cleanup();
+        });
+
+        // First try graceful shutdown with SIGTERM
+        const killed = this.serverProcess.kill("SIGTERM");
+        if (!killed) {
+          console.warn(`Error sending SIGTERM to server process ${pid}. Process may not exist.`);
+          cleanup();
+          return;
+        }
+
+        console.log(`Sent SIGTERM to server process ${pid}, waiting for graceful shutdown...`);
+
+        // Set a timeout for forceful termination
+        timeoutId = setTimeout(() => {
+          if (this.serverProcess && !resolved) {
+            console.warn(`Server process ${pid} did not stop gracefully, sending SIGKILL...`);
+            this.serverProcess.kill("SIGKILL");
+            // Give it a moment for SIGKILL to take effect, then cleanup
+            setTimeout(cleanup, 1000);
+          }
+        }, 5000); // 5 seconds timeout for graceful shutdown
+      });
     } else {
-      console.log("Utility server process not found or already stopped.");
+      console.log("Server process not found or already stopped.");
+      this.cleanupBinaryFile();
+      this.killBinaryByPath();
+    }
+  }
+
+  private cleanupBinaryFile(): void {
+    try {
+      const fs = require('fs');
+      if (fs.existsSync(this.binaryPath)) {
+        fs.unlinkSync(this.binaryPath);
+        console.log(`Cleaned up binary file: ${this.binaryPath}`);
+      }
+    } catch (err) {
+      console.warn(`Failed to cleanup binary file ${this.binaryPath}:`, err);
+    }
+  }
+
+  private killBinaryByPath(): void {
+    try {
+      const { execSync } = require('child_process');
+      // Use targeted pkill with the exact binary path - much safer than the old approach
+      const pkillCmd = `pkill -f "^${this.binaryPath}$"`;
+      console.log(`Running backup process cleanup: ${pkillCmd}`);
+      execSync(pkillCmd, { stdio: 'pipe' });
+      console.log(`Successfully killed any remaining processes for ${this.binaryPath}`);
+    } catch (err: any) {
+      // pkill returns non-zero exit code if no processes were found, which is fine
+      if (err.status === 1) {
+        console.log(`No remaining processes found for ${this.binaryPath} (expected)`);
+      } else {
+        console.warn(`pkill command failed:`, err.message);
+      }
     }
   }
 
@@ -493,6 +611,24 @@ export class UtilServerHelper {
         `Failed to get gateway auto relay node info from ${GATEWAY_AUTO_RELAY_NODE_ENDPOINT}: ${(err as Error).message}`,
       );
     }
+  }
+
+  // Cleanup method to stop only the util-server processes started by our test suite
+  public static async cleanupOrphanedProcesses(): Promise<void> {
+    try {
+      console.log("Cleaning up any orphaned util-server processes...");
+
+      // Kill any remaining util-server binaries by pattern
+      const { execSync } = require('child_process');
+      execSync('pkill -f /tmp/util-server-', { stdio: 'ignore' });
+      console.log("Killed orphaned util-server processes");
+    } catch (err) {
+      // pkill returns non-zero if no processes found, which is fine
+      console.log("No orphaned util-server processes found");
+    }
+
+    console.log("Orphaned process cleanup completed.");
+
   }
 }
 

@@ -7,6 +7,7 @@ export default defineConfig({
     include: ["src/**/*.test.ts", "experiments/**/*.test.ts"],
     exclude: ["**/.trunk/**", "**/node_modules/**"],
     testTimeout: 900000, // 15 minute timeout for all tests (including browser optimization)
+    hookTimeout: 30000, // 30 second timeout for hooks (beforeAll, afterAll, etc.)
     // Browser testing configuration
     browser: {
       enabled: false, // Will be enabled per environment via CLI

@@ -54,10 +54,41 @@ let utilServer: UtilServerHelper;
 // Create a client manager for resource tracking
 let clientManager: ClientManager;
 
+// Emergency cleanup handler for unexpected process termination
+function setupEmergencyCleanup() {
+  const cleanup = async () => {
+    console.log("Emergency cleanup triggered...");
+    if (utilServer) {
+      try {
+        await utilServer.stopServer();
+      } catch (err) {
+        console.warn("Error during emergency server cleanup:", err);
+      }
+    }
+    await UtilServerHelper.cleanupOrphanedProcesses();
+  };
+
+  // Handle different termination signals
+  process.on('SIGINT', cleanup);
+  process.on('SIGTERM', cleanup);
+  process.on('exit', () => {
+    if (utilServer) {
+      utilServer.stopServer();
+    }
+  });
+}
+
 // Start Go server before all tests
 beforeAll(async () => {
+  // Clean up any orphaned processes from previous test runs FIRST
+  console.log("Cleaning up any orphaned processes from previous test runs...");
+  await UtilServerHelper.cleanupOrphanedProcesses();
+
+  // Set up emergency cleanup handlers
+  setupEmergencyCleanup();
+
   console.log("Initializing Go utility server helper...");
-  utilServer = new UtilServerHelper("cmd/util-server/main.go");
+  utilServer = new UtilServerHelper(8080); // Use port 8080
   clientManager = new ClientManager();
 
   console.log("Starting Go utility server...");
@@ -67,7 +98,11 @@ beforeAll(async () => {
   } catch (err) {
     console.error("Failed to start Go utility server in beforeAll:", err);
     if (utilServer) {
-      utilServer.stopServer(); // Attempt to clean up
+      try {
+        await utilServer.stopServer(); // Clean up on failure
+      } catch (stopErr) {
+        console.warn("Error during cleanup after failed server start:", stopErr);
+      }
     }
     throw err; // Fail the test suite
   }
@@ -284,13 +319,32 @@ describe("dRPC Client Content Type Tests", () => {
 
 // After all tests, clean up resources
 afterAll(async () => {
-  console.log(`Cleaning up ${clientManager.clientCount} clients...`);
-  await clientManager.cleanup();
+  console.log("Starting cleanup process...");
+
+  try {
+    console.log(`Cleaning up ${clientManager.clientCount} clients...`);
+    await clientManager.cleanup();
+    console.log("Client cleanup completed.");
+  } catch (err) {
+    console.error("Error during client cleanup:", err);
+  }
 
   // Stop the utility server
-  console.log("Stopping Go utility server...");
   if (utilServer) {
-    utilServer.stopServer();
+    try {
+      console.log("Stopping Go utility server...");
+      await utilServer.stopServer();
+      console.log("Go utility server stopped successfully.");
+    } catch (err) {
+      console.error("Error stopping Go utility server:", err);
+    }
+  } else {
+    console.log("Utility server helper not found.");
   }
-  console.log("Go utility server stopped.");
+
+  // Final cleanup of any orphaned processes
+  console.log("Final cleanup of any orphaned processes...");
+  await UtilServerHelper.cleanupOrphanedProcesses();
+
+  console.log("Cleanup process completed.");
 });

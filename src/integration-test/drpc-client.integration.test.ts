@@ -27,7 +27,7 @@ let clientManager: ClientManager;
 // Start Go server before all tests
 beforeAll(async () => {
   console.log("Initializing Go utility server helper...");
-  utilServer = new UtilServerHelper("cmd/util-server/main.go");
+  utilServer = new UtilServerHelper(8080);
   clientManager = new ClientManager();
 
   console.log("Starting Go utility server...");
