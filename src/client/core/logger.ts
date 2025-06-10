@@ -132,12 +132,14 @@ class Logger implements ILogger {
   }
 
   debug(message: string, ...args: any[]): void {
+    // Debug logs are eliminated in production builds via build-time substitution
     if (this.isMinLevel(LogLevel.DEBUG)) {
       console.debug(`[${this.contextName}] ${message}`, ...args);
     }
   }
 
   info(message: string, ...args: any[]): void {
+    // Info logs are eliminated in production builds via build-time substitution
     if (this.isMinLevel(LogLevel.INFO)) {
       console.info(`[${this.contextName}] ${message}`, ...args);
     }

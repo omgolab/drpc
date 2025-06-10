@@ -1,11 +1,77 @@
 /**
- * Utility functions for dRPC client
+ * Utility functions for dRPC client - consolidated vendor and custom utilities
  */
-import { Code } from "@connectrpc/connect";
+import { Code, ConnectError } from "@connectrpc/connect";
 import { multiaddr } from "@multiformats/multiaddr";
 import { uint8ArrayToString, parseEnvelope, Flag, toHex } from "./envelopes.js";
-import { concatUint8Arrays } from "./vendor-utils.js";
 import { DRPCOptions } from "./types.js";
+
+/**
+ * codeToString returns the string representation of a Code.
+ * Source: docs/vendors/connect-es/packages/connect/src/protocol-connect/code-string.ts
+ * @private Internal code, does not follow semantic versioning.
+ */
+export function codeToString(value: Code): string {
+    const name = Code[value] as string | undefined;
+    if (typeof name != "string") {
+        return value.toString();
+    }
+    return (
+        name[0].toLowerCase() +
+        name.substring(1).replace(/[A-Z]/g, (c) => "_" + c.toLowerCase())
+    );
+}
+
+let stringToCode: Record<string, Code> | undefined;
+
+/**
+ * codeFromString parses the string representation of a Code in snake_case.
+ * For example, the string "permission_denied" parses into Code.PermissionDenied.
+ * Source: docs/vendors/connect-es/packages/connect/src/protocol-connect/code-string.ts
+ * @private Internal code, does not follow semantic versioning.
+ */
+export function codeFromString(value: string | undefined): Code | undefined {
+    if (value === undefined) {
+        return undefined;
+    }
+    if (!stringToCode) {
+        stringToCode = {};
+        for (const value of Object.values(Code)) {
+            if (typeof value == "string") {
+                continue;
+            }
+            stringToCode[codeToString(value)] = value;
+        }
+    }
+    return stringToCode[value];
+}
+
+/**
+ * Efficient buffer concatenation using vendor approach.
+ * This optimizes our custom concatUint8Arrays implementation.
+ */
+export function concatUint8Arrays(arrays: Uint8Array[]): Uint8Array {
+    if (arrays.length === 0) {
+        return new Uint8Array(0);
+    }
+    if (arrays.length === 1) {
+        return arrays[0];
+    }
+
+    // Calculate total length
+    const totalLength = arrays.reduce((acc, array) => acc + array.byteLength, 0);
+
+    // Create new array and copy data efficiently
+    const result = new Uint8Array(totalLength);
+    let offset = 0;
+
+    for (const array of arrays) {
+        result.set(array, offset);
+        offset += array.byteLength;
+    }
+
+    return result;
+}
 
 /**
  * Prepares the initial length-prefixed header payload.
@@ -41,38 +107,4 @@ export function prepareInitialHeaderPayload(
     contentTypeLenBuffer,
     contentTypeBytes,
   ]);
-}
-
-/**
- * Extract the target multiaddr for dialing, handling relay format if present
- */
-// TODO: this is probably incorrect; check its usage in the codebase and ensure it aligns with the expected behavior for relay addresses.
-export function extractDialTargetFromMultiaddr(ma: any): any {
-  const isRelay = ma.toString().includes("/p2p-circuit/");
-  if (!isRelay) {
-    return ma;
-  }
-
-  // For relay addresses, extract the direct portion for our tests
-  // In a production relay setup, the full relay address would be used
-  const fullAddrStr = ma.toString();
-  const parts = fullAddrStr.split("/p2p-circuit/");
-
-  if (parts.length >= 2) {
-    const directAddrPart = parts[0];
-    if (directAddrPart) {
-      try {
-        // Use the imported multiaddr function from the top-level import
-        return multiaddr(directAddrPart);
-      } catch (e) {
-        console.warn(
-          `[libp2pTransport] Error parsing direct part from relay:`,
-          e,
-        );
-      }
-    }
-  }
-
-  // Fallback to original address
-  return ma;
 }

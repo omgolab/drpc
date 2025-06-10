@@ -6,7 +6,6 @@ import { pipe } from "it-pipe";
 import all from "it-all";
 import { ConnectError, Code } from "@connectrpc/connect";
 import {
-    createClientMethodSerializers,
     createLinkedAbortController,
     encodeEnvelope,
     transformParseEnvelope,
@@ -17,7 +16,7 @@ import {
     Flag,
     parseEnvelope,
 } from "../envelopes";
-import { codeFromString, concatUint8Arrays } from "../vendor-utils";
+import { codeFromString, concatUint8Arrays } from "../utils";
 import {
     UnaryResponse,
     ContextValues,
@@ -31,8 +30,21 @@ import {
 import { LogLevel } from "../logger";
 import {
     prepareInitialHeaderPayload,
-    extractDialTargetFromMultiaddr,
 } from "../utils";
+import {
+    getCachedSerializers,
+    shouldUseBinaryFormat,
+    createManagedAbortController,
+    TransportErrorFactory,
+    BufferUtils,
+    Libp2pConnectionManager,
+    ContentTypeValidator,
+} from "../transport-common";
+import {
+    establishConnection,
+    validateUnaryContentType,
+} from "./base-handler";
+import { processUnaryResponse } from "./unary-response";
 import type {
     DescMessage,
     DescMethodUnary,
@@ -50,10 +62,6 @@ export interface UnaryHandlerDependencies {
     };
 }
 
-// Serializer cache to avoid repeated createClientMethodSerializers calls
-// Using any type to avoid complex generic constraints for now
-const serializerCache = new Map<string, any>();
-
 /**
  * Handle unary RPC calls
  */
@@ -68,66 +76,33 @@ export async function handleUnary<I extends DescMessage, O extends DescMessage>(
 ): Promise<UnaryResponse<I, O>> {
     const { libp2p, ma, PROTOCOL_ID, logger, options } = deps;
 
-    logger.debug(`Unary call: ${method.name}`);
     // Get content type first so we can determine serialization format
     const contentType: UnaryContentType =
         options.unaryContentType ?? CONNECT_ONLY_UNARY_PROTO_CONTENT_TYPE;
 
     // Determine if we should use binary format based on content type
-    // Use binary format for proto content types, JSON format for JSON content types
-    const useBinaryFormat = !contentType.includes("json");
+    const useBinaryFormat = shouldUseBinaryFormat(contentType);
+    
+    // Log method start with consistent formatting
     logger.debug(
-        `Unary call using ${useBinaryFormat ? "binary" : "JSON"} format for content type: ${contentType}`,
+        `unary call: ${method.name} using ${useBinaryFormat ? 'binary' : 'JSON'} format for content type: ${contentType}`
     );
 
-    // Use cached serializers for performance
-    const cacheKey = `${method.parent.typeName}.${method.name}:${useBinaryFormat}`;
-    let serializers = serializerCache.get(cacheKey);
-    if (!serializers) {
-        serializers = createClientMethodSerializers(
-            method,
-            useBinaryFormat,
-        );
-        serializerCache.set(cacheKey, serializers);
-        logger.debug(`Created and cached serializers for ${cacheKey}`);
-    } else {
-        logger.debug(`Using cached serializers for ${cacheKey}`);
-    }
-    const { serialize, parse: deserialize } = serializers;
+    // Use shared cached serializers for performance
+    const { serialize, parse: deserialize } = getCachedSerializers(method, useBinaryFormat, logger);
     let p2pStream: any;
-
-    // Use Connect's createLinkedAbortController for better abort handling
-    const abortController = createLinkedAbortController(signal);
-    const linkedSignal = abortController.signal;
+    let linkedSignal: AbortSignal;
 
     try {
-        if (linkedSignal.aborted) {
-            throw new ConnectError(
-                "Request aborted before sending",
-                Code.Canceled,
-            );
-        }
-
-        const targetMa = extractDialTargetFromMultiaddr(ma);
-        logger.debug(
-            `Unary: Dialing ${targetMa.toString()} with protocol ${PROTOCOL_ID}`,
-        );
-        p2pStream = await libp2p.dialProtocol(targetMa, PROTOCOL_ID, {
-            signal: linkedSignal,
-        });
-        logger.debug(
-            `Unary: Successfully established stream to ${targetMa.toString()}`,
-        );
+        // Establish connection using shared logic
+        const connection = await establishConnection(deps, signal, timeoutMs, "Unary");
+        p2pStream = connection.p2pStream;
+        linkedSignal = connection.linkedSignal;
 
         // Prepare and serialize the request
 
         // Type system ensures content type is valid, but we keep runtime check as a safety measure
-        if (!unaryContentTypes.includes(contentType)) {
-            throw new ConnectError(
-                `Invalid content type for unary call: ${contentType}. Must be one of: ${unaryContentTypes.join(", ")}`,
-                Code.InvalidArgument,
-            );
-        }
+        validateUnaryContentType(contentType, unaryContentTypes);
 
         const initialHeader = prepareInitialHeaderPayload(method, contentType);
         const requestMessage = create(method.input, message);
@@ -143,86 +118,8 @@ export async function handleUnary<I extends DescMessage, O extends DescMessage>(
         await pipe([requestData], p2pStream.sink);
         await p2pStream.closeWrite();
 
-        logger.debug("Unary: Request sent, reading response");
-
-        // Receive and process response
-        const responseChunks: Uint8Array[] = [];
-
-        try {
-            // Read all response data using all() for reliable stream data collection
-            const chunks = await all(p2pStream.source);
-            logger.debug(`Unary: Received ${chunks.length} chunks from stream`);
-
-            for (const chunk of chunks) {
-                if (linkedSignal.aborted) {
-                    throw new ConnectError(
-                        "Unary response aborted by client",
-                        Code.Canceled,
-                    );
-                }
-
-                // Convert chunk to Uint8Array with type safety
-                let properChunk: Uint8Array;
-                try {
-                    if (chunk instanceof Uint8Array) {
-                        properChunk = chunk;
-                    } else if (chunk && typeof chunk === "object") {
-                        if (
-                            "buffer" in chunk &&
-                            "byteOffset" in chunk &&
-                            "byteLength" in chunk
-                        ) {
-                            properChunk = new Uint8Array(
-                                (chunk as any).buffer,
-                                (chunk as any).byteOffset,
-                                (chunk as any).byteLength,
-                            );
-                        } else if (
-                            "subarray" in chunk &&
-                            typeof (chunk as any).subarray === "function"
-                        ) {
-                            properChunk = new Uint8Array((chunk as any).subarray(0));
-                        } else {
-                            properChunk = new Uint8Array(chunk as any);
-                        }
-                    } else {
-                        properChunk = new Uint8Array(chunk as any);
-                    }
-                } catch (convErr) {
-                    logger.error(`Unary: Chunk conversion error: ${convErr}`);
-                    properChunk = new Uint8Array(0);
-                }
-
-                if (properChunk.length > 0) {
-                    logger.debug(
-                        `Unary: Raw chunk (${properChunk.length} bytes): ${Array.from(
-                            properChunk.slice(0, Math.min(properChunk.length, 32)),
-                        )
-                            .map((b) => b.toString(16).padStart(2, "0"))
-                            .join(" ")}`,
-                    );
-                    responseChunks.push(properChunk);
-                }
-            }
-
-            if (logger.isMinLevel(LogLevel.DEBUG)) {
-                const totalBytes = responseChunks.reduce((s, c) => s + c.length, 0);
-                console.debug(
-                    `Unary: Received all data from server (${totalBytes} bytes total)`,
-                );
-            }
-        } catch (readErr: any) {
-            logger.error(`Unary: Error reading response: ${readErr}`);
-            throw readErr;
-        }
-
-        // No data received
-        if (responseChunks.length === 0) {
-            throw new ConnectError(
-                "Empty response received from server",
-                Code.DataLoss,
-            );
-        }
+        // Process response using shared logic
+        const responseChunks = await processUnaryResponse(p2pStream, linkedSignal, logger);
 
         // Process response chunks
         const validChunks = responseChunks.filter((chunk) => chunk.length > 0);
@@ -488,7 +385,6 @@ export async function handleUnary<I extends DescMessage, O extends DescMessage>(
         };
     } catch (error: any) {
         logger.error(`Unary call error: ${error.message || error}`, error);
-        if (!abortController.signal.aborted) abortController.abort(error);
 
         if (
             p2pStream &&

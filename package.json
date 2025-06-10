@@ -4,7 +4,9 @@
   "description": "dRPC: Decentralized RPC client in TypeScript",
   "type": "module",
   "scripts": {
-    "build": "tsc",
+    "build:prod": "bun run build.config.ts",
+    "build:dev": "bun build src/client/index.ts --outdir=dist --target=browser --format=esm --sourcemap=linked",
+    "build:dev:node": "bun build src/client/index.ts --outdir=dist --minify --target=node --format=esm --drop=console --drop=debugger --drop=logger.debug --drop=logger.info",
     "test": "bun test",
     "optimize:node": "vitest run experiments/discovery/optimize-interval.test.ts --environment=node --reporter=verbose --no-coverage",
     "optimize:chrome": "vitest run experiments/discovery/optimize-interval.test.ts --browser.enabled --browser.name=chromium --reporter=verbose --no-coverage",

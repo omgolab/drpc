@@ -4,7 +4,6 @@
 import { pipe } from "it-pipe";
 import { ConnectError, Code } from "@connectrpc/connect";
 import {
-    createClientMethodSerializers,
     createLinkedAbortController,
     encodeEnvelopes,
 } from "@connectrpc/connect/protocol";
@@ -16,7 +15,7 @@ import {
     uint8ArrayToString,
     toHex,
 } from "../envelopes";
-import { concatUint8Arrays } from "../vendor-utils";
+import { codeFromString, concatUint8Arrays } from "../utils";
 import {
     StreamResponse,
     ContextValues,
@@ -27,9 +26,22 @@ import {
 import { ILogger, LogLevel } from "../logger";
 import {
     prepareInitialHeaderPayload,
-    extractDialTargetFromMultiaddr,
-    connectCodeFromString,
 } from "../utils";
+import {
+    getCachedSerializers,
+    shouldUseBinaryFormat,
+    createManagedAbortController,
+    TransportErrorFactory,
+    BufferUtils,
+    Libp2pConnectionManager,
+    ContentTypeValidator,
+} from "../transport-common";
+import {
+    establishConnection,
+    validateStreamingContentType,
+} from "./base-handler";
+import { prepareStreamingRequest } from "./stream-request";
+import { processStreamingResponse } from "./stream-response";
 import type {
     DescMessage,
     DescMethodStreaming,
@@ -48,10 +60,6 @@ export interface StreamHandlerDependencies {
         streamingContentType?: StreamingContentType;
     };
 }
-
-// Serializer cache to avoid repeated createClientMethodSerializers calls
-// Using any type to avoid complex generic constraints for now
-const serializerCache = new Map<string, any>();
 
 /**
  * Handle streaming RPC calls
@@ -77,109 +85,35 @@ export async function handleStream<I extends DescMessage, O extends DescMessage>
     const contentType = options?.streamingContentType ?? CONNECT_CONTENT_TYPE;
 
     // Determine if we should use binary format based on content type
-    // Use binary format for proto content types, JSON format for JSON content types
-    const useBinaryFormat = !contentType.includes("json");
+    const useBinaryFormat = shouldUseBinaryFormat(contentType);
+    
+    // Log method start with consistent formatting
     logger.debug(
-        `Stream call using ${useBinaryFormat ? "binary" : "JSON"} format for content type: ${contentType}`,
+        `stream call: ${method.name} using ${useBinaryFormat ? 'binary' : 'JSON'} format for content type: ${contentType}`
     );
 
-    // Use cached serializers for performance
-    const cacheKey = `${method.parent.typeName}.${method.name}:${useBinaryFormat}`;
-    let serializers = serializerCache.get(cacheKey);
-    if (!serializers) {
-        serializers = createClientMethodSerializers(
-            method,
-            useBinaryFormat,
-        );
-        serializerCache.set(cacheKey, serializers);
-        logger.debug(`Created and cached serializers for ${cacheKey}`);
-    } else {
-        logger.debug(`Using cached serializers for ${cacheKey}`);
-    }
-    const { serialize, parse: deserialize } = serializers;
+    // Use shared cached serializers for performance
+    const { serialize, parse: deserialize } = getCachedSerializers(method, useBinaryFormat, logger);
     let p2pStream: any; // To store the libp2p stream for access in finally
+    let linkedSignal: AbortSignal;
 
     try {
-        const targetMa = extractDialTargetFromMultiaddr(ma);
-        logger.debug(
-            `Dialing ${targetMa.toString()} with protocol ${PROTOCOL_ID} for stream`,
+        // Establish connection using shared logic
+        const connection = await establishConnection(deps, signal, timeoutMs, "Stream");
+        p2pStream = connection.p2pStream;
+        linkedSignal = connection.linkedSignal;
+
+        // Prepare streaming request using shared logic
+        validateStreamingContentType(contentType, streamingContentTypes);
+        
+        const buffers = await prepareStreamingRequest(
+            method,
+            input,
+            contentType,
+            serialize,
+            linkedSignal,
+            logger,
         );
-
-        // Use Connect's createLinkedAbortController for better abort handling
-        const abortController = createLinkedAbortController(signal);
-        const linkedSignal = abortController.signal;
-
-        if (linkedSignal.aborted) {
-            throw new ConnectError(
-                "Request aborted before sending",
-                Code.Canceled,
-            );
-        }
-
-        // Dial the peer
-        p2pStream = await libp2p.dialProtocol(targetMa, PROTOCOL_ID, {
-            signal: linkedSignal,
-        });
-        logger.debug(
-            `Successfully established stream to ${targetMa.toString()}`,
-        );
-
-        // Following the pattern from connect-client.ts:
-        // 1. First collect all client messages
-
-        // Type system ensures content type is valid, but we keep runtime check as a safety measure
-        if (!streamingContentTypes.includes(contentType)) {
-            throw new ConnectError(
-                `Invalid content type for streaming call: ${contentType}. Must be one of: ${streamingContentTypes.join(", ")}`,
-                Code.InvalidArgument,
-            );
-        }
-
-        const initialHeader = prepareInitialHeaderPayload(method, contentType);
-
-        // Prepare header + all request messages at once
-        const buffers: Uint8Array[] = [initialHeader];
-
-        // Gather client messages and their payloads
-        const payloads: Uint8Array[] = [];
-
-        try {
-            for await (const msgInit of input) {
-                if (linkedSignal.aborted) {
-                    throw new ConnectError(
-                        "Client stream aborted during message collection",
-                        Code.Canceled,
-                    );
-                }
-
-                const requestMessage = create(method.input, msgInit);
-                const serializedPayload = serialize(requestMessage);
-
-                // Collect payloads to encode together later
-                payloads.push(serializedPayload);
-                logger.debug(
-                    `Prepared client message, size: ${serializedPayload.length} bytes`,
-                );
-            }
-        } catch (e: any) {
-            logger.error("Error collecting client messages:", e);
-            throw e;
-        }
-
-        // Create envelopes for all messages in one go using Connect's encodeEnvelopes
-        if (payloads.length > 0) {
-            const envelopedData = encodeEnvelopes(
-                ...payloads.map((p) => ({ flags: Flag.NONE, data: p })),
-            );
-            buffers.push(envelopedData);
-        }
-
-        if (logger.isMinLevel(LogLevel.DEBUG)) {
-            const totalBytes = buffers.reduce((sum, b) => sum + b.length, 0);
-            logger.debug(
-                `Sending ${payloads.length} client messages, total size: ${totalBytes} bytes`,
-            );
-        }
 
         // 2. Send all buffers in a single pipe operation
         await pipe([concatUint8Arrays(buffers)], p2pStream.sink);
@@ -404,7 +338,7 @@ export async function handleStream<I extends DescMessage, O extends DescMessage>
                                         if (errorData.code || errorData.message) {
                                             throw new ConnectError(
                                                 errorData.message || "Unknown error",
-                                                connectCodeFromString(errorData.code) ||
+                                                codeFromString(errorData.code) ||
                                                 Code.Unknown,
                                             );
                                         }
