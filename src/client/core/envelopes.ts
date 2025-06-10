@@ -44,33 +44,41 @@ export interface ParsedEnvelopeResult {
 }
 
 /**
- * Attempts to parse an envelope from the beginning of the buffer.
+ * Attempts to parse an envelope from the buffer.
  * Returns both the parsed envelope and the number of bytes read.
  *
  * @param buffer The buffer to parse from.
+ * @param offset The offset in the buffer to start parsing from.
  * @returns An object containing the parsed envelope and bytes read.
  */
-export function parseEnvelope(buffer: Uint8Array): ParsedEnvelopeResult {
+export function parseEnvelope(
+  buffer: Uint8Array,
+  offset: number = 0,
+): ParsedEnvelopeResult {
   // Ensure we have at least the header bytes
-  if (buffer.byteLength < HEADER_LENGTH) {
+  if (buffer.byteLength < offset + HEADER_LENGTH) {
     return { envelope: null, bytesRead: 0 };
   }
 
   // Read flags (1 byte) and data length (4 bytes)
-  const flags = buffer[0];
-  const dataLength = new DataView(
+  const view = new DataView(
     buffer.buffer,
-    buffer.byteOffset + 1,
-    4,
-  ).getUint32(0, false);
+    buffer.byteOffset + offset,
+    HEADER_LENGTH,
+  );
+  const flags = view.getUint8(0);
+  const dataLength = view.getUint32(1, false); // false for big-endian
 
   // Ensure we have the full message
-  if (buffer.byteLength < HEADER_LENGTH + dataLength) {
+  if (buffer.byteLength < offset + HEADER_LENGTH + dataLength) {
     return { envelope: null, bytesRead: 0 };
   }
 
   // Extract data
-  const data = buffer.subarray(HEADER_LENGTH, HEADER_LENGTH + dataLength);
+  const data = buffer.subarray(
+    offset + HEADER_LENGTH,
+    offset + HEADER_LENGTH + dataLength,
+  );
 
   // Return the envelope and bytes read
   return {
@@ -94,20 +102,10 @@ export function uint8ArrayToString(buffer: Uint8Array): string {
 }
 
 /**
- * Combines multiple Uint8Arrays into one
+ * Converts a Uint8Array to a hex string
  */
-export function concatUint8Arrays(arrays: Uint8Array[]): Uint8Array {
-  // Calculate total length
-  const totalLength = arrays.reduce((acc, array) => acc + array.byteLength, 0);
-
-  // Create new array and copy data
-  const result = new Uint8Array(totalLength);
-  let offset = 0;
-
-  for (const array of arrays) {
-    result.set(array, offset);
-    offset += array.byteLength;
-  }
-
-  return result;
+export function toHex(buffer: Uint8Array): string {
+  return Array.from(buffer)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
 }

@@ -11,8 +11,8 @@
 import { Client, createClient } from "@connectrpc/connect";
 import { multiaddr } from "@multiformats/multiaddr";
 import { DescService } from "@bufbuild/protobuf";
-import { createLibp2pTransport } from "./core/libp2p-transport";
-import { createSmartHttpLibp2pTransport } from "./core/http-transport";
+import { createLibp2pTransport } from "./core/libp2p-transport/";
+import { createSmartHttpLibp2pTransport } from "./core/http-transport/";
 import { createLibp2pHost } from "./core/libp2p-host";
 import { DRPCOptions } from "./core/types";
 import { Libp2p } from "libp2p";

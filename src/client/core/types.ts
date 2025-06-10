@@ -9,7 +9,7 @@ import type {
   MessageShape,
 } from "@bufbuild/protobuf";
 import { type ContextValues } from "@connectrpc/connect";
-import { type Envelope } from "./envelope";
+import { type Envelope } from "./envelopes";
 import * as protoConnect from "@connectrpc/connect/protocol-connect";
 import * as protoGrpcWeb from "@connectrpc/connect/protocol-grpc-web";
 import * as protoGrpc from "@connectrpc/connect/protocol-grpc";
