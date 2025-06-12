@@ -9,7 +9,7 @@ import (
 	"net/http"
 
 	"connectrpc.com/connect"
-	"github.com/omgolab/drpc/pkg/drpc"
+	"github.com/omgolab/drpc/pkg/drpc/server"
 	glog "github.com/omgolab/go-commons/pkg/log"
 
 	greeterpb "github.com/omgolab/drpc/demo/gen/go/greeter/v1"
@@ -82,10 +82,10 @@ func main() {
 	logger.Info("Registered GreeterService handler", glog.LogFields{"path": greeterPath})
 
 	// Create a new dRPC server with p2p, HTTP, web-streaming capabilities
-	server, err := drpc.NewServer(
+	server, err := server.New(
 		ctx,
 		mux,
-		drpc.WithLogger(logger),
+		server.WithLogger(logger),
 	)
 	if err != nil {
 		logger.Fatal("Failed to create dRPC server", err)

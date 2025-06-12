@@ -9,7 +9,7 @@ import (
 	"github.com/libp2p/go-libp2p"
 	gv1connect "github.com/omgolab/drpc/demo/gen/go/greeter/v1/greeterv1connect"
 	"github.com/omgolab/drpc/demo/greeter"
-	"github.com/omgolab/drpc/pkg/drpc"
+	"github.com/omgolab/drpc/pkg/drpc/server"
 	glog "github.com/omgolab/go-commons/pkg/log"
 )
 
@@ -26,15 +26,15 @@ func main() {
 	path, handler := gv1connect.NewGreeterServiceHandler(&greeter.Server{})
 	mux.Handle(path, handler)
 
-	server, err := drpc.NewServer(ctx, mux,
-		drpc.WithLibP2POptions(
+	server, err := server.New(ctx, mux,
+		server.WithLibP2POptions(
 			libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/9090"),
 			// libp2p.DisableRelay(), // Removed to allow AutoRelay to function with HOP protocol
 		),
-		drpc.WithHTTPPort(8080), // Use port 8080 for HTTP
-		drpc.WithLogger(log),
-		drpc.WithForceCloseExistingPort(true),
-		drpc.WithHTTPHost("localhost"),
+		server.WithHTTPPort(8080), // Use port 8080 for HTTP
+		server.WithLogger(log),
+		server.WithForceCloseExistingPort(true),
+		server.WithHTTPHost("localhost"),
 	)
 	if err != nil {
 		log.Fatal("failed to create server", err)

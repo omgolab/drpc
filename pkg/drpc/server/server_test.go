@@ -1,4 +1,4 @@
-package drpc
+package server
 
 import (
 	"context"
@@ -24,7 +24,7 @@ func TestBasicServerCreation(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout) // Add timeout
 	defer cancel()                                                        // Ensure cancellation
-	server, err := NewServer(ctx, mux)
+	server, err := New(ctx, mux)
 	if err != nil {
 		t.Fatalf("Failed to create server: %v", err)
 	}
@@ -47,7 +47,7 @@ func TestWithOptions(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout) // Add timeout
 	defer cancel()                                                        // Ensure cancellation
-	server, err := NewServer(
+	server, err := New(
 		ctx,
 		mux,
 		WithLibP2POptions(libp2p.NoListenAddrs),
@@ -57,7 +57,7 @@ func TestWithOptions(t *testing.T) {
 		t.Fatalf("Failed to create server with options: %v", err)
 	}
 
-	if server.httpServer != nil {
+	if server.IsHTTPRunning() {
 		t.Error("HTTP server should be disabled")
 	}
 
@@ -76,11 +76,11 @@ func TestP2PServerStart(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout) // Add timeout
 	defer cancel()                                                        // Ensure cancellation
-	server, err := NewServer(ctx, mux, WithLibP2POptions(libp2p.NoListenAddrs))
+	server, err := New(ctx, mux, WithLibP2POptions(libp2p.NoListenAddrs))
 	if err != nil {
 		t.Fatalf("Failed to create server: %v", err)
 	}
-	if server.p2pHost == nil {
+	if server.GetP2PHost() == nil {
 		t.Fatal("P2P host is nil")
 	}
 	if err := server.Close(); err != nil {
@@ -100,12 +100,12 @@ func TestHTTPServerStart(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout) // Add timeout
 	defer cancel()                                                        // Ensure cancellation
 	// Use WithHTTPPort(0) for dynamic port allocation
-	server, err := NewServer(ctx, mux, WithLibP2POptions(libp2p.NoListenAddrs), WithHTTPPort(0))
+	server, err := New(ctx, mux, WithLibP2POptions(libp2p.NoListenAddrs), WithHTTPPort(0))
 	if err != nil {
 		t.Fatalf("Failed to create server: %v", err)
 	}
-	if server.httpServer == nil {
-		t.Fatal("HTTP server is nil")
+	if !server.IsHTTPRunning() {
+		t.Fatal("HTTP server should be running")
 	}
 
 	if err := server.Close(); err != nil {
@@ -123,7 +123,7 @@ func TestServerClose(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout) // Add timeout
 	defer cancel()                                                        // Ensure cancellation
-	server, err := NewServer(ctx, mux, WithLibP2POptions(libp2p.NoListenAddrs))
+	server, err := New(ctx, mux, WithLibP2POptions(libp2p.NoListenAddrs))
 	if err != nil {
 		t.Fatalf("Failed to create server: %v", err)
 	}
@@ -144,7 +144,7 @@ func TestAddressRetrieval(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), testTimeout) // Add timeout
 	defer cancel()                                                        // Ensure cancellation
 	// Use WithHTTPPort(0) for dynamic port allocation
-	server, err := NewServer(ctx, mux, WithLibP2POptions(libp2p.NoListenAddrs), WithHTTPPort(0))
+	server, err := New(ctx, mux, WithLibP2POptions(libp2p.NoListenAddrs), WithHTTPPort(0))
 	if err != nil {
 		t.Fatalf("Failed to create server: %v", err)
 	}
@@ -180,11 +180,10 @@ func TestDetachedMode(t *testing.T) {
 	})
 
 	ctx := context.Background() // Use background context directly
-	// WithDetachedServer to false is used to block until the server is ready.
 	// Use WithHTTPPort(0) for dynamic port allocation
-	server, err := NewServer(ctx, mux,
+	server, err := New(ctx, mux,
 		WithHTTPPort(0),
-		WithDetachOptions(detach.WithExitFunc(func(i int) {})), // Use the new option
+		WithDetachServer(detach.WithExitFunc(func(i int) {})), // Use the new option
 	)
 	if err != nil {
 		t.Fatalf("Failed to create detached server: %v, server: %v", err, server)

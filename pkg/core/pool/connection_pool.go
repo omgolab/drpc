@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"hash/fnv"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/libp2p/go-libp2p/core/host"
@@ -15,11 +17,47 @@ import (
 	glog "github.com/omgolab/go-commons/pkg/log"
 )
 
-// peerConnection holds streams for a specific peer
+// Object pools for connection-related structures
+var (
+	peerConnectionPool = sync.Pool{
+		New: func() any {
+			return &peerConnection{
+				streams: make([]network.Stream, 0, 4), // Pre-allocate slice capacity
+			}
+		},
+	}
+
+	managedStreamPool = sync.Pool{
+		New: func() any {
+			return &ManagedStream{}
+		},
+	}
+)
+
+// Connection pool sharding constants
+const (
+	// Number of shards to distribute connections across
+	// Power of 2 for efficient modulo operation using bitwise AND
+	ShardCount = 16
+	ShardMask  = ShardCount - 1
+)
+
+// peerConnection holds streams for a specific peer with atomic optimizations
 type peerConnection struct {
-	streams      []network.Stream // Using a slice as a stack for O(1) operations
-	lastAccessed time.Time
-	mu           sync.Mutex
+	streams         []network.Stream // Using a slice as a stack for O(1) operations
+	lastAccessedNs  int64           // Unix nanoseconds - atomic access
+	mu              sync.Mutex
+}
+
+// getLastAccessed returns the last access time using atomic operation
+func (pc *peerConnection) getLastAccessed() time.Time {
+	ns := atomic.LoadInt64(&pc.lastAccessedNs)
+	return time.Unix(0, ns)
+}
+
+// updateLastAccessed sets the last access time using atomic operation
+func (pc *peerConnection) updateLastAccessed() {
+	atomic.StoreInt64(&pc.lastAccessedNs, time.Now().UnixNano())
 }
 
 // ManagedStream is a wrapper around network.Stream that automatically
@@ -45,6 +83,10 @@ func (ms *ManagedStream) Close() error {
 
 	// Call ReleaseStream outside the lock to reduce lock contention
 	ms.pool.releaseStream(ms.peerID, ms.Stream)
+	
+	// Return the ManagedStream object to the pool for reuse
+	ms.returnToPool()
+	
 	return nil
 }
 
@@ -59,26 +101,66 @@ func (ms *ManagedStream) Reset() error {
 	ms.mu.Unlock()
 
 	// Call Stream.Reset() outside the lock
-	return ms.Stream.Reset()
+	err := ms.Stream.Reset()
+
+	// Return the ManagedStream object to the pool for reuse
+	ms.returnToPool()
+
+	return err
 }
 
-// ConnectionPool manages stream reuse
+// returnToPool cleans up and returns the ManagedStream to the object pool
+func (ms *ManagedStream) returnToPool() {
+	// Clear references to prevent memory leaks
+	ms.Stream = nil
+	ms.pool = nil
+	ms.peerID = ""
+	ms.closed = false
+
+	// Return to pool for reuse
+	managedStreamPool.Put(ms)
+}
+
+// ConnectionPool manages stream reuse with sharding for reduced lock contention
 type ConnectionPool struct {
 	p2pHost     host.Host
-	connections map[peer.ID]*peerConnection
+	shards      [ShardCount]*connectionShard
 	maxIdleTime time.Duration
 	maxStreams  int
-	logger      glog.Logger // Added logger
+	logger      glog.Logger
+}
+
+// connectionShard represents a single shard of connections to reduce lock contention
+type connectionShard struct {
+	connections map[peer.ID]*peerConnection
 	mu          sync.RWMutex
 }
 
-func NewConnectionPool(p2pHost host.Host, maxIdleTime time.Duration, maxStreams int, logger glog.Logger) *ConnectionPool { // Added logger param
+// hashPeerID returns a hash of the peer ID for sharding
+func hashPeerID(peerID peer.ID) uint32 {
+	h := fnv.New32a()
+	h.Write([]byte(peerID))
+	return h.Sum32()
+}
+
+// getShard returns the appropriate shard for a peer ID
+func (p *ConnectionPool) getShard(peerID peer.ID) *connectionShard {
+	return p.shards[hashPeerID(peerID)&ShardMask]
+}
+
+func NewConnectionPool(p2pHost host.Host, maxIdleTime time.Duration, maxStreams int, logger glog.Logger) *ConnectionPool {
 	pool := &ConnectionPool{
 		p2pHost:     p2pHost,
-		connections: make(map[peer.ID]*peerConnection),
 		maxIdleTime: maxIdleTime,
 		maxStreams:  maxStreams,
-		logger:      logger, // Assign logger
+		logger:      logger,
+	}
+
+	// Initialize shards
+	for i := 0; i < ShardCount; i++ {
+		pool.shards[i] = &connectionShard{
+			connections: make(map[peer.ID]*peerConnection),
+		}
 	}
 
 	// Start cleanup goroutine
@@ -88,23 +170,24 @@ func NewConnectionPool(p2pHost host.Host, maxIdleTime time.Duration, maxStreams 
 }
 
 func (p *ConnectionPool) GetStream(ctx context.Context, peerID peer.ID, protocolID protocol.ID) (network.Stream, error) {
+	shard := p.getShard(peerID)
+
 	// Fast path: try to get an existing connection with read lock first
-	p.mu.RLock()
-	peerConn, exists := p.connections[peerID]
-	p.mu.RUnlock()
+	shard.mu.RLock()
+	peerConn, exists := shard.connections[peerID]
+	shard.mu.RUnlock()
 
 	if !exists {
 		// Slow path: create new connection with write lock
-		p.mu.Lock()
-		peerConn, exists = p.connections[peerID]
+		shard.mu.Lock()
+		peerConn, exists = shard.connections[peerID]
 		if !exists {
-			peerConn = &peerConnection{
-				streams:      make([]network.Stream, 0, p.maxStreams),
-				lastAccessed: time.Now(),
-			}
-			p.connections[peerID] = peerConn
+			peerConn = peerConnectionPool.Get().(*peerConnection)
+			peerConn.streams = make([]network.Stream, 0, p.maxStreams)
+			peerConn.updateLastAccessed()
+			shard.connections[peerID] = peerConn
 		}
-		p.mu.Unlock()
+		shard.mu.Unlock()
 	}
 
 	// Get a stream from the peer connection
@@ -116,7 +199,7 @@ func (p *ConnectionPool) GetStream(ctx context.Context, peerID peer.ID, protocol
 	// Update lastAccessed time only if we're reusing a stream to reduce lock contention
 	if !freshlyCreated {
 		peerConn.mu.Lock()
-		peerConn.lastAccessed = time.Now()
+		peerConn.updateLastAccessed()
 		peerConn.mu.Unlock()
 	}
 
@@ -141,13 +224,13 @@ func (p *ConnectionPool) getStreamFromPeerConn(
 		peerConn.streams = peerConn.streams[:lastIdx] // O(1) pop operation
 		peerConn.mu.Unlock()
 
-		// Return wrapped stream
-		return &ManagedStream{
-			Stream: stream,
-			pool:   p,
-			peerID: peerID,
-			closed: false,
-		}, false, nil
+		// Return wrapped stream from pool
+		ms := managedStreamPool.Get().(*ManagedStream)
+		ms.Stream = stream
+		ms.pool = p
+		ms.peerID = peerID
+		ms.closed = false
+		return ms, false, nil
 	}
 	peerConn.mu.Unlock()
 
@@ -166,13 +249,13 @@ func (p *ConnectionPool) getStreamFromPeerConn(
 		return nil, true, err
 	}
 
-	// Return wrapped stream
-	return &ManagedStream{
-		Stream: stream,
-		pool:   p,
-		peerID: peerID,
-		closed: false,
-	}, true, nil
+	// Return wrapped stream from pool
+	ms := managedStreamPool.Get().(*ManagedStream)
+	ms.Stream = stream
+	ms.pool = p
+	ms.peerID = peerID
+	ms.closed = false
+	return ms, true, nil
 }
 
 // releaseStream puts a stream back into the pool or closes it
@@ -181,10 +264,12 @@ func (p *ConnectionPool) releaseStream(peerID peer.ID, stream network.Stream) {
 		return
 	}
 
+	shard := p.getShard(peerID)
+
 	// Quick check for connection existence with read lock
-	p.mu.RLock()
-	peerConn, exists := p.connections[peerID]
-	p.mu.RUnlock()
+	shard.mu.RLock()
+	peerConn, exists := shard.connections[peerID]
+	shard.mu.RUnlock()
 
 	if !exists {
 		stream.Close()
@@ -202,7 +287,7 @@ func (p *ConnectionPool) releaseStream(peerID peer.ID, stream network.Stream) {
 	if len(peerConn.streams) < p.maxStreams {
 		// Add to pool for reuse
 		peerConn.streams = append(peerConn.streams, stream)
-		peerConn.lastAccessed = time.Now()
+		peerConn.updateLastAccessed()
 		peerConn.mu.Unlock()
 	} else {
 		// Pool is full, close the stream
@@ -221,35 +306,41 @@ func (p *ConnectionPool) periodicCleanup() {
 }
 
 func (p *ConnectionPool) cleanup() {
-	// Create a list of peers to remove to minimize lock contention
-	var peersToRemove []peer.ID
-	var streamsToClose []network.Stream
-
-	// First phase: identify idle connections with read lock
-	p.mu.RLock()
 	now := time.Now()
-	for peerID, peerConn := range p.connections {
-		peerConn.mu.Lock()
-		if now.Sub(peerConn.lastAccessed) > p.maxIdleTime {
-			// Collect streams and mark peer for removal
-			streamsToClose = append(streamsToClose, peerConn.streams...)
-			peersToRemove = append(peersToRemove, peerID)
-		}
-		peerConn.mu.Unlock()
-	}
-	p.mu.RUnlock()
 
-	// Second phase: remove identified connections with write lock
-	if len(peersToRemove) > 0 {
-		p.mu.Lock()
-		for _, peerID := range peersToRemove {
-			delete(p.connections, peerID)
-		}
-		p.mu.Unlock()
+	// Process each shard independently to reduce lock contention
+	for i := 0; i < ShardCount; i++ {
+		shard := p.shards[i]
+		
+		// Create lists for this shard to minimize lock contention
+		var peersToRemove []peer.ID
+		var streamsToClose []network.Stream
 
-		// Close streams outside of any locks
-		for _, stream := range streamsToClose {
-			stream.Close()
+		// First phase: identify idle connections with read lock
+		shard.mu.RLock()
+		for peerID, peerConn := range shard.connections {
+			peerConn.mu.Lock()
+			if now.Sub(peerConn.getLastAccessed()) > p.maxIdleTime {
+				// Collect streams and mark peer for removal
+				streamsToClose = append(streamsToClose, peerConn.streams...)
+				peersToRemove = append(peersToRemove, peerID)
+			}
+			peerConn.mu.Unlock()
+		}
+		shard.mu.RUnlock()
+
+		// Second phase: remove identified connections with write lock
+		if len(peersToRemove) > 0 {
+			shard.mu.Lock()
+			for _, peerID := range peersToRemove {
+				delete(shard.connections, peerID)
+			}
+			shard.mu.Unlock()
+
+			// Close streams outside of any locks
+			for _, stream := range streamsToClose {
+				stream.Close()
+			}
 		}
 	}
 }

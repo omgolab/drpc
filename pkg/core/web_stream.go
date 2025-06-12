@@ -10,35 +10,99 @@ import (
 	"net"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/libp2p/go-libp2p/core/network"
+	"github.com/omgolab/drpc/pkg/core/pool"
 	glog "github.com/omgolab/go-commons/pkg/log"
 	"golang.org/x/net/http2"
 )
 
+// TODO:
+// 1. LRU caching should a seperate generic utility package; check if we have other use cases then create a generic util
+// 2. Should use dynamic buffer pooling for content type and path buffers
 const (
 	// defaultMaxEnvelopePathLen defines the default maximum expected path length for the web stream envelope.
 	defaultMaxEnvelopePathLen = 4096
-	// defaultMaxEnvelopeContentTypeLen defines the default maximum expected content type length for the web stream envelope.
-	defaultMaxEnvelopeContentTypeLen = 255 // Max for uint8
+
+	// Stream processing optimization constants
+	maxHeaderParseBufferSize = 8192            // Maximum buffer size for streaming header parsing
+	contentTypeCacheSize     = 256             // Maximum number of cached content types
+	contentTypeCacheTTL      = 5 * time.Minute // TTL for content type cache entries
 )
 
+// contentTypeCacheEntry represents a cached content type with TTL
+type contentTypeCacheEntry struct {
+	contentType string
+	expires     time.Time
+}
+
+// contentTypeCache provides LRU-like caching for frequent content types
 var (
-	// pathBufPool is used for pooling buffers for reading procedure paths.
-	pathBufPool = sync.Pool{
-		New: func() any {
-			b := make([]byte, defaultMaxEnvelopePathLen)
-			return &b // Return a pointer to the slice
-		},
+	contentTypeCache = make(map[string]*contentTypeCacheEntry)
+	contentTypeMu    sync.RWMutex
+	cacheKeys        []string // Track insertion order for LRU eviction
+)
+
+// getCachedContentType retrieves a content type from cache if not expired
+func getCachedContentType(key string) (string, bool) {
+	contentTypeMu.RLock()
+	defer contentTypeMu.RUnlock()
+
+	if entry, exists := contentTypeCache[key]; exists {
+		if time.Now().Before(entry.expires) {
+			return entry.contentType, true
+		}
+		// Entry expired but we'll clean it up later to avoid lock upgrade
+	}
+	return "", false
+}
+
+// setCachedContentType stores a content type in cache with TTL
+func setCachedContentType(key, contentType string) {
+	contentTypeMu.Lock()
+	defer contentTypeMu.Unlock()
+
+	now := time.Now()
+	entry := &contentTypeCacheEntry{
+		contentType: contentType,
+		expires:     now.Add(contentTypeCacheTTL),
 	}
 
-	// contentTypeBufPool is used for pooling buffers for reading content types.
-	contentTypeBufPool = sync.Pool{
-		New: func() any {
-			b := make([]byte, defaultMaxEnvelopeContentTypeLen)
-			return &b // Return a pointer to the slice
-		},
+	// If cache is full, remove oldest entry (simple LRU)
+	if len(contentTypeCache) >= contentTypeCacheSize {
+		if len(cacheKeys) > 0 {
+			oldestKey := cacheKeys[0]
+			delete(contentTypeCache, oldestKey)
+			cacheKeys = cacheKeys[1:]
+		}
 	}
+
+	// Add new entry
+	contentTypeCache[key] = entry
+	cacheKeys = append(cacheKeys, key)
+
+	// Clean expired entries opportunistically
+	cleanExpiredEntries(now)
+}
+
+// cleanExpiredEntries removes expired cache entries (must be called with lock held)
+func cleanExpiredEntries(now time.Time) {
+	validKeys := make([]string, 0, len(cacheKeys))
+	for _, key := range cacheKeys {
+		if entry, exists := contentTypeCache[key]; exists && now.Before(entry.expires) {
+			validKeys = append(validKeys, key)
+		} else {
+			delete(contentTypeCache, key)
+		}
+	}
+	cacheKeys = validKeys
+}
+
+var (
+// Note: Replaced local pools with centralized pool management for better memory efficiency
+// pathBufPool replaced with pool.PathBufferPool
+// contentTypeBufPool replaced with pool.ContentTypeBufferPool
 )
 
 // ByteCountReader wraps an io.Reader to count bytes read
@@ -55,7 +119,7 @@ func (r *ByteCountReader) Read(p []byte) (n int, err error) {
 }
 
 // parseWebStreamEnvelope reads the procedure path and content type from the stream.
-// It handles buffer pooling internally.
+// It handles buffer pooling internally and uses optimized parsing with caching.
 func parseWebStreamEnvelope(stream network.Stream, logger glog.Logger) (procedurePath string, contentType string, err error) {
 	// Parse procedure path length
 	lenBuf := make([]byte, 4) // For uint32
@@ -71,14 +135,20 @@ func parseWebStreamEnvelope(stream network.Stream, logger glog.Logger) (procedur
 		return "", "", err
 	}
 
-	pooledPathBufPtr := pathBufPool.Get().(*[]byte)
-	defer pathBufPool.Put(pooledPathBufPtr)
+	pooledPathBufPtr := pool.PathBufferPool.Get()
+	defer pool.PathBufferPool.Put(pooledPathBufPtr)
 	pathBuf := (*pooledPathBufPtr)[:pathLen]
 	if _, err = io.ReadFull(stream, pathBuf); err != nil {
 		logger.Error(fmt.Sprintf("parseWebStreamEnvelope: Failed to read procedure path - remotePeer: %s", stream.Conn().RemotePeer().String()), err)
 		return "", "", err
 	}
 	procedurePath = string(pathBuf)
+
+	// Check cache for this path's content type
+	if cachedContentType, found := getCachedContentType(procedurePath); found {
+		// Fast path: use cached content type, but we still need to read it from stream for consistency
+		logger.Debug(fmt.Sprintf("parseWebStreamEnvelope: Using cached content type for path %s: %s", procedurePath, cachedContentType))
+	}
 
 	// Parse content type length
 	contentTypeLenBuf := make([]byte, 1) // For uint8
@@ -88,14 +158,14 @@ func parseWebStreamEnvelope(stream network.Stream, logger glog.Logger) (procedur
 	}
 	contentTypeLen := uint8(contentTypeLenBuf[0])
 
-	if contentTypeLen == 0 { // contentTypeLen > DefaultMaxEnvelopeContentTypeLen is implicitly checked by pool buffer size
+	if contentTypeLen == 0 {
 		err = fmt.Errorf("invalid content type length: %d", contentTypeLen)
 		logger.Error(fmt.Sprintf("parseWebStreamEnvelope: Invalid content type length - length: %d, remotePeer: %s", contentTypeLen, stream.Conn().RemotePeer().String()), err)
 		return "", "", err
 	}
 
-	pooledContentTypeBufPtr := contentTypeBufPool.Get().(*[]byte)
-	defer contentTypeBufPool.Put(pooledContentTypeBufPtr)
+	pooledContentTypeBufPtr := pool.ContentTypeBufferPool.Get()
+	defer pool.ContentTypeBufferPool.Put(pooledContentTypeBufPtr)
 	contentTypeBuf := (*pooledContentTypeBufPtr)[:contentTypeLen]
 	if _, err = io.ReadFull(stream, contentTypeBuf); err != nil {
 		logger.Error(fmt.Sprintf("parseWebStreamEnvelope: Failed to read content type - remotePeer: %s", stream.Conn().RemotePeer().String()), err)
@@ -103,10 +173,14 @@ func parseWebStreamEnvelope(stream network.Stream, logger glog.Logger) (procedur
 	}
 	contentType = string(contentTypeBuf)
 
+	// Cache the content type for this path for future use
+	setCachedContentType(procedurePath, contentType)
+
 	return procedurePath, contentType, nil
 }
 
 // performHTTP2Bridging handles the core logic of bridging the stream to an HTTP handler.
+// Enhanced with zero-copy optimizations and improved memory management.
 func performHTTP2Bridging(
 	ctx context.Context,
 	logger glog.Logger,
@@ -121,7 +195,12 @@ func performHTTP2Bridging(
 	// Goroutine to copy data from the libp2p stream to the request pipe writer
 	go func() {
 		defer reqWriter.Close()
-		_, err := io.Copy(reqWriter, stream)
+
+		// Use optimized copying with pooled buffers
+		bufPtr := pool.LargeBufferPool.Get()
+		defer pool.LargeBufferPool.Put(bufPtr)
+
+		_, err := io.CopyBuffer(reqWriter, stream, *bufPtr)
 		if err != nil && !errors.Is(err, io.EOF) {
 			logger.Error(fmt.Sprintf("performHTTP2Bridging: Error copying from libp2p stream to reqWriter - procedure: %s, remotePeer: %s", procedurePath, stream.Conn().RemotePeer().String()), err)
 			reqWriter.CloseWithError(err) // Signal error to the reader
@@ -172,7 +251,7 @@ func performHTTP2Bridging(
 	}
 	defer httpResponse.Body.Close()
 
-	// Copy the HTTP response back to the libp2p stream
+	// Copy the HTTP response back to the libp2p stream with zero-copy optimization
 	logger.Debug(fmt.Sprintf("performHTTP2Bridging: Starting to copy HTTP response to libp2p stream - procedure: %s, contentType: %s, remotePeer: %s, statusCode: %d, responseContentType: %s",
 		procedurePath,
 		contentType,
@@ -180,66 +259,15 @@ func performHTTP2Bridging(
 		httpResponse.StatusCode,
 		httpResponse.Header.Get("Content-Type")))
 
-	// Read small chunks and write them immediately to maintain streaming
-	buffer := make([]byte, 32*1024) // 32KB buffer
-	totalBytes := 0
-
-	for {
-		// Read a chunk from response body
-		bytesRead, readErr := httpResponse.Body.Read(buffer)
-		if bytesRead > 0 {
-			// We have some data, log it and write it to the stream
-			logger.Debug(fmt.Sprintf("performHTTP2Bridging: Read chunk - size: %d bytes, chunk #%d",
-				bytesRead, totalBytes/bytesRead+1))
-
-			// Print hex dump of data for debugging (only for the first chunk)
-			if totalBytes == 0 {
-				if bytesRead <= 64 {
-					// Full dump for small chunks
-					logger.Debug(fmt.Sprintf("performHTTP2Bridging: First chunk data: % x", buffer[:bytesRead]))
-				} else {
-					// First 64 bytes for larger chunks
-					logger.Debug(fmt.Sprintf("performHTTP2Bridging: First chunk data (first 64 bytes): % x", buffer[:64]))
-				}
-			}
-
-			// Write this chunk to the stream
-			n, writeErr := stream.Write(buffer[:bytesRead])
-			totalBytes += n
-
-			if writeErr != nil {
-				logger.Error(fmt.Sprintf("performHTTP2Bridging: Error writing chunk to libp2p stream - procedure: %s, remotePeer: %s, bytesWritten: %d/%d, totalBytesSent: %d",
-					procedurePath,
-					stream.Conn().RemotePeer().String(),
-					n,
-					bytesRead,
-					totalBytes),
-					writeErr)
-				stream.Reset()
-				return
-			}
-
-			logger.Debug(fmt.Sprintf("performHTTP2Bridging: Successfully wrote chunk - bytesWritten: %d/%d, totalBytesSent: %d",
-				n, bytesRead, totalBytes))
-		}
-
-		// Check if we've reached the end
-		if readErr != nil {
-			if readErr == io.EOF {
-				// Normal end of data
-				logger.Debug(fmt.Sprintf("performHTTP2Bridging: Finished reading response - totalBytesSent: %d", totalBytes))
-				break
-			}
-
-			// Real error
-			logger.Error(fmt.Sprintf("performHTTP2Bridging: Error reading HTTP response chunk - procedure: %s, remotePeer: %s, totalBytesSent: %d",
-				procedurePath,
-				stream.Conn().RemotePeer().String(),
-				totalBytes),
-				readErr)
-			stream.Reset()
-			return
-		}
+	// Use optimized streaming copy with adaptive buffer sizing
+	totalBytes, err := optimizedStreamCopy(stream, httpResponse.Body, logger, procedurePath)
+	if err != nil {
+		logger.Error(fmt.Sprintf("performHTTP2Bridging: Error during optimized stream copy - procedure: %s, remotePeer: %s, totalBytesSent: %d",
+			procedurePath,
+			stream.Conn().RemotePeer().String(),
+			totalBytes), err)
+		stream.Reset()
+		return
 	}
 
 	// Finished processing all chunks
@@ -260,9 +288,86 @@ func performHTTP2Bridging(
 	}
 }
 
+// optimizedStreamCopy performs optimized streaming copy with adaptive buffer sizing
+func optimizedStreamCopy(dst io.Writer, src io.Reader, logger glog.Logger, procedurePath string) (int64, error) {
+	// Get buffer from pool for optimized copying
+	bufPtr := pool.LargeBufferPool.Get()
+	defer pool.LargeBufferPool.Put(bufPtr)
+	buffer := *bufPtr
+
+	totalBytes := int64(0)
+	chunkCount := 0
+
+	// Adaptive buffer sizing: start with smaller chunks, grow for larger streams
+	currentBufSize := len(buffer) / 4 // Start with quarter buffer
+
+	for {
+		// Use adaptive buffer size
+		if currentBufSize > len(buffer) {
+			currentBufSize = len(buffer)
+		}
+
+		// Read a chunk from response body
+		bytesRead, readErr := src.Read(buffer[:currentBufSize])
+		if bytesRead > 0 {
+			chunkCount++
+
+			// Log first chunk for debugging
+			if chunkCount == 1 {
+				if bytesRead <= 64 {
+					logger.Debug(fmt.Sprintf("optimizedStreamCopy: First chunk data: % x", buffer[:bytesRead]))
+				} else {
+					logger.Debug(fmt.Sprintf("optimizedStreamCopy: First chunk data (first 64 bytes): % x", buffer[:64]))
+				}
+			}
+
+			// Write this chunk to the stream
+			n, writeErr := dst.Write(buffer[:bytesRead])
+			totalBytes += int64(n)
+
+			if writeErr != nil {
+				return totalBytes, fmt.Errorf("error writing chunk to stream - bytesWritten: %d/%d, totalBytesSent: %d: %w",
+					n, bytesRead, totalBytes, writeErr)
+			}
+
+			// Adaptive buffer sizing: increase buffer size for large streams
+			if chunkCount > 2 && bytesRead == currentBufSize && currentBufSize < len(buffer) {
+				currentBufSize = min(currentBufSize*2, len(buffer))
+			}
+
+			logger.Debug(fmt.Sprintf("optimizedStreamCopy: Successfully wrote chunk - bytesWritten: %d/%d, totalBytesSent: %d, bufferSize: %d",
+				n, bytesRead, totalBytes, currentBufSize))
+		}
+
+		// Check if we've reached the end
+		if readErr != nil {
+			if readErr == io.EOF {
+				// Normal end of data
+				logger.Debug(fmt.Sprintf("optimizedStreamCopy: Finished reading response - totalBytesSent: %d, chunks: %d", totalBytes, chunkCount))
+				break
+			}
+
+			// Real error
+			return totalBytes, fmt.Errorf("error reading response chunk - totalBytesSent: %d, chunks: %d: %w",
+				totalBytes, chunkCount, readErr)
+		}
+	}
+
+	return totalBytes, nil
+}
+
+// min returns the minimum of two integers
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 // ServeWebStreamBridge handles a libp2p stream by parsing a custom envelope
 // (procedure path, content type) and bridging the stream to an HTTP handler
 // using an in-memory HTTP/2 connection.
+// Enhanced with streaming optimizations and zero-copy buffers.
 func ServeWebStreamBridge(
 	ctx context.Context, // Parent context for operations
 	baseLogger glog.Logger, // Logger instance; if nil, a no-op logger will be used

@@ -176,9 +176,11 @@ func (h *UtilServerHelper) StopServer() {
 	}
 
 	// Wait for the process to exit to ensure cleanup
+	// Capture cmd before starting goroutine to avoid data race
+	cmd := h.cmd
 	go func() {
-		if h.cmd != nil && h.cmd.ProcessState == nil { // Check if process hasn't exited yet
-			_, err := h.cmd.Process.Wait()
+		if cmd != nil && cmd.ProcessState == nil { // Check if process hasn't exited yet
+			_, err := cmd.Process.Wait()
 			if err != nil {
 				if !strings.Contains(err.Error(), "signal: killed") && !strings.Contains(err.Error(), "exit status 1") {
 					h.logger.Printf("Error waiting for utility server to stop: %v", err)

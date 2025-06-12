@@ -11,7 +11,7 @@ import (
 	"connectrpc.com/connect"
 	gv1 "github.com/omgolab/drpc/demo/gen/go/greeter/v1"
 	gv1connect "github.com/omgolab/drpc/demo/gen/go/greeter/v1/greeterv1connect"
-	"github.com/omgolab/drpc/pkg/drpc"
+	"github.com/omgolab/drpc/pkg/drpc/client"
 )
 
 func main() {
@@ -65,7 +65,7 @@ func main() {
 func newLibp2pClient(addrStr string) (gv1connect.GreeterServiceClient, error) {
 	// Use the new drpc.NewClient signature which now takes a string address
 	// instead of host, peerID and addresses list
-	client, err := drpc.NewClient(context.Background(), addrStr, gv1connect.NewGreeterServiceClient)
+	client, err := client.New(context.Background(), addrStr, gv1connect.NewGreeterServiceClient)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to create drpc client: %w", err)

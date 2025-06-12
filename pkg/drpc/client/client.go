@@ -1,4 +1,4 @@
-package drpc
+package client
 
 import (
 	"context"
@@ -15,13 +15,14 @@ import (
 	"github.com/libp2p/go-libp2p/core/protocol"
 	"github.com/omgolab/drpc/pkg/config"
 	"github.com/omgolab/drpc/pkg/core"
+	"github.com/omgolab/drpc/pkg/core/host"
 	"github.com/omgolab/drpc/pkg/core/pool"
 	"github.com/omgolab/drpc/pkg/gateway"
 	glog "github.com/omgolab/go-commons/pkg/log"
 	"golang.org/x/net/http2"
 )
 
-// NewClient creates a new ConnectRPC client that uses libp2p for transport.
+// New creates a new ConnectRPC client that uses libp2p for transport.
 // Note: future plugin will generate this function by ServiceName
 // ## Communication Paths
 // Main communication paths for the client:
@@ -29,16 +30,16 @@ import (
 // 2. **Path 2:** dRPC Client → Listener(if serverAddr is an http address with gateway indication) → Gateway Handler → Relay libp2p Peer → Host libp2p Peer → dRPC Handler
 // 3. **Path 3:** dRPC Client → Host libp2p Peer (if serverAddr is a libp2p multiaddress) → dRPC Handler
 // 4. **Path 4:** dRPC Client → Relay libp2p Peer(if serverAddr is a libp2p multiaddress) → Host libp2p Peer → dRPC Handler
-func NewClient[T any](
+func New[T any](
 	ctx context.Context,
 	serverAddr string,
 	newServiceClient func(httpClient connect.HTTPClient, baseURL string, opts ...connect.ClientOption) T,
-	clientOpts ...ClientOption,
+	clientOpts ...Option,
 ) (T, error) {
 	var zeroValue T
 
 	// Initialize client with default settings
-	client := &clientCfg{}
+	client := &Config{}
 
 	// Apply options
 	if err := client.applyOptions(clientOpts...); err != nil {
@@ -51,17 +52,11 @@ func NewClient[T any](
 	if strings.HasPrefix(serverAddr, "http://") || strings.HasPrefix(serverAddr, "https://") {
 		// For HTTP paths, we can directly use the ConnectRPC client with the http address
 		// This handles Path 1 and Path 2 (gateway handler will resolve between direct or relay)
-		// Use a dedicated http2 transport for h2c (HTTP/2 over cleartext)
+
+		// Always use HTTP/2 transport for both HTTP and HTTPS
+		// This provides better multiplexing and performance
 		httpClient := &http.Client{
-			Transport: &http2.Transport{
-				// Allow non-TLS HTTP/2
-				AllowHTTP: true,
-				// Need a custom dialer that skips TLS for http:// addresses
-				DialTLSContext: func(ctx context.Context, network, addr string, cfg *tls.Config) (net.Conn, error) {
-					var d net.Dialer
-					return d.DialContext(ctx, network, addr)
-				},
-			},
+			Transport: optimizedHTTP2Transport(),
 		}
 
 		// Create the ConnectRPC client
@@ -80,12 +75,12 @@ func NewClient[T any](
 	}
 
 	// Creating a new libp2p host for the client.
-	clientHost, err := core.CreateLibp2pHost(
+	clientHost, err := host.CreateLibp2pHost(
 		ctx,
-		core.WithHostLogger(logger),
-		core.WithHostLibp2pOptions(client.libp2pOptions...),
-		core.WithHostDHTOptions(client.dhtOptions...),
-		core.WithHostAsClientMode(),
+		host.WithHostLogger(logger),
+		host.WithHostLibp2pOptions(client.libp2pOptions...),
+		host.WithHostDHTOptions(client.dhtOptions...),
+		host.WithHostAsClientMode(),
 	)
 	if err != nil {
 		logger.Error("Failed to create libp2p host", err)

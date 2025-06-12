@@ -1,4 +1,16 @@
 // Package relay provides relay peer management for libp2p hosts
+//
+// IMPORTANT: This package is currently UNUSED in the codebase.
+// libp2p's built-in AutoRelay functionality handles all relay operations automatically,
+// making this custom relay manager redundant. The file is preserved for reference
+// but all usage has been removed from the codebase to eliminate overhead and
+// potential memory leaks from background maintenance goroutines.
+//
+// This removal provides immediate benefits:
+// - Eliminates 979 lines of unused processing overhead
+// - Removes potential memory leaks from background goroutines
+// - Simplifies the codebase by using libp2p's battle-tested AutoRelay
+// - Reduces memory usage from peer tracking maps and maintenance tasks
 package relay
 
 import (

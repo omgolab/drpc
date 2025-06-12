@@ -9,7 +9,7 @@ import (
 	"time"
 
 	gv1connect "github.com/omgolab/drpc/demo/gen/go/greeter/v1/greeterv1connect"
-	"github.com/omgolab/drpc/pkg/drpc"
+	"github.com/omgolab/drpc/pkg/drpc/client"
 	glog "github.com/omgolab/go-commons/pkg/log"
 )
 
@@ -49,7 +49,7 @@ func Test_Path1_DirectHTTP_Communication(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), DefaultTimeout)
 	defer cancel()
 
-	client, err := drpc.NewClient(ctx, publicNodeInfo.HTTPAddress, gv1connect.NewGreeterServiceClient, drpc.WithClientLogger(testLog))
+	client, err := client.New(ctx, publicNodeInfo.HTTPAddress, gv1connect.NewGreeterServiceClient, client.WithLogger(testLog))
 	if err != nil {
 		t.Fatalf("Failed to create client for direct HTTP communication to %s: %v", publicNodeInfo.HTTPAddress, err)
 	}
@@ -120,7 +120,7 @@ func Test_Path2_HTTP_Gateway_Via_Relay_Communication(t *testing.T) {
 			clientCtx, clientCancel := context.WithTimeout(context.Background(), 20*time.Second) // Increased timeout for gateway path
 			defer clientCancel()
 
-			client, clientErr := drpc.NewClient(clientCtx, tc.addr, gv1connect.NewGreeterServiceClient, drpc.WithClientLogger(testLog))
+			client, clientErr := client.New(clientCtx, tc.addr, gv1connect.NewGreeterServiceClient, client.WithLogger(testLog))
 			if clientErr != nil {
 				t.Fatalf("Failed to create client for HTTP Gateway (%s): %v. Addr: %s", tc.name, clientErr, tc.addr)
 			}
@@ -151,7 +151,7 @@ func Test_Path3_DirectLibP2P_Communication(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), DefaultTimeout)
 	defer cancel()
 
-	client, err := drpc.NewClient(ctx, publicNodeInfo.Libp2pMA, gv1connect.NewGreeterServiceClient, drpc.WithClientLogger(testLog))
+	client, err := client.New(ctx, publicNodeInfo.Libp2pMA, gv1connect.NewGreeterServiceClient, client.WithLogger(testLog))
 	if err != nil {
 		t.Fatalf("Failed to create client for direct LibP2P communication to %s: %v", publicNodeInfo.Libp2pMA, err)
 	}
@@ -209,7 +209,7 @@ func Test_Path4_LibP2P_Via_Relay_Communication(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second) // Increased timeout for relay path
 			defer cancel()
 
-			client, clientErr := drpc.NewClient(ctx, tc.addr, gv1connect.NewGreeterServiceClient, drpc.WithClientLogger(testLog))
+			client, clientErr := client.New(ctx, tc.addr, gv1connect.NewGreeterServiceClient, client.WithLogger(testLog))
 			if clientErr != nil {
 				t.Fatalf("Failed to create client for LibP2P communication (%s): %v. Addr: %s", tc.name, clientErr, tc.addr)
 			}

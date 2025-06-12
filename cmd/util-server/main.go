@@ -6,8 +6,11 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	_ "net/http/pprof" // Enable pprof endpoint for memory profiling
 	"os"
 	"os/signal"
+	"runtime"
+	"runtime/pprof"
 	"sync"
 	"syscall"
 	"time"
@@ -15,7 +18,7 @@ import (
 	"github.com/libp2p/go-libp2p"
 	gv1connect "github.com/omgolab/drpc/demo/gen/go/greeter/v1/greeterv1connect"
 	"github.com/omgolab/drpc/demo/greeter"
-	"github.com/omgolab/drpc/pkg/drpc"
+	"github.com/omgolab/drpc/pkg/drpc/server"
 	"github.com/omgolab/drpc/pkg/gateway"
 	glog "github.com/omgolab/go-commons/pkg/log"
 )
@@ -25,15 +28,15 @@ const DefaultTimeout = 1 * time.Hour // Default timeout for server operations
 var (
 	logger glog.Logger
 
-	publicNode           *drpc.ServerInstance
+	publicNode           *server.DRPCServer
 	publicNodeOnce       sync.Once
 	publicCachedResponse *NodeResponse
 
-	relayedPrivateNode  *drpc.ServerInstance
+	relayedPrivateNode  *server.DRPCServer
 	relayNodeOnce       sync.Once
 	relayCachedResponse *NodeResponse
 
-	gatewayNode                    *drpc.ServerInstance
+	gatewayNode                    *server.DRPCServer
 	gatewayNodeOnce                sync.Once
 	gatewayCachedResponse          *NodeResponse
 	gatewayRelayNodeOnce           sync.Once
@@ -58,6 +61,17 @@ func main() {
 		log.Fatalf("Failed to create logger: %v", err)
 	}
 
+	// Start pprof server for memory profiling
+	go func() {
+		log.Println("Starting pprof server on :6060")
+		if err := http.ListenAndServe("localhost:6060", nil); err != nil {
+			logger.Error("pprof server failed", err)
+		}
+	}()
+
+	// Start memory monitoring goroutine
+	go monitorMemoryUsage()
+
 	// Register handlers on the global pubServeMux
 	// This mux will be used by the publicNode's HTTP server
 	pubServeMux.HandleFunc("/public-node", publicNodeHandler)
@@ -75,7 +89,7 @@ func main() {
 	}
 
 	logger.Info("Endpoints registered: /public-node, /relay-node, /gateway-node, /gateway-relay-node, /gateway-auto-relay-node.")
-	// The drpc.NewServer call starts its HTTP server in a goroutine, so main can proceed to wait for signals.
+	// The server.New call starts its HTTP server in a goroutine, so main can proceed to wait for signals.
 
 	// Wait for interrupt signal to gracefully shutdown the server.
 	quit := make(chan os.Signal, 1)
@@ -121,12 +135,12 @@ func initPublicNode() {
 		pubServeMux.Handle(path, handler)
 
 		// Public node starts on a dynamic HTTP port and default LibP2P setup
-		server, errSetup := drpc.NewServer(context.Background(), pubServeMux,
-			drpc.WithLogger(logger),
-			drpc.WithHTTPPort(8080),
-			drpc.WithForceCloseExistingPort(true), // Force close if the port is already in use
+		server, errSetup := server.New(context.Background(), pubServeMux,
+			server.WithLogger(logger),
+			server.WithHTTPPort(8080),
+			server.WithForceCloseExistingPort(true), // Force close if the port is already in use
 			// force public reachability since we also intend to use this be used as a public relay node
-			drpc.WithLibP2POptions(libp2p.ForceReachabilityPublic()),
+			server.WithLibP2POptions(libp2p.ForceReachabilityPublic()),
 		)
 		if errSetup != nil {
 			logger.Fatal("Failed to create public node server", errSetup)
@@ -153,12 +167,12 @@ func publicNodeHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	
+
 	if r.Method == http.MethodOptions {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	
+
 	if r.Method != http.MethodGet {
 		http.Error(w, "Only GET method is allowed", http.StatusMethodNotAllowed)
 		return
@@ -183,11 +197,11 @@ func initRelayNode() {
 		}
 
 		// private node starts on a dynamic HTTP port and default LibP2P setup
-		node, errSetup := drpc.NewServer(context.Background(), greeterMux,
-			drpc.WithDisableHTTP(), // Disable HTTP server for this node
-			drpc.WithLogger(logger),
+		node, errSetup := server.New(context.Background(), greeterMux,
+			server.WithDisableHTTP(), // Disable HTTP server for this node
+			server.WithLogger(logger),
 			// force private reachability since we also intend to stage this be accessible from the public relay node
-			drpc.WithLibP2POptions(libp2p.ForceReachabilityPrivate()),
+			server.WithLibP2POptions(libp2p.ForceReachabilityPrivate()),
 		)
 		if errSetup != nil {
 			logger.Fatal("Failed to create relayed private node", errSetup)
@@ -207,12 +221,12 @@ func relayNodeHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	
+
 	if r.Method == http.MethodOptions {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	
+
 	if r.Method != http.MethodGet {
 		http.Error(w, "Only GET method is allowed", http.StatusMethodNotAllowed)
 		return
@@ -228,8 +242,8 @@ func initGatewayNode() {
 
 		// This function contains the actual initialization logic for the gateway node.
 		// It's called from main() for eager initialization and from gatewayNodeHandler() to ensure initialization.
-		server, errSetup := drpc.NewServer(context.Background(), pubServeMux,
-			drpc.WithLogger(logger),
+		server, errSetup := server.New(context.Background(), pubServeMux,
+			server.WithLogger(logger),
 			// Default libp2p reachability is UNKNOWN; this is left as is intentionally
 			// to allow the server to determine its own reachability. In a real-world scenario,
 			// this is how you would want to keep the reachability status.
@@ -262,12 +276,12 @@ func gatewayNodeHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	
+
 	if r.Method == http.MethodOptions {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	
+
 	if r.Method != http.MethodGet {
 		http.Error(w, "Only GET method is allowed", http.StatusMethodNotAllowed)
 		return
@@ -287,12 +301,12 @@ func gatewayRelayNodeHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	
+
 	if r.Method == http.MethodOptions {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	
+
 	if r.Method != http.MethodGet {
 		http.Error(w, "Only GET method is allowed", http.StatusMethodNotAllowed)
 		return
@@ -324,12 +338,12 @@ func gatewayAutoRelayNodeHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Access-Control-Allow-Origin", "*")
 	w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-	
+
 	if r.Method == http.MethodOptions {
 		w.WriteHeader(http.StatusOK)
 		return
 	}
-	
+
 	if r.Method != http.MethodGet {
 		http.Error(w, "Only GET method is allowed", http.StatusMethodNotAllowed)
 		return
@@ -356,6 +370,53 @@ func gatewayAutoRelayNodeHandler(w http.ResponseWriter, r *http.Request) {
 	})
 
 	writeJSONResponse(w, "gateway auto relay node", gatewayAutoRelayCachedResponse)
+}
+
+// monitorMemoryUsage monitors memory usage and detects potential leaks
+func monitorMemoryUsage() {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+
+	var lastHeapSize uint64
+	startTime := time.Now()
+
+	for range ticker.C {
+		var m runtime.MemStats
+		runtime.ReadMemStats(&m)
+
+		currentHeap := m.HeapInuse
+		goroutines := runtime.NumGoroutine()
+		uptime := time.Since(startTime)
+
+		// Check for potential memory leaks (heap size doubling)
+		if currentHeap > lastHeapSize*2 && lastHeapSize > 0 {
+			logger.Error("Potential memory leak detected", fmt.Errorf("heap grew from %d to %d bytes in 5 minutes", lastHeapSize, currentHeap))
+
+			// Dump heap profile for analysis
+			filename := fmt.Sprintf("heap-leak-%d.prof", time.Now().Unix())
+			f, err := os.Create(filename)
+			if err == nil {
+				pprof.WriteHeapProfile(f)
+				f.Close()
+				logger.Info("Heap profile dumped", glog.LogFields{"file": filename})
+			}
+		}
+
+		// Log memory stats periodically
+		logger.Info("Memory stats", glog.LogFields{
+			"heap_mb":     currentHeap / (1024 * 1024),
+			"goroutines":  goroutines,
+			"gc_cycles":   m.NumGC,
+			"uptime_mins": int(uptime.Minutes()),
+		})
+
+		lastHeapSize = currentHeap
+
+		// Alert on high goroutine count (potential goroutine leak)
+		if goroutines > 1000 {
+			logger.Error("High goroutine count detected", fmt.Errorf("goroutine count: %d", goroutines))
+		}
+	}
 }
 
 // Helper function to write JSON response
