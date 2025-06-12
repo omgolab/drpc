@@ -63,9 +63,9 @@ func WithHostAsClientMode() HostOption {
 }
 
 // WithPubsubDiscovery enables pubsub discovery for the host.
-func WithPubsubDiscovery(enable bool) HostOption {
+func WithPubsubDiscovery(isDisable bool) HostOption {
 	return func(c *hostCfg) error {
-		c.disablePubsubDiscovery = enable
+		c.disablePubsubDiscovery = isDisable
 		return nil
 	}
 }

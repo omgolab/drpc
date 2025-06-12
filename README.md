@@ -85,7 +85,7 @@ import (
 	gv1connect "github.com/omgolab/drpc/demo/gen/go/greeter/v1/greeterv1connect"
 	"github.com/omgolab/drpc/demo/greeter"
 	"github.com/omgolab/drpc/internal/gateway"
-	"github.com/omgolab/drpc/pkg/drpc"
+	"github.com/omgolab/drpc/pkg/drpc/server"
 	glog "github.com/omgolab/go-commons/pkg/log"
 )
 
@@ -154,7 +154,7 @@ import (
 	"github.com/libp2p/go-libp2p/core/peer"
 	gv1 "github.com/omgolab/drpc/demo/gen/go/greeter/v1"
 	gv1connect "github.com/omgolab/drpc/demo/gen/go/greeter/v1/greeterv1connect"
-	"github.com/omgolab/drpc/pkg/drpc"
+	"github.com/omgolab/drpc/pkg/drpc/client"
 	"github.com/omgolab/drpc/demo/cmd/client"
 )
 

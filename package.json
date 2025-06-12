@@ -10,7 +10,9 @@
     "test": "bun test",
     "optimize:node": "vitest run experiments/discovery/optimize-interval.test.ts --environment=node --reporter=verbose --no-coverage",
     "optimize:chrome": "vitest run experiments/discovery/optimize-interval.test.ts --browser.enabled --browser.name=chromium --reporter=verbose --no-coverage",
-    "optimize:firefox": "vitest run experiments/discovery/optimize-interval.test.ts --browser.enabled --browser.name=firefox --reporter=verbose --no-coverage"
+    "optimize:firefox": "vitest run experiments/discovery/optimize-interval.test.ts --browser.enabled --browser.name=firefox --reporter=verbose --no-coverage",
+    "test:integ:v2": "tsx src/integration-test/bootstrap.ts",
+    "test:integ:v2:node": "vitest run src/integration-test/drpc-client.integration.v2.test.ts --environment=node"
   },
   "author": "",
   "license": "MIT",
@@ -40,6 +42,7 @@
     "@libp2p/webtransport": "^5.0.44",
     "@multiformats/multiaddr": "^12.4.1",
     "@multiformats/multiaddr-matcher": "^1.7.2",
+    "@types/bun": "^1.2.15",
     "delay": "^6.0.0",
     "helia": "^5.4.2",
     "it-all": "^3.0.9",

@@ -16,3 +16,6 @@ vendor_docs/
 **/__debug_bin*
 dist/
 **/__screenshots__/
+mem.prof
+cpu.prof
+integration_test.test

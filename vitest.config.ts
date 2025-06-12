@@ -15,6 +15,13 @@ export default defineConfig({
       headless: true,
     },
     pool: 'forks', // Use forks for better isolation
+    poolOptions: {
+      forks: {
+        maxForks: 1, // Force integration tests to run sequentially
+        minForks: 1,
+      }
+    },
+    fileParallelism: false, // Run test files sequentially
     globals: true,
     environment: 'node', // Default to node environment
   },

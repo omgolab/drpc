@@ -1,4 +1,6 @@
-import { spawn, ChildProcess } from "child_process";
+import { spawn, ChildProcess, execSync } from "child_process";
+import { tmpdir } from "os";
+import { existsSync, unlinkSync } from "fs";
 import fetch from "node-fetch";
 import { GreeterService } from "../../demo/gen/ts/greeter/v1/greeter_pb";
 import { create } from "@bufbuild/protobuf";
@@ -205,8 +207,7 @@ export class UtilServerHelper {
     this.httpTimeout = 10000; // 10 seconds timeout, same as Go's httpClient
 
     // Use a simple, predictable binary path
-    const os = require("os");
-    this.binaryPath = `${os.tmpdir()}/tmp/util-server-${port}`;
+    this.binaryPath = `${tmpdir()}/tmp/util-server-${port}`;
   }
 
   public async startServer(): Promise<void> {
@@ -446,9 +447,8 @@ export class UtilServerHelper {
 
   private cleanupBinaryFile(): void {
     try {
-      const fs = require('fs');
-      if (fs.existsSync(this.binaryPath)) {
-        fs.unlinkSync(this.binaryPath);
+      if (existsSync(this.binaryPath)) {
+        unlinkSync(this.binaryPath);
         console.log(`Cleaned up binary file: ${this.binaryPath}`);
       }
     } catch (err) {
@@ -458,7 +458,6 @@ export class UtilServerHelper {
 
   private killBinaryByPath(): void {
     try {
-      const { execSync } = require('child_process');
       // Use targeted pkill with the exact binary path - much safer than the old approach
       const pkillCmd = `pkill -f "^${this.binaryPath}$"`;
       console.log(`Running backup process cleanup: ${pkillCmd}`);
@@ -619,7 +618,6 @@ export class UtilServerHelper {
       console.log("Cleaning up any orphaned util-server processes...");
 
       // Kill any remaining util-server binaries by pattern
-      const { execSync } = require('child_process');
       execSync('pkill -f /tmp/util-server-', { stdio: 'ignore' });
       console.log("Killed orphaned util-server processes");
     } catch (err) {

@@ -2,6 +2,7 @@ import { peerIdFromString } from "@libp2p/peer-id";
 import { Multiaddr, multiaddr } from "@multiformats/multiaddr";
 import { Libp2p } from "libp2p";
 
+// TODO: we may split this file into mdns and pubsub discovery methods
 
 // Constants for default configuration
 const DEFAULT_OPTIONS = {
