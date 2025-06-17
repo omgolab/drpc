@@ -213,5 +213,5 @@ func getGatewayHandler(t *testing.T, h host.Host, customLogger ...glog.Logger) h
 		http.NotFound(w, r)
 	})
 
-	return SetupHandler(baseHandler, logger, h)
+	return SetupHandler(baseHandler, logger, h, nil)
 }

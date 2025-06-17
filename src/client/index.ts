@@ -158,7 +158,7 @@ export async function NewClient<TService extends DescService>(
     // query the peer info
     const res = await discoverOptimalConnectPath(libp2p, addr);
     if (!res.addr) {
-      throw new Error(`Failed to find connection path to ${addr} : ${res}`);
+      throw new Error(`Failed to find connection path to ${addr} : ${res.totalTime}ms`);
     }
 
     // Create transport and client

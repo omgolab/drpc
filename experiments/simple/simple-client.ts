@@ -81,7 +81,7 @@ async function main() {
             responses.push(response);
             console.log(`📥 RECEIVED RESPONSE [${i}]: "${response}"`);
           }
-        } catch (err) {
+        } catch (err: any) {
           if (
             err.code !== "ERR_STREAM_RESET" &&
             !String(err).includes("aborted")
@@ -145,7 +145,7 @@ async function main() {
               responses.push(response);
               console.log(`📥 RECEIVED RESPONSE [${i}]: "${response}"`);
             }
-          } catch (err) {
+          } catch (err: any) {
             if (
               err.code !== "ERR_STREAM_RESET" &&
               !String(err).includes("aborted")

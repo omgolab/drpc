@@ -291,9 +291,16 @@ class AdaptiveOptimizer {
 
     private async getTargetPeerIdFromRelay(): Promise<string> {
         try {
-            const response = await fetch('http://localhost:8080/relay-node');
-            const data = await response.json();
-            const libp2pMa = data.libp2p_ma;
+            // Ensure util server is running
+            const { getUtilServer, isUtilServerAccessible } = await import('../../src/util/util-server.js');
+            const utilServer = getUtilServer();
+            if (!(await isUtilServerAccessible())) {
+                console.log('Starting util server...');
+                await utilServer.startServer();
+            }
+
+            const relayInfo = await utilServer.getRelayNodeInfo();
+            const libp2pMa = relayInfo.libp2p_ma;
             const parts = libp2pMa.split('/');
             const targetPeerId = parts[parts.length - 1];
             console.log(`🎯 Extracted target peer ID: ${targetPeerId}`);

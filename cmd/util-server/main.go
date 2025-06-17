@@ -139,6 +139,7 @@ func initPublicNode() {
 			server.WithLogger(logger),
 			server.WithHTTPPort(8080),
 			server.WithForceCloseExistingPort(true), // Force close if the port is already in use
+			server.WithDefaultCORSHeaders(), // Enable CORS headers for browser compatibility
 			// force public reachability since we also intend to use this be used as a public relay node
 			server.WithLibP2POptions(libp2p.ForceReachabilityPublic()),
 		)
@@ -244,6 +245,7 @@ func initGatewayNode() {
 		// It's called from main() for eager initialization and from gatewayNodeHandler() to ensure initialization.
 		server, errSetup := server.New(context.Background(), pubServeMux,
 			server.WithLogger(logger),
+			server.WithDefaultCORSHeaders(), // Enable CORS headers for browser compatibility
 			// Default libp2p reachability is UNKNOWN; this is left as is intentionally
 			// to allow the server to determine its own reachability. In a real-world scenario,
 			// this is how you would want to keep the reachability status.

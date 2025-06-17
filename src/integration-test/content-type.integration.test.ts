@@ -4,13 +4,13 @@
 import { beforeAll, afterAll, describe, it } from "vitest";
 import { GreeterService } from "../../demo/gen/ts/greeter/v1/greeter_pb";
 import {
-  UtilServerHelper,
   ClientManager,
   createManagedClient,
   testClientUnaryRequest,
   testServerStreamingRequest,
   testClientAndBidiStreamingRequest,
 } from "./helpers";
+import { getUtilServer, isUtilServerAccessible } from '../util/util-server.js';
 import { createLogger, LogLevel } from "../client/core/logger";
 import {
   UnaryContentType,
@@ -50,7 +50,8 @@ function getContentTypeName(contentType: string): string {
 }
 
 // Track utility server instance
-let utilServer: UtilServerHelper;
+// Track utility server instance from the shared util-server
+let utilServer: any;
 // Create a client manager for resource tracking
 let clientManager: ClientManager;
 
@@ -58,23 +59,15 @@ let clientManager: ClientManager;
 function setupEmergencyCleanup() {
   const cleanup = async () => {
     console.log("Emergency cleanup triggered...");
-    if (utilServer) {
-      try {
-        await utilServer.stopServer();
-      } catch (err) {
-        console.warn("Error during emergency server cleanup:", err);
-      }
-    }
-    await UtilServerHelper.cleanupOrphanedProcesses();
+    console.log("(Utility server managed globally, not stopping here)");
+    await getUtilServer().cleanupOrphanedProcesses();
   };
 
   // Handle different termination signals
   process.on('SIGINT', cleanup);
   process.on('SIGTERM', cleanup);
   process.on('exit', () => {
-    if (utilServer) {
-      utilServer.stopServer();
-    }
+    console.log("Process exiting... (Utility server managed globally)");
   });
 }
 
@@ -82,30 +75,28 @@ function setupEmergencyCleanup() {
 beforeAll(async () => {
   // Clean up any orphaned processes from previous test runs FIRST
   console.log("Cleaning up any orphaned processes from previous test runs...");
-  await UtilServerHelper.cleanupOrphanedProcesses();
+  await getUtilServer().cleanupOrphanedProcesses();
 
   // Set up emergency cleanup handlers
   setupEmergencyCleanup();
 
-  console.log("Initializing Go utility server helper...");
-  utilServer = new UtilServerHelper(8080); // Use port 8080
-  clientManager = new ClientManager();
-
-  console.log("Starting Go utility server...");
-  try {
+  console.log("Getting shared utility server instance...");
+  // Get the shared util server instance
+  utilServer = getUtilServer();
+  
+  // Start the server if it's not accessible
+  if (!(await isUtilServerAccessible())) {
+    console.log("🔄 Utility server not accessible, starting it...");
     await utilServer.startServer();
-    console.log("Go utility server is reported as ready.");
-  } catch (err) {
-    console.error("Failed to start Go utility server in beforeAll:", err);
-    if (utilServer) {
-      try {
-        await utilServer.stopServer(); // Clean up on failure
-      } catch (stopErr) {
-        console.warn("Error during cleanup after failed server start:", stopErr);
-      }
-    }
-    throw err; // Fail the test suite
   }
+  
+  // Verify the server is now accessible
+  if (!(await isUtilServerAccessible())) {
+    throw new Error("Utility server is not accessible after startup attempt");
+  }
+  
+  clientManager = new ClientManager();
+  console.log("Utility server is accessible and ready.");
 });
 
 // Constants for timeout
@@ -329,22 +320,11 @@ afterAll(async () => {
     console.error("Error during client cleanup:", err);
   }
 
-  // Stop the utility server
-  if (utilServer) {
-    try {
-      console.log("Stopping Go utility server...");
-      await utilServer.stopServer();
-      console.log("Go utility server stopped successfully.");
-    } catch (err) {
-      console.error("Error stopping Go utility server:", err);
-    }
-  } else {
-    console.log("Utility server helper not found.");
-  }
+  console.log("Test cleanup completed. (Utility server managed globally)");
 
   // Final cleanup of any orphaned processes
   console.log("Final cleanup of any orphaned processes...");
-  await UtilServerHelper.cleanupOrphanedProcesses();
+  await getUtilServer().cleanupOrphanedProcesses();
 
   console.log("Cleanup process completed.");
 });

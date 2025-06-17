@@ -405,7 +405,7 @@ func ServeWebStreamBridge(
 		return
 	}
 
-	logger.Info(fmt.Sprintf("ServeWebStreamBridge: Handling stream - procedure: %s, contentType: %s, remotePeer: %s", procedurePath, contentType, stream.Conn().RemotePeer().String()))
+	// logger.Info(fmt.Sprintf("ServeWebStreamBridge: Handling stream - procedure: %s, contentType: %s, remotePeer: %s", procedurePath, contentType, stream.Conn().RemotePeer().String()))
 
 	performHTTP2Bridging(ctx, logger, httpHandler, stream, procedurePath, contentType)
 	// performHTTP2Bridging handles its own internal errors, logging, and stream resets.

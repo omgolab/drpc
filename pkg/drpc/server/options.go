@@ -7,6 +7,7 @@ import (
 	"github.com/libp2p/go-libp2p"
 	dht "github.com/libp2p/go-libp2p-kad-dht"
 	"github.com/omgolab/drpc/pkg/detach"
+	"github.com/omgolab/drpc/pkg/gateway"
 	glog "github.com/omgolab/go-commons/pkg/log"
 )
 
@@ -20,6 +21,7 @@ type Config struct {
 	forceCloseExistingPort bool
 	isDetachServer         bool
 	detachOptions          []detach.DetachOption
+	corsConfig             *gateway.CORSConfig
 }
 
 // GetDefaultConfig returns a default server configuration
@@ -121,4 +123,36 @@ func WithTLS(certFile, keyFile string) ServerOption {
 		// Future: Add TLS configuration
 		return nil
 	}
+}
+
+// WithCORSHeaders enables CORS headers with configurable options
+func WithCORSHeaders(origins, methods, headers, exposedHeaders []string) ServerOption {
+	return func(cfg *Config) error {
+		// Default values if not provided
+		if len(origins) == 0 {
+			origins = []string{"*"}
+		}
+		if len(methods) == 0 {
+			methods = []string{"GET", "POST", "OPTIONS"}
+		}
+		if len(headers) == 0 {
+			headers = []string{"Content-Type", "Accept", "Authorization", "Connect-Accept-Encoding", "Connect-Content-Encoding", "Connect-Protocol-Version", "Connect-Timeout-Ms"}
+		}
+		if len(exposedHeaders) == 0 {
+			exposedHeaders = []string{"Content-Type", "Connect-Content-Encoding"}
+		}
+
+		cfg.corsConfig = &gateway.CORSConfig{
+			AllowedOrigins: origins,
+			AllowedMethods: methods,
+			AllowedHeaders: headers,
+			ExposedHeaders: exposedHeaders,
+		}
+		return nil
+	}
+}
+
+// WithDefaultCORSHeaders enables CORS headers with sensible defaults for development
+func WithDefaultCORSHeaders() ServerOption {
+	return WithCORSHeaders(nil, nil, nil, nil)
 }

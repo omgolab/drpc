@@ -1,12 +1,45 @@
 import { createLibp2pHost } from "../../src/client/core/libp2p-host";
 import { discoverOptimalConnectPath } from "../../src/client/core/discover";
 
+// Browser-safe util server functions
+const isBrowserEnvironment = typeof window !== 'undefined';
+
 async function getTargetFromRelay(): Promise<string> {
-    // ensure go node is running and listening on port 8080
-    // run: `go run cmd/util-server/main.go &`
-    const response = await fetch('http://localhost:8080/relay-node');
-    const data = await response.json();
-    return data.libp2p_ma;
+    if (isBrowserEnvironment) {
+        // In browser environment, we can't start the server automatically
+        // User must manually start the util server before running the test
+        console.log('Browser environment detected - checking if util server is accessible...');
+
+        try {
+            const response = await fetch('http://localhost:8080/relay-node');
+            if (!response.ok) {
+                throw new Error(`Server returned ${response.status}: ${response.statusText}`);
+            }
+            const relayInfo = await response.json();
+            console.log('✅ Util server is accessible, retrieved relay info');
+            return relayInfo.libp2p_ma;
+        } catch (error) {
+            throw new Error(
+                `❌ Unable to connect to util server at http://localhost:8080\n` +
+                `Please manually start the util server by running:\n` +
+                `  bun run build\n` +
+                `  ./tmp/util-server\n` +
+                `Error: ${error}`
+            );
+        }
+    } else {
+        // Node.js environment - use the util server helper
+        const { getUtilServer, isUtilServerAccessible } = await import("../../src/util/util-server.js");
+
+        const utilServer = getUtilServer();
+        if (!(await isUtilServerAccessible())) {
+            console.log('Starting util server...');
+            await utilServer.startServer();
+        }
+
+        const relayInfo = await utilServer.getRelayNodeInfo();
+        return relayInfo.libp2p_ma;
+    }
 }
 
 export interface TestCase {

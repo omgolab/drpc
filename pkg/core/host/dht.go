@@ -95,12 +95,7 @@ func connectToFoundPeers(ctx context.Context, h host.Host, cfg *hostCfg, peerCha
 		go func(peerInfo peer.AddrInfo) {
 			defer cancel()
 
-			if err := h.Connect(connCtx, peerInfo); err != nil {
-				cfg.logger.Debug("Failed to connect to peer found via DHT", map[string]interface{}{
-					"peer":  peerInfo.ID.String(),
-					"error": err.Error(),
-				})
-			} else {
+			if err := h.Connect(connCtx, peerInfo); err == nil {
 				cfg.logger.Debug("Connected to peer found via DHT", map[string]interface{}{
 					"peer": peerInfo.ID.String(),
 				})

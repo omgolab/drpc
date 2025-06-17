@@ -348,7 +348,7 @@ describe("Connect RPC over Libp2p (Using Client Library)", () => {
               });
               pidCmd.stdout.on("data", (data) => {
                 const pids = data.toString().trim().split("\n");
-                pids.forEach((pid) => {
+                pids.forEach((pid: string) => {
                   if (pid) {
                     console.log(
                       `[test script] Also killing related process ${pid}`,

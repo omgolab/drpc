@@ -48,7 +48,7 @@ export async function createSmartHttpLibp2pTransport(
         // query the peer info
         const res = await discoverOptimalConnectPath(libp2pHost, p2pAddr);
         if (!res.addr) {
-            throw new Error(`Failed to find connection path to ${p2pAddr} : ${res}`);
+            throw new Error(`Failed to find connection path to ${p2pAddr} : ${res.totalTime}ms`);
         }
 
         // Create a new libp2p transport instance using the resolved multiaddress

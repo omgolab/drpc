@@ -49,7 +49,7 @@ func (h *HTTPServerManager) Setup(cfg *Config, p2pHost host.Host) error {
 	}
 
 	// Create HTTP server with gateway handler
-	httpHandler := gateway.SetupHandler(h.handlerMux, cfg.logger, p2pHost)
+	httpHandler := gateway.SetupHandler(h.handlerMux, cfg.logger, p2pHost, cfg.corsConfig)
 	httpServer, err := createHTTP2Server(httpHandler, httpAddr)
 	if err != nil {
 		return err
