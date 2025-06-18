@@ -2,10 +2,10 @@
  * Integration tests for the dRPC client
  * 
  * Usage:
- *   tsx src/integration-test/orchestrator.ts  (recommended - runs all environments)
- *   tsx src/integration-test/orchestrator.ts --env=node
- *   tsx src/integration-test/orchestrator.ts --env=chrome
- *   tsx src/integration-test/orchestrator.ts --env=firefox
+ *   tsx src/integration-test/integ.menv.ts  (recommended - runs all environments)
+ *   tsx src/integration-test/integ.menv.ts --env=node
+ *   tsx src/integration-test/integ.menv.ts --env=chrome
+ *   tsx src/integration-test/integ.menv.ts --env=firefox
  * 
  * Test Paths:
  * 1. HTTP Direct (Path1_HTTPDirect)
@@ -36,7 +36,7 @@ const testLogger = createLogger({
     logLevel: LogLevel.ERROR,
 });
 
-// Since orchestrator handles util server startup, we just need the URL
+// Since integ.menv.ts handles util server startup, we just need the URL
 const UTIL_SERVER_BASE_URL = 'http://127.0.0.1:8080';
 
 // Create a client manager for resource tracking

@@ -1,13 +1,31 @@
 test: test-go test-js
 
 test-go:
-	go test -timeout 30s ./pkg/...
+	go test -race -timeout 30s ./pkg/...
 
 test-js:
 	bun run test:integ:node
 
-test-race:
-	go test -race -timeout 30s ./pkg/...
+test-discovery:
+	tsx experiments/discovery/discover-path.menv.ts
+
+test-discovery-node:
+	tsx experiments/discovery/discover-path.menv.ts --env=node
+
+test-debug-discovery-node:
+	DEBUG=libp2p:* tsx experiments/discovery/discover-path.menv.ts --env=node
+
+test-discovery-chrome:
+	tsx experiments/discovery/discover-path.menv.ts --env=chrome
+
+test-debug-discovery-chrome:
+	DEBUG=libp2p:* tsx experiments/discovery/discover-path.menv.ts --env=chrome
+
+test-discovery-firefox:
+	tsx experiments/discovery/discover-path.menv.ts --env=firefox
+
+test-browser-demo:
+	go run cmd/util-server/main.go & bun experiments/discovery/discover-browser-demo.html
 
 profile:
 	go test -memprofile=mem.prof -cpuprofile=cpu.prof -timeout 60s github.com/omgolab/drpc/pkg/drpc/integration_test

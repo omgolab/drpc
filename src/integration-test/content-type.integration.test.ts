@@ -10,7 +10,7 @@ import {
   testServerStreamingRequest,
   testClientAndBidiStreamingRequest,
 } from "./helpers";
-import { getUtilServer, isUtilServerAccessible } from '../util/util-server.js';
+import { getUtilServer, isUtilServerAccessible } from '../util/util-server';
 import { createLogger, LogLevel } from "../client/core/logger";
 import {
   UnaryContentType,

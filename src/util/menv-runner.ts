@@ -1,27 +1,30 @@
 #!/usr/bin/env tsx
 /**
- * dRPC Integration Test Orchestrator
+ * Multi-Environment Test Runner Utility
  * 
  * Usage:
- *   tsx src/integration-test/orchestrator.ts                 # All environments (sequential)
- *   tsx src/integration-test/orchestrator.ts --env=node      # Node.js only
- *   tsx src/integration-test/orchestrator.ts --env=chrome    # Chrome only
- *   tsx src/integration-test/orchestrator.ts --env=firefox   # Firefox only
+ *   tsx src/util/menv-runner.ts --file=path/to/test.ts                 # All environments (sequential)
+ *   tsx src/util/menv-runner.ts --file=path/to/test.ts --env=node      # Node.js only
+ *   tsx src/util/menv-runner.ts --file=path/to/test.ts --env=chrome    # Chrome only
+ *   tsx src/util/menv-runner.ts --file=path/to/test.ts --env=firefox   # Firefox only
  */
 
 import { spawn } from 'child_process';
-import { getUtilServer, isUtilServerAccessible } from '../util/util-server';
+import { getUtilServer, isUtilServerAccessible } from './util-server';
 
 const VALID_ENVIRONMENTS = ['node', 'chrome', 'firefox'];
 
-function parseEnvironments(): string[] {
+function parseArguments(): { file: string; environments: string[] } {
     const args = process.argv.slice(2);
 
     if (args.includes('--help') || args.includes('-h')) {
         console.log(`
-🧪 dRPC Integration Test Orchestrator
+🧪 Multi-Environment Test Runner
 
-USAGE: tsx src/integration-test/orchestrator.ts [OPTIONS]
+USAGE: tsx src/util/menv-runner.ts --file=<test-file> [OPTIONS]
+
+REQUIRED:
+--file=<path>          Path to the test file to run
 
 OPTIONS:
 --env=<environment>    Run specific environment only
@@ -31,29 +34,41 @@ ENVIRONMENTS: ${VALID_ENVIRONMENTS.join(', ')}
         process.exit(0);
     }
 
+    const fileArg = args.find(arg => arg.startsWith('--file='));
+    const file = fileArg?.split('=')[1];
+
+    if (!file) {
+        console.error('❌ Missing required --file argument');
+        console.error('Usage: tsx src/util/menv-runner.ts --file=path/to/test.ts');
+        process.exit(1);
+    }
+
     const envArg = args.find(arg => arg.startsWith('--env='));
     const targetEnv = envArg?.split('=')[1] || process.env.TEST_ENV;
 
+    let environments: string[];
     if (targetEnv) {
         if (!VALID_ENVIRONMENTS.includes(targetEnv)) {
             console.error(`❌ Invalid environment: ${targetEnv}. Valid: ${VALID_ENVIRONMENTS.join(', ')}`);
             process.exit(1);
         }
-        return [targetEnv];
+        environments = [targetEnv];
+    } else {
+        environments = VALID_ENVIRONMENTS;
     }
 
-    return VALID_ENVIRONMENTS;
+    return { file, environments };
 }
 
-async function runEnvironment(env: string): Promise<boolean> {
+async function runEnvironment(file: string, env: string): Promise<boolean> {
     console.log(`\n${'='.repeat(60)}`);
-    console.log(`🧪 Running dRPC Integration Tests in ${env.toUpperCase()}`);
+    console.log(`🧪 Running tests in ${env.toUpperCase()}: ${file}`);
     console.log(`${'='.repeat(60)}`);
 
     // Build vitest command
     const args = [
         'vitest', 'run',
-        'src/integration-test/drpc-client.integration.test.ts',
+        file,
         '--reporter=verbose',
         '--no-watch'
     ];
@@ -88,11 +103,12 @@ async function runEnvironment(env: string): Promise<boolean> {
     });
 }
 
-async function main() {
-    const environments = parseEnvironments();
+export async function runMultiEnvironmentTests(testFile: string, targetEnvironments?: string[]): Promise<boolean> {
+    const environments = targetEnvironments || VALID_ENVIRONMENTS;
     const isAll = environments.length > 1;
 
-    console.log(`🚀 dRPC Integration Test Orchestrator`);
+    console.log(`🚀 Multi-Environment Test Runner`);
+    console.log(`📁 Test File: ${testFile}`);
     console.log(`🎯 Running: ${isAll ? 'ALL' : environments[0].toUpperCase()}`);
     console.log(`⚡ Mode: SEQUENTIAL`);
 
@@ -122,7 +138,7 @@ async function main() {
         const results: Record<string, boolean> = {};
 
         for (const env of environments) {
-            const passed = await runEnvironment(env);
+            const passed = await runEnvironment(testFile, env);
             results[env] = passed;
             allPassed = allPassed && passed;
         }
@@ -142,15 +158,74 @@ async function main() {
         await server.stopServer();
         await server.cleanupOrphanedProcesses();
 
-        process.exit(allPassed ? 0 : 1);
+        return allPassed;
 
     } catch (error) {
         console.error('❌ Error:', error);
-        process.exit(1);
+        return false;
     }
 }
 
-main().catch(error => {
-    console.error('❌ Fatal error:', error);
-    process.exit(1);
-});
+// Generic menv wrapper utility for creating specific test runners
+export function createMenvWrapper(testFile: string, title: string) {
+    const VALID_ENVIRONMENTS = ['node', 'chrome', 'firefox'];
+
+    function parseEnvironments(): string[] {
+        const args = process.argv.slice(2);
+
+        if (args.includes('--help') || args.includes('-h')) {
+            console.log(`
+                🧪 ${title}
+
+                USAGE: [OPTIONS]
+
+                OPTIONS:
+                --env=<environment>    Run specific environment only
+
+                ENVIRONMENTS: ${VALID_ENVIRONMENTS.join(', ')}
+            `);
+            process.exit(0);
+        }
+
+        const envArg = args.find(arg => arg.startsWith('--env='));
+        const targetEnv = envArg?.split('=')[1] || process.env.TEST_ENV;
+
+        if (targetEnv) {
+            if (!VALID_ENVIRONMENTS.includes(targetEnv)) {
+                console.error(`❌ Invalid environment: ${targetEnv}. Valid: ${VALID_ENVIRONMENTS.join(', ')}`);
+                process.exit(1);
+            }
+            return [targetEnv];
+        }
+
+        return VALID_ENVIRONMENTS;
+    }
+
+    return {
+        async run() {
+            const environments = parseEnvironments();
+
+            console.log(`🚀 ${title}`);
+            console.log(`📁 Test File: ${testFile}`);
+
+            const success = await runMultiEnvironmentTests(testFile, environments);
+            process.exit(success ? 0 : 1);
+        }
+    };
+}
+
+// CLI entry point
+async function main() {
+    const { file, environments } = parseArguments();
+
+    const success = await runMultiEnvironmentTests(file, environments);
+    process.exit(success ? 0 : 1);
+}
+
+// Only run main if this file is executed directly
+if (import.meta.url === `file://${process.argv[1]}`) {
+    main().catch(error => {
+        console.error('❌ Fatal error:', error);
+        process.exit(1);
+    });
+}

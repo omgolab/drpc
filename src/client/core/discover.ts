@@ -190,7 +190,16 @@ export async function discoverOptimalConnectPath(
             // Track 1: Fast Path - Direct Address Connection
             fastPath: async () => {
                 if (resolved || !parsedAddr || isCircuitRelay) return;
-                await attemptConnections(parsedAddr, 'fast-path', 'Fast Path - Direct connection');
+                const result = await attemptConnections(parsedAddr, 'fast-path', 'Fast Path - Direct connection');
+
+                // If fast path fails with invalid address, clear it from peerstore to allow discovery
+                if (!result && parsedAddr) {
+                    try {
+                        await h.peerStore.delete(pid);
+                    } catch (error) {
+                        console.warn('Failed to clear peerstore after fast path failure:', error);
+                    }
+                }
             },
 
             // Track 2: PeerStore Polling
@@ -199,11 +208,22 @@ export async function discoverOptimalConnectPath(
                 try {
                     const peer = await h.peerStore.get(pid);
                     if (peer?.addresses?.length > 0) {
-                        await attemptConnections(
+                        const result = await attemptConnections(
                             peer.addresses.map(addr => addr.multiaddr),
                             'peer-discovery',
                             'Peer Discovery - Cached addresses'
                         );
+
+                        // If all cached addresses fail, clear peerstore to force fresh discovery
+                        if (!result) {
+                            try {
+                                await h.peerStore.delete(pid);
+                                // Force service activation after clearing peerstore
+                                manageServices(h, pid, true);
+                            } catch (error) {
+                                console.warn('Failed to clear peerstore after cached address failures:', error);
+                            }
+                        }
                     }
                 } catch {
                     // Peer not in store, continue

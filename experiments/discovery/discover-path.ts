@@ -29,7 +29,7 @@ async function getTargetFromRelay(): Promise<string> {
         }
     } else {
         // Node.js environment - use the util server helper
-        const { getUtilServer, isUtilServerAccessible } = await import("../../src/util/util-server.js");
+        const { getUtilServer, isUtilServerAccessible } = await import("../../src/util/util-server");
 
         const utilServer = getUtilServer();
         if (!(await isUtilServerAccessible())) {
@@ -86,6 +86,38 @@ export async function getTestCases(): Promise<TestCase[]> {
     ];
 }
 
+// Generic test runner for individual address types
+async function runTestByIndex(testIndex: number): Promise<TestResult> {
+    const h = await createLibp2pHost();
+    try {
+        const testCases = await getTestCases();
+        const testCase = testCases[testIndex];
+        if (!testCase) {
+            throw new Error(`Test case ${testIndex} not found`);
+        }
+        return await runSingleTest(h, testCase, testIndex);
+    } finally {
+        await h.stop();
+    }
+}
+
+// Individual test functions for each address type
+export async function testCircuitRelayPath(): Promise<TestResult> {
+    return runTestByIndex(0); // Type 1: Circuit relay path
+}
+
+export async function testP2PMultiaddr(): Promise<TestResult> {
+    return runTestByIndex(1); // Type 2: P2P multiaddr
+}
+
+export async function testDirectMultiaddr(): Promise<TestResult> {
+    return runTestByIndex(2); // Type 3: Direct multiaddr
+}
+
+export async function testRawPeerId(): Promise<TestResult> {
+    return runTestByIndex(3); // Type 4: Raw peer ID
+}
+
 export async function runSingleTest(h: any, testCase: TestCase, testIndex: number): Promise<TestResult> {
     console.log(`\n=== Test ${testIndex + 1}/4: ${testCase.name} ===`);
     console.log(`📝 Description: ${testCase.description}`);
@@ -139,31 +171,26 @@ export async function runSingleTest(h: any, testCase: TestCase, testIndex: numbe
     }
 }
 
-export async function main(): Promise<void> {
+export async function runAllTests(): Promise<void> {
     console.log('🚀 Starting discoverOptimalConnectPath tests...');
 
     const h = await createLibp2pHost();
-    const testCases = await getTestCases();
+    try {
+        const testCases = await getTestCases();
+        console.log(`🎯 Running ${testCases.length} test cases\n`);
 
-    console.log(`🎯 Running ${testCases.length} test cases\n`);
+        for (let i = 0; i < testCases.length; i++) {
+            await runSingleTest(h, testCases[i], i);
 
-    for (let i = 0; i < testCases.length; i++) {
-        const testResult = await runSingleTest(h, testCases[i], i);
-
-        // Short delay between tests
-        if (i < testCases.length - 1) {
-            console.log('\n⏳ Waiting 2s before next test...');
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            // Short delay between tests (except for the last one)
+            if (i < testCases.length - 1) {
+                console.log('\n⏳ Waiting 2s before next test...');
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            }
         }
+
+        console.log('\n🏁 All tests completed!');
+    } finally {
+        await h.stop();
     }
-
-    console.log('\n🏁 All tests completed!');
-    await h.stop();
-}
-
-// if browser environment, run main immediately
-if (typeof window === 'undefined') {
-    // Node.js specific execution
-    await main().catch(console.error);
-    process.exit(0);
 }

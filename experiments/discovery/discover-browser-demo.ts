@@ -1,4 +1,4 @@
-import { getTestCases, runSingleTest, TestCase, TestResult, main } from './discover-path';
+import { getTestCases, runSingleTest, runAllTests } from './discover-path';
 import { createLibp2pHost } from "../../src/client/core/libp2p-host";
 
 // Real-time metrics tracking
@@ -184,5 +184,5 @@ document.addEventListener('DOMContentLoaded', () => {
     resetMetrics();
 });
 
-// Export main function as well for backwards compatibility
-export { main };
+// Export runAllTests function as main for backwards compatibility
+export { runAllTests as main };

@@ -292,7 +292,7 @@ class AdaptiveOptimizer {
     private async getTargetPeerIdFromRelay(): Promise<string> {
         try {
             // Ensure util server is running
-            const { getUtilServer, isUtilServerAccessible } = await import('../../src/util/util-server.js');
+            const { getUtilServer, isUtilServerAccessible } = await import('../../src/util/util-server');
             const utilServer = getUtilServer();
             if (!(await isUtilServerAccessible())) {
                 console.log('Starting util server...');
