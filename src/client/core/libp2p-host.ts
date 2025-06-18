@@ -6,7 +6,7 @@ import { noise } from '@chainsafe/libp2p-noise';
 import { tls } from '@libp2p/tls';
 import { yamux } from '@chainsafe/libp2p-yamux';
 import { identify, identifyPush } from '@libp2p/identify';
-import { kadDHT, KadDHTInit } from '@libp2p/kad-dht';
+import { kadDHT, KadDHTInit, passthroughMapper } from '@libp2p/kad-dht';
 import { ping } from '@libp2p/ping';
 import { autoNAT } from '@libp2p/autonat';
 import { dcutr } from '@libp2p/dcutr';
@@ -105,7 +105,7 @@ export async function createLibp2pHost(
       autoNAT: autoNAT() as any,
       dcutr: dcutr() as any,
       dht: kadDHT({
-        clientMode: true,
+        peerInfoMapper: passthroughMapper,
         ...opts.dhtOptions,
       }) as any,
       identify: identify(),

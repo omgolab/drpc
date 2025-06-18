@@ -13,13 +13,17 @@ test-discovery-node:
 	tsx experiments/discovery/discover-path.menv.ts --env=node
 
 test-debug-discovery-node:
-	tsx experiments/discovery/discover-path.menv.ts --env=node --debug=libp2p:*
+	tsx experiments/discovery/discover-path.menv.ts --env=node --debug=libp2p:discovery:pubsub # 2>&1 | tee tmp/node-debug.log | tail -n 50 || true
+	@echo "📄 Full Debug logs saved to tmp/node-debug.log"
+	@echo "📊 Log file size: $$(wc -l < tmp/node-debug.log) lines"
 
 test-discovery-chrome:
 	tsx experiments/discovery/discover-path.menv.ts --env=chrome
 
 test-debug-discovery-chrome:
-	tsx experiments/discovery/discover-path.menv.ts --env=chrome --debug=libp2p:*
+	tsx experiments/discovery/discover-path.menv.ts --env=chrome --debug=libp2p:discovery:pubsub # 2>&1 | tee tmp/chrome-debug.log | tail -n 50 || true
+	@echo "📄 Full Debug logs saved to tmp/chrome-debug.log"
+	@echo "📊 Log file size: $$(wc -l < tmp/chrome-debug.log) lines"
 
 test-discovery-firefox:
 	tsx experiments/discovery/discover-path.menv.ts --env=firefox
@@ -38,3 +42,4 @@ analyze:
 
 clean:
 	rm -f *.prof
+	rm -rf tmp/*.log

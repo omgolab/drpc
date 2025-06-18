@@ -47,8 +47,9 @@ func CreateLibp2pHost(ctx context.Context, opts ...HostOption) (host.Host, error
 
 	// Configure libp2p options
 	options := []libp2p.Option{
-		// Listen on default addresses
-		libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0", "/ip4/0.0.0.0/tcp/0/ws"),
+		// Listen on default addresses with WebSocket explicitly listed first for browser compatibility
+		libp2p.ListenAddrStrings("/ip4/0.0.0.0/tcp/0/ws", "/ip4/0.0.0.0/tcp/0"),
+		libp2p.ShareTCPListener(),
 
 		// Connection management to prevent memory leaks from connection accumulation
 		libp2p.ConnectionManager(func() *connmgr.BasicConnMgr {
