@@ -1,4 +1,4 @@
-import { GreeterService } from "../../demo/gen/ts/greeter/v1/greeter_pb";
+import { GreeterService } from "../../../demo/gen/ts/greeter/v1/greeter_pb";
 import { create } from "@bufbuild/protobuf";
 import { DescService } from "@bufbuild/protobuf";
 import {
@@ -7,10 +7,10 @@ import {
   BidiStreamingEchoRequestSchema,
   BidiStreamingEchoRequest,
   BidiStreamingEchoResponse,
-} from "../../demo/gen/ts/greeter/v1/greeter_pb";
+} from "../../../demo/gen/ts/greeter/v1/greeter_pb";
 
-import { DRPCOptions } from "../client/core/types";
-import { DRPCClient, NewClient } from "../client";
+import { DRPCOptions } from "../../client/core/types";
+import { DRPCClient, NewClient } from "../../client";
 
 export interface NodeInfo {
   http_address: string;

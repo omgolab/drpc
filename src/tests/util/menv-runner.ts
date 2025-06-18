@@ -3,10 +3,10 @@
  * Multi-Environment Test Runner Utility
  * 
  * Usage:
- *   tsx src/util/menv-runner.ts --file=path/to/test.ts                 # All environments (sequential)
- *   tsx src/util/menv-runner.ts --file=path/to/test.ts --env=node      # Node.js only
- *   tsx src/util/menv-runner.ts --file=path/to/test.ts --env=chrome    # Chrome only
- *   tsx src/util/menv-runner.ts --file=path/to/test.ts --env=firefox   # Firefox only
+ *   tsx src/tests/util/menv-runner.ts --file=path/to/test.ts                 # All environments (sequential)
+ *   tsx src/tests/util/menv-runner.ts --file=path/to/test.ts --env=node      # Node.js only
+ *   tsx src/tests/util/menv-runner.ts --file=path/to/test.ts --env=chrome    # Chrome only
+ *   tsx src/tests/util/menv-runner.ts --file=path/to/test.ts --env=firefox   # Firefox only
  */
 
 import { spawn } from 'child_process';
@@ -14,22 +14,29 @@ import { getUtilServer, isUtilServerAccessible } from './util-server';
 
 const VALID_ENVIRONMENTS = ['node', 'chrome', 'firefox'];
 
-function parseArguments(): { file: string; environments: string[] } {
+function parseArguments(): { file: string; environments: string[]; debug?: string } {
     const args = process.argv.slice(2);
 
     if (args.includes('--help') || args.includes('-h')) {
         console.log(`
 🧪 Multi-Environment Test Runner
 
-USAGE: tsx src/util/menv-runner.ts --file=<test-file> [OPTIONS]
+USAGE: tsx src/tests/util/menv-runner.ts --file=<test-file> [OPTIONS]
 
 REQUIRED:
 --file=<path>          Path to the test file to run
 
 OPTIONS:
 --env=<environment>    Run specific environment only
+--debug=<pattern>      Enable debug logging (e.g., --debug=* or --debug=libp2p:*)
 
 ENVIRONMENTS: ${VALID_ENVIRONMENTS.join(', ')}
+
+DEBUG EXAMPLES:
+--debug=*              Enable all debug logs
+--debug=libp2p:*       Enable all libp2p logs
+--debug=libp2p:mdns*   Enable mDNS logs only (Node.js only)
+--debug=libp2p:dht*    Enable DHT logs only
         `);
         process.exit(0);
     }
@@ -39,12 +46,15 @@ ENVIRONMENTS: ${VALID_ENVIRONMENTS.join(', ')}
 
     if (!file) {
         console.error('❌ Missing required --file argument');
-        console.error('Usage: tsx src/util/menv-runner.ts --file=path/to/test.ts');
+        console.error('Usage: tsx src/tests/util/menv-runner.ts --file=path/to/test.ts');
         process.exit(1);
     }
 
     const envArg = args.find(arg => arg.startsWith('--env='));
     const targetEnv = envArg?.split('=')[1] || process.env.TEST_ENV;
+
+    const debugArg = args.find(arg => arg.startsWith('--debug='));
+    const debug = debugArg?.split('=')[1];
 
     let environments: string[];
     if (targetEnv) {
@@ -57,12 +67,20 @@ ENVIRONMENTS: ${VALID_ENVIRONMENTS.join(', ')}
         environments = VALID_ENVIRONMENTS;
     }
 
-    return { file, environments };
+    return { file, environments, debug };
 }
 
-async function runEnvironment(file: string, env: string): Promise<boolean> {
+async function runEnvironment(file: string, env: string, debug?: string): Promise<boolean> {
     console.log(`\n${'='.repeat(60)}`);
     console.log(`🧪 Running tests in ${env.toUpperCase()}: ${file}`);
+    if (debug) {
+        console.log(`🐛 Debug enabled: ${debug}`);
+        if (env === 'node') {
+            console.log(`   └─ Node.js: Using DEBUG environment variable`);
+        } else {
+            console.log(`   └─ Browser: Injected via vitest config define and localStorage`);
+        }
+    }
     console.log(`${'='.repeat(60)}`);
 
     // Build vitest command
@@ -85,9 +103,21 @@ async function runEnvironment(file: string, env: string): Promise<boolean> {
     console.log(`🔧 Command: npx ${args.join(' ')}`);
 
     return new Promise<boolean>((resolve) => {
+        const processEnv: Record<string, string | undefined> = { ...process.env, TEST_ENV: env };
+
+        // For Node.js: Add DEBUG environment variable
+        if (debug && env === 'node') {
+            processEnv.DEBUG = debug;
+        }
+
+        // For browsers: Pass debug pattern via environment variable for vitest config
+        if (debug && env !== 'node') {
+            processEnv.VITEST_BROWSER_DEBUG = debug;
+        }
+
         const vitestProcess = spawn('npx', args, {
             stdio: 'inherit',
-            env: { ...process.env, TEST_ENV: env }
+            env: processEnv
         });
 
         vitestProcess.on('close', (code) => {
@@ -103,13 +133,16 @@ async function runEnvironment(file: string, env: string): Promise<boolean> {
     });
 }
 
-export async function runMultiEnvironmentTests(testFile: string, targetEnvironments?: string[]): Promise<boolean> {
+export async function runMultiEnvironmentTests(testFile: string, targetEnvironments?: string[], debug?: string): Promise<boolean> {
     const environments = targetEnvironments || VALID_ENVIRONMENTS;
     const isAll = environments.length > 1;
 
     console.log(`🚀 Multi-Environment Test Runner`);
     console.log(`📁 Test File: ${testFile}`);
     console.log(`🎯 Running: ${isAll ? 'ALL' : environments[0].toUpperCase()}`);
+    if (debug) {
+        console.log(`🐛 Debug Pattern: ${debug}`);
+    }
     console.log(`⚡ Mode: SEQUENTIAL`);
 
     try {
@@ -138,7 +171,7 @@ export async function runMultiEnvironmentTests(testFile: string, targetEnvironme
         const results: Record<string, boolean> = {};
 
         for (const env of environments) {
-            const passed = await runEnvironment(testFile, env);
+            const passed = await runEnvironment(testFile, env, debug);
             results[env] = passed;
             allPassed = allPassed && passed;
         }
@@ -170,19 +203,26 @@ export async function runMultiEnvironmentTests(testFile: string, targetEnvironme
 export function createMenvWrapper(testFile: string, title: string) {
     const VALID_ENVIRONMENTS = ['node', 'chrome', 'firefox'];
 
-    function parseEnvironments(): string[] {
+    function parseEnvironments(): { environments: string[]; debug?: string } {
         const args = process.argv.slice(2);
 
         if (args.includes('--help') || args.includes('-h')) {
             console.log(`
-                🧪 ${title}
+🧪 ${title}
 
-                USAGE: [OPTIONS]
+USAGE: [OPTIONS]
 
-                OPTIONS:
-                --env=<environment>    Run specific environment only
+OPTIONS:
+--env=<environment>    Run specific environment only
+--debug=<pattern>      Enable debug logging (e.g., --debug=* or --debug=libp2p:*)
 
-                ENVIRONMENTS: ${VALID_ENVIRONMENTS.join(', ')}
+ENVIRONMENTS: ${VALID_ENVIRONMENTS.join(', ')}
+
+DEBUG EXAMPLES:
+--debug=*              Enable all debug logs
+--debug=libp2p:*       Enable all libp2p logs
+--debug=libp2p:mdns*   Enable mDNS logs only (Node.js only)
+--debug=libp2p:dht*    Enable DHT logs only
             `);
             process.exit(0);
         }
@@ -190,25 +230,31 @@ export function createMenvWrapper(testFile: string, title: string) {
         const envArg = args.find(arg => arg.startsWith('--env='));
         const targetEnv = envArg?.split('=')[1] || process.env.TEST_ENV;
 
+        const debugArg = args.find(arg => arg.startsWith('--debug='));
+        const debug = debugArg?.split('=')[1];
+
+        let environments: string[];
         if (targetEnv) {
             if (!VALID_ENVIRONMENTS.includes(targetEnv)) {
                 console.error(`❌ Invalid environment: ${targetEnv}. Valid: ${VALID_ENVIRONMENTS.join(', ')}`);
                 process.exit(1);
             }
-            return [targetEnv];
+            environments = [targetEnv];
+        } else {
+            environments = VALID_ENVIRONMENTS;
         }
 
-        return VALID_ENVIRONMENTS;
+        return { environments, debug };
     }
 
     return {
         async run() {
-            const environments = parseEnvironments();
+            const { environments, debug } = parseEnvironments();
 
             console.log(`🚀 ${title}`);
             console.log(`📁 Test File: ${testFile}`);
 
-            const success = await runMultiEnvironmentTests(testFile, environments);
+            const success = await runMultiEnvironmentTests(testFile, environments, debug);
             process.exit(success ? 0 : 1);
         }
     };
@@ -216,9 +262,9 @@ export function createMenvWrapper(testFile: string, title: string) {
 
 // CLI entry point
 async function main() {
-    const { file, environments } = parseArguments();
+    const { file, environments, debug } = parseArguments();
 
-    const success = await runMultiEnvironmentTests(file, environments);
+    const success = await runMultiEnvironmentTests(file, environments, debug);
     process.exit(success ? 0 : 1);
 }
 

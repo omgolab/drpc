@@ -8,6 +8,7 @@ export default defineConfig({
     exclude: ["**/.trunk/**", "**/node_modules/**"],
     testTimeout: 900000, // 15 minute timeout for all tests (including browser optimization)
     hookTimeout: 30000, // 30 second timeout for hooks (beforeAll, afterAll, etc.)
+    setupFiles: ['src/tests/util/browser-debug-setup.ts'], // Setup file for browser debug injection
     // Browser testing configuration
     browser: {
       enabled: false, // Will be enabled per environment via CLI
@@ -27,5 +28,7 @@ export default defineConfig({
   },
   define: {
     global: 'globalThis',
+    // Inject browser debug pattern from environment variable
+    __VITEST_BROWSER_DEBUG__: JSON.stringify(process.env.VITEST_BROWSER_DEBUG || ''),
   },
 });

@@ -29,7 +29,7 @@ async function getTargetFromRelay(): Promise<string> {
         }
     } else {
         // Node.js environment - use the util server helper
-        const { getUtilServer, isUtilServerAccessible } = await import("../../src/util/util-server");
+        const { getUtilServer, isUtilServerAccessible } = await import("../../src/tests/util/util-server");
 
         const utilServer = getUtilServer();
         if (!(await isUtilServerAccessible())) {

@@ -15,8 +15,8 @@
  */
 
 import { beforeAll, afterAll, describe, it } from "vitest";
-import { GreeterService } from "../../demo/gen/ts/greeter/v1/greeter_pb";
-import { createLogger, LogLevel } from "../client/core/logger";
+import { GreeterService } from "../../../demo/gen/ts/greeter/v1/greeter_pb";
+import { createLogger, LogLevel } from "../../client/core/logger";
 import {
     ClientManager,
     createManagedClient,

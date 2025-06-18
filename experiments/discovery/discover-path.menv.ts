@@ -9,7 +9,7 @@
  *   tsx experiments/discovery/discover-path.menv.ts --env=firefox   # Firefox only
  */
 
-import { createMenvWrapper } from '../../src/util/menv-runner';
+import { createMenvWrapper } from '../../src/tests/util/menv-runner';
 
 const wrapper = createMenvWrapper(
     'experiments/discovery/discover-path.test.ts',

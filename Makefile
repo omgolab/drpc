@@ -13,13 +13,13 @@ test-discovery-node:
 	tsx experiments/discovery/discover-path.menv.ts --env=node
 
 test-debug-discovery-node:
-	DEBUG=libp2p:* tsx experiments/discovery/discover-path.menv.ts --env=node
+	tsx experiments/discovery/discover-path.menv.ts --env=node --debug=libp2p:*
 
 test-discovery-chrome:
 	tsx experiments/discovery/discover-path.menv.ts --env=chrome
 
 test-debug-discovery-chrome:
-	DEBUG=libp2p:* tsx experiments/discovery/discover-path.menv.ts --env=chrome
+	tsx experiments/discovery/discover-path.menv.ts --env=chrome --debug=libp2p:*
 
 test-discovery-firefox:
 	tsx experiments/discovery/discover-path.menv.ts --env=firefox

@@ -2,7 +2,7 @@
  * Integration tests for the dRPC client to verify content type handling
  */
 import { beforeAll, afterAll, describe, it } from "vitest";
-import { GreeterService } from "../../demo/gen/ts/greeter/v1/greeter_pb";
+import { GreeterService } from "../../../demo/gen/ts/greeter/v1/greeter_pb";
 import {
   ClientManager,
   createManagedClient,
@@ -10,8 +10,8 @@ import {
   testServerStreamingRequest,
   testClientAndBidiStreamingRequest,
 } from "./helpers";
-import { getUtilServer, isUtilServerAccessible } from '../util/util-server';
-import { createLogger, LogLevel } from "../client/core/logger";
+import { getUtilServer, isUtilServerAccessible } from '../../tests/util/util-server';
+import { createLogger, LogLevel } from "../../client/core/logger";
 import {
   UnaryContentType,
   StreamingContentType,
@@ -25,7 +25,7 @@ import {
   CONNECT_JSON_CONTENT_TYPE,
   GRPC_WEB_JSON_CONTENT_TYPE,
   GRPC_JSON_CONTENT_TYPE,
-} from "../client/core/types";
+} from "../../client/core/types";
 
 // Create a logger for the test
 const testLogger = createLogger({

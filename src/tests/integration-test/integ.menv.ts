@@ -9,7 +9,7 @@
  *   tsx src/integration-test/integ.menv.ts --env=firefox   # Firefox only
  */
 
-import { createMenvWrapper } from '../util/menv-runner';
+import { createMenvWrapper } from '../../tests/util/menv-runner';
 
 const wrapper = createMenvWrapper(
     'src/integration-test/drpc-client.integration.test.ts',

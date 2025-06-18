@@ -31,7 +31,7 @@ describe('Discovery cold-path(individual libp2p node) tests', () => {
             }
         });
 
-        it('should test p2p multiaddr (Type 2)', async () => {
+        it.only('should test p2p multiaddr (Type 2)', async () => {
             const result = await testP2PMultiaddr();
 
             expect(result).toBeDefined();
